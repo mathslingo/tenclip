@@ -10,3 +10,10 @@ Thumbs.db
 
 # local temporary outputs
 *.log
+
+# local secrets / overrides
+.env
+
+# VLM weights (multi-GB); keep only model/README.md in git
+model/*
+!model/README.md

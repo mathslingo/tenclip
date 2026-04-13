@@ -1,11 +1,136 @@
-# TenClip：网球视频剪辑与动作分析
+# TenClip：本地轻量网球视频理解 Demo
 
-最小可用的网球相关视频工具：
+在**有限本机 GPU**上跑通一条完整链路：**视频剪辑** + **网球动作相关的视频理解**（抽帧 + 小参数多模态模型），**模型与推理数据默认都在本地**（权重首次从 ModelScope/HF 拉取后缓存在本机，视频由用户本地上传）。
 
-1. **视频剪辑**：`Gradio + MoviePy`，按秒裁剪并下载。
-2. **网球动作分析（大模型）**：对上传视频**均匀抽帧**，调用 **Qwen2-VL-2B-Instruct**（约 2B，满足「3B 以内」）做视觉理解，输出动作是否大致合理、以及给初学者的改进建议。
+推理栈与 [LLaMA-Factory](https://github.com/hiyouga/LLaMA-Factory) 对齐：默认用其 `ChatModel`（可回退 Transformers）。后续若要做网球域 SFT，可在同环境用 LLaMA-Factory 训练，再把合并后的**本地目录**指给 `TENCLIP_VLM_MODEL`。
 
-> **LLaMA-Factory**：本仓库**默认用其 `ChatModel` 做推理**（`TENCLIP_INFER_BACKEND=auto`），与官方训练/微调工作流一致。你也可以用 LLaMA-Factory 在网球数据上做 SFT，合并导出后将 `TENCLIP_VLM_MODEL` 设为**本地合并目录**即可在本应用中分析。
+---
+
+## 开发约定（本项目统一采用）
+
+
+| 项           | 要求                                                                                       |
+| ----------- | ---------------------------------------------------------------------------------------- |
+| 系统          | **WSL2 + Ubuntu**（与 Windows 同机即可）                                                        |
+| Python 环境   | **Conda 环境名必须为 `tenclip`**（Miniconda/Anaconda 均可）                                        |
+| 代码位置        | 放在 WSL 家目录下，例如 `**~/code/tenclip**`，避免长期放在 `/mnt/c/...`（IO 慢、易出权限/同步问题）                  |
+| Cursor 工作区  | 打开 `**\\wsl.localhost\Ubuntu-22.04\home\<用户>\code\tenclip**`（发行版名以 `wsl -l -v` 为准），与终端一致 |
+| 本地权重        | 放在 `**model/Qwen2-VL-2B-Instruct/**` 时，`app.py` 会自动设置 `TENCLIP_VLM_MODEL`，推理直接读 `model/` |
+| Windows 批处理 | `*.bat` 仅作**备选**，不作为主开发路径                                                                |
+
+
+首次进入仓库建议在 WSL 里执行（可选）：
+
+```bash
+chmod +x run-wsl.sh download-vlm-conda.sh scripts/verify_wsl_env.sh
+bash scripts/verify_wsl_env.sh
+```
+
+---
+
+## 分阶段路线图（同步维护）
+
+以下为**计划与当前进度**，后续迭代会继续在本文更新勾选状态。
+
+### 阶段 1：环境与本地权重（当前重点）
+
+
+| 步骤  | 内容                                                                                                         | 状态                    |
+| --- | ---------------------------------------------------------------------------------------------------------- | --------------------- |
+| 1.1 | WSL2 Ubuntu + `conda activate tenclip` + GPU 可用（`nvidia-smi` / `torch.cuda.is_available()`）                | ⬜ 由你在本机确认             |
+| 1.2 | 运行 `bash scripts/verify_wsl_env.sh` 通过                                                                     | ⬜                     |
+| 1.3 | **本地下载 VLM 权重**：`python scripts/download_vlm_weights.py`（可 HF + `HF_ENDPOINT=https://hf-mirror.com`）       | ✅ 可已完成（见 `model/`）    |
+| 1.4 | （推荐）复制到项目：`bash scripts/copy_vlm_to_model.sh`，`.env` 设置 `TENCLIP_VLM_MODEL=.../model/Qwen2-VL-2B-Instruct` | ⬜ 见 `model/README.md` |
+| 1.5 | （可选）`export MODELSCOPE_CACHE=~/modelscope-cache` 把缓存固定到大磁盘                                                 | ⬜                     |
+
+
+**默认模型**：`Qwen/Qwen2-VL-2B-Instruct`（约 2B，适合 6GB 级显存配合 4bit/少帧）。
+
+### 阶段 2：Demo 闭环（功能已具备，阶段 1 完成后验收）
+
+
+| 步骤  | 内容                                       | 状态      |
+| --- | ---------------------------------------- | ------- |
+| 2.1 | `bash run-wsl.sh` 启动 Gradio              | ⬜       |
+| 2.2 | 「视频剪辑」：上传 → 按秒裁剪 → 下载                    | ✅ 已实现   |
+| 2.3 | 「网球动作分析」：上传 → 省显存模式 → 生成中文指导（基于抽帧，非专业动捕） | ✅ 已实现   |
+| 2.4 | 6GB 显存：界面保持 **省显存**，长视频先剪辑再分析            | ✅ 策略已内置 |
+
+
+### 阶段 3：数据与可选微调（本地数据）
+
+
+| 步骤  | 内容                                                               | 状态     |
+| --- | ---------------------------------------------------------------- | ------ |
+| 3.1 | 用剪辑功能准备短片段，自建「视频帧 + 文本标签」数据规范（README 后续可补样例）                     | ⬜      |
+| 3.2 | 仓库内已有 `data/` 下 mock 与 `dataset_info.json`，仅供 LLaMA-Factory 实验参考 | ✅ 占位数据 |
+| 3.3 | 使用 LLaMA-Factory + 合并权重目录，设置 `TENCLIP_VLM_MODEL` 指向本地目录          | ⬜ 可选   |
+
+
+### 阶段 4：加固与交付
+
+
+| 步骤  | 内容                                 | 状态      |
+| --- | ---------------------------------- | ------- |
+| 4.1 | `test_trim2.py` 等烟雾测试              | ✅       |
+| 4.2 | 环境变量与故障排查（OOM、仅 CPU）               | ✅ 见下文表格 |
+| 4.3 | （可选）统一 `requirements` 与 WSL 已装版本锁定 | ⬜       |
+
+
+---
+
+## WSL 快速开始（主路径）
+
+```bash
+cd ~/code/tenclip   # 你的克隆路径
+
+# 1）自检（不下载模型）
+bash scripts/verify_wsl_env.sh
+
+# 2）下载 VLM 到本机缓存（首次必做，体积大）
+bash download-vlm-conda.sh
+
+# 3）启动 Web（Windows 浏览器访问即可）
+bash run-wsl.sh
+```
+
+浏览器打开：`http://127.0.0.1:7860`  
+若要从局域网访问，可在 `.env` 或环境中设置 `GRADIO_SERVER_NAME=0.0.0.0`（见 `env.example`）。
+
+`run-wsl.sh` 默认使用 `~/miniconda3`，若你的 Conda 在别处：
+
+```bash
+export MINICONDA_ROOT=/你的路径/miniconda3
+bash run-wsl.sh
+```
+
+### 下载慢：换 Hugging Face、镜像或代理
+
+ModelScope 若特别慢，可**改走 Hugging Face**，并配合**国内镜像端点**（由 `huggingface_hub` 读取 `HF_ENDPOINT`）：
+
+```bash
+export TENCLIP_MODEL_DOWNLOAD_SOURCE=huggingface
+export HF_ENDPOINT=https://hf-mirror.com
+# 与上面等价、便于写进 .env 的别名：
+# export TENCLIP_HF_ENDPOINT=https://hf-mirror.com
+
+python scripts/download_vlm_weights.py
+# 或一行指定镜像（不改环境变量）：
+# python scripts/download_vlm_weights.py --source huggingface --hf-endpoint https://hf-mirror.com
+```
+
+**注意**：推理时也要用同一来源，请保持 `TENCLIP_MODEL_DOWNLOAD_SOURCE` 与下载时一致（或直接把 `TENCLIP_VLM_MODEL` 设为已下载的**本地目录**，则不再请求远程）。
+
+走**系统代理**（Clash、V2 等）时，一般设置即可（ModelScope 与 HF 通常都会走）：
+
+```bash
+export HTTPS_PROXY=http://127.0.0.1:7890
+export HTTP_PROXY=http://127.0.0.1:7890
+```
+
+下载脚本启动时会打印当前**下载源、HF_ENDPOINT、是否检测到代理变量**，便于排查。
+
+---
 
 ## 功能与限制
 
@@ -14,190 +139,124 @@
 - 支持：`.mp4`、`.mov`、`.avi`
 - 输出：`libx264` + `aac` 的 `.mp4`
 
-### 动作分析
+### 动作分析（视频理解）
 
-- **时长上限**：默认只处理前 **300 秒（约 5 分钟）**；超出请先使用「视频剪辑」截取。
-- **不是逐帧专业动作捕捉**：模型看到的是**少量静态关键帧**，结论仅供学习参考，不能替代教练或生物力学评估。
-- **权重获取**：默认走 **ModelScope**（国内更稳）；也可切换为 Hugging Face（见环境变量）。体积较大，建议先运行 `download-vlm-conda.bat` 预下载。
+- **时长**：默认只分析前 **300 秒**；更长请先用剪辑截断。
+- **方式**：均匀 **抽帧** + **Qwen2-VL-2B** 视觉理解；不是逐帧骨骼识别，结论仅供学习参考。
+- **本地**：权重缓存在本机；上传视频不离开你的机器（除非你自己配置云端）。
 
-## 显卡与性能（弱显卡优先）
+### 弱 GPU（如 RTX 3060 Laptop 6GB）
 
-界面默认 **「省显存（弱显卡推荐）」**，后台策略包括：
+- 界面选 **「省显存（弱显卡推荐）」**；后台对 LLaMA-Factory 路径在 eco/balanced 下倾向 **4bit**。
+- OOM 时：再剪短、关其它占显存程序，或 `TENCLIP_FORCE_CPU=1`（很慢）。
 
-- 更少采样帧、更低分辨率（减少显存与算力）
-- 在 **NVIDIA GPU** 上优先尝试 **4-bit 量化**（显著省显存）；失败则退回 **fp16 GPU**；再失败则 **CPU fp32**（很慢但最稳）
+---
 
-若仍显存不足（OOM）：
+## 环境变量（摘要）
 
-1. 继续使用「省显存」，并把视频剪到更短再分析。
-2. 关闭其他占用显存的程序。
-3. 启动前设置环境变量 `TENCLIP_FORCE_CPU=1` 强制走 CPU（速度慢，但不占 GPU 显存）。
-
-可选环境变量：
+完整说明见 `env.example`。
 
 
-| 变量                              | 含义                                         | 默认                          |
-| ------------------------------- | ------------------------------------------ | --------------------------- |
-| `TENCLIP_MAX_VIDEO_SEC`         | 分析时长上限（秒）                                  | `300`                       |
-| `TENCLIP_VLM_MODEL`             | **本地目录**（若已下载）或 **远程模型 ID**（ModelScope/HF） | `Qwen/Qwen2-VL-2B-Instruct` |
-| `TENCLIP_MODEL_DOWNLOAD_SOURCE` | 远程拉取源：`modelscope` / `huggingface`         | `modelscope`                |
-| `TENCLIP_INFER_BACKEND`         | `auto` / `llamafactory` / `transformers`   | `auto`（优先 LLaMA-Factory）    |
-| `MODELSCOPE_CACHE`              | ModelScope 缓存目录（可选）                        | 系统默认                        |
-| `TENCLIP_FORCE_CPU`             | `1` / `true` 时尽量走 CPU                      | 未设置                         |
+| 变量                                          | 含义                                       | 默认                          |
+| ------------------------------------------- | ---------------------------------------- | --------------------------- |
+| `TENCLIP_VLM_MODEL`                         | 本地模型目录，或远程 ID（用于首次下载）                    | `Qwen/Qwen2-VL-2B-Instruct` |
+| `TENCLIP_MODEL_DOWNLOAD_SOURCE`             | `modelscope` / `huggingface`             | `modelscope`                |
+| `HF_ENDPOINT`                               | HF Hub 镜像根 URL，如 `https://hf-mirror.com` | 未设置（官方 hub）                 |
+| `TENCLIP_HF_ENDPOINT`                       | 与 `HF_ENDPOINT` 同义；未设 `HF_ENDPOINT` 时生效  | 未设置                         |
+| `HTTP_PROXY` / `HTTPS_PROXY`                | 下载走系统代理                                  | 未设置                         |
+| `TENCLIP_INFER_BACKEND`                     | `auto` / `llamafactory` / `transformers` | `auto`                      |
+| `MODELSCOPE_CACHE`                          | ModelScope 缓存目录                          | 系统默认                        |
+| `TENCLIP_MAX_VIDEO_SEC`                     | 分析时长上限（秒）                                | `300`                       |
+| `TENCLIP_FORCE_CPU`                         | 强制走 CPU                                  | 未设置                         |
+| `GRADIO_SERVER_NAME` / `GRADIO_SERVER_PORT` | 监听地址与端口                                  | `127.0.0.1` / `7860`        |
 
 
-## 环境要求
+---
 
-- Python **3.10+**
-- **推荐（本仓库）**：用 **Conda** 管理环境（见下文 `environment.yml`）
-- **剪辑**：`requirements.txt`
-- **分析**：`requirements-llm.txt`（torch、transformers、**modelscope** 等）+ `requirements-llm-lf.txt`（**llamafactory**）
+## 依赖说明
 
-## 安装与启动
+- **WSL `tenclip` 环境**：以你机器上已安装版本为准（Python 3.12 + torch cu130 等可与仓库 `requirements-*.txt` 略有出入，以能跑通自检为准）。
+- **新环境从零创建**：仍可用仓库内 `environment.yml`（面向通用 Conda；WSL 同样适用）：
+  ```bash
+  conda env create -f environment.yml
+  conda env update -f environment.yml --prune
+  ```
+- 根目录 `requirements.txt` / `requirements-llm.txt` / `requirements-llm-lf.txt` 用于对齐依赖意图；**开发以 WSL `tenclip` 为真源**。
 
-根目录提供 `**run.bat`**：若存在 `%CONDA_ROOT%\Scripts\conda.exe`（默认 `C:\Users\baozi\anaconda3`），则 `conda run -n tenclip python app.py`；否则用当前 `python`。可选：复制 `**env.example`** 为 `.env` 配置端口与 `TENCLIP_*` 变量（需已安装 `python-dotenv`，已写在 `requirements.txt`）。
+---
 
-### 方式 A：Conda（推荐，含 ffmpeg + ModelScope + LLaMA-Factory）
+## 备选：Windows 批处理
 
-**Anaconda 路径**：批处理默认 `CONDA_ROOT=C:\Users\baozi\anaconda3`。若你的安装路径不同，请先：
+若临时在 Windows 上跑：可使用 `run.bat`、`setup-conda-env.bat`、`download-vlm-conda.bat` 等。**不作为本项目推荐开发方式。**
 
-```bat
-set CONDA_ROOT=D:\你的\conda\根目录
-```
-
-再运行 `setup-conda-env.bat` / `start-conda-llm.bat`。
-
-1. **创建/更新环境**（`environment.yml` 会安装 `requirements.txt`、`requirements-llm.txt`、`requirements-llm-lf.txt`）：
-
-```bash
-conda env create -f environment.yml
-conda env update -f environment.yml --prune
-```
-
-Windows 可双击 `**setup-conda-env.bat**`（内部使用 `%CONDA_ROOT%\Scripts\conda.exe`）。
-
-1. **（推荐）预下载 VLM 权重**：默认 **ModelScope**，避免 HF 不可达。
-
-```bash
-conda activate tenclip
-python scripts/download_vlm_weights.py
-# 或显式指定源:
-python scripts/download_vlm_weights.py --source modelscope --repo Qwen/Qwen2-VL-2B-Instruct
-```
-
-或双击 `**download-vlm-conda.bat**`。
-
-若必须用 Hugging Face：`set TENCLIP_MODEL_DOWNLOAD_SOURCE=huggingface` 后再运行上述脚本。
-
-1. **启动 Web**：
-
-```bash
-conda activate tenclip
-python app.py
-```
-
-或 `**start-conda-llm.bat**`（等价 `conda run -n tenclip python app.py`）。
-
-浏览器打开：`http://127.0.0.1:7860`
-
-#### NVIDIA GPU（可选）
-
-`environment.yml` 里通过 pip 安装的 PyTorch 多为 **CPU 版**或通用轮子。若需要 **CUDA 版**，在环境创建完成后执行（按你的 CUDA 版本调整 `cu124` 等，参见 [PyTorch 官网](https://pytorch.org/get-started/locally/)）：
-
-```bash
-conda activate tenclip
-pip install --upgrade torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu124
-```
-
-### 方式 B：venv + pip（轻量/无 Conda 时）
-
-**仅剪辑**：双击 `start.bat`，或：
-
-```bash
-python -m venv .venv
-.venv\Scripts\activate
-pip install -r requirements.txt
-python app.py
-```
-
-**剪辑 + 大模型**：双击 `start-with-llm.bat`，或：
-
-```bash
-pip install -r requirements.txt -r requirements-llm.txt -r requirements-llm-lf.txt
-python scripts/download_vlm_weights.py   # 可选，默认 ModelScope
-python app.py
-```
+---
 
 ## 使用说明
 
-1. **视频剪辑**：上传视频，填写开始/结束秒数，下载片段。
-2. **网球动作分析**：上传视频，选择显存模式，点击「开始分析」查看 Markdown 报告。
+1. **视频剪辑**：上传 → 起止秒数 → 下载。
+2. **网球动作分析**：上传 → 显存模式 → **开始分析**。
 
-## 本地测试脚本
+可选：复制 `env.example` 为 `.env`（需 `python-dotenv`，已在 `requirements.txt`）。
 
-- `test_trim.py` / `test_trim2.py`：剪辑逻辑烟雾测试
-- `test_file_type.py`、`test_moviepy.py`：环境检查
+---
 
-## 项目结构
+## 本地测试
+
+```bash
+conda activate tenclip
+python test_trim2.py
+```
+
+---
+
+## 项目结构（节选）
 
 ```text
 tenclip/
 ├─ app.py
-├─ run.bat
+├─ run-wsl.sh              # WSL 主启动（conda tenclip）
+├─ download-vlm-conda.sh   # WSL 下载 VLM 权重到本地缓存
+├─ run.bat                 # Windows 备选
 ├─ env.example
 ├─ environment.yml
-├─ setup-conda-env.bat
-├─ start-conda-llm.bat
-├─ download-vlm-conda.bat
-├─ start.bat
-├─ start-with-llm.bat
-├─ requirements.txt
-├─ requirements-llm.txt
-├─ requirements-llm-lf.txt
-├─ readme.md
+├─ requirements*.txt
+├─ configs/                # LLaMA-Factory 等实验配置
+├─ data/                   # 数据集占位与 dataset_info
+├─ model/
+│   └─ README.md          # 权重放此目录（已 gitignore，见文内说明）
 ├─ scripts/
-│   └─ download_vlm_weights.py
+│   ├─ download_vlm_weights.py
+│   ├─ copy_vlm_to_model.sh
+│   ├─ verify_wsl_env.sh
+│   └─ ...
 ├─ services/
-│   ├─ __init__.py
 │   ├─ model_resolve.py
 │   └─ vlm_tennis.py
-├─ test_*.py
-└─ old_version/
-   └─ app_v1.py
+└─ test_*.py
 ```
+
+---
 
 ## GitHub
 
-仓库示例：`https://github.com/mathslingo/tenclip`（若你 fork 后地址不同，以你的远程为准。）
+示例：`https://github.com/mathslingo/tenclip`
 
-## DeepSeek 7B with LLaMA-Factory
+---
 
-This repo now includes a separate local text-model path for LLaMA-Factory:
+## 附录 A：可选文本模型（DeepSeek 7B + LLaMA-Factory）
 
-- Default model: `deepseek-ai/DeepSeek-R1-Distill-Qwen-7B`
-- Download script: `scripts/download_llm_weights.py`
-- Conda helper: `download-deepseek-conda.bat`
-- Chat launcher: `start-llamafactory-deepseek-chat.bat`
-- Inference config: `configs/inference/deepseek_r1_7b.yaml`
+与**网球视频主线独立**：仓库内另有 DeepSeek 蒸馏 7B 的下载脚本与推理 YAML，供本地文本/对话实验。网球场 **VLM 默认仍为 Qwen2-VL-2B**。
 
-Recommended flow:
+- 下载：`scripts/download_llm_weights.py`，`download-deepseek-conda.bat`（Windows）
+- 配置：`configs/inference/deepseek_r1_7b.yaml`
+- 6GB 显存上 7B 建议量化；详见原脚本注释
 
-```bat
-setup-conda-env.bat
-download-deepseek-conda.bat
-start-llamafactory-deepseek-chat.bat
+在 WSL 中若需对等流程，可自行：
+
+```bash
+conda activate tenclip
+python scripts/download_llm_weights.py
+# 再按 configs 使用 llamafactory-cli chat ...
 ```
 
-Useful environment variables:
-
-- `TENCLIP_LLM_MODEL`: remote model id or local model directory
-- `TENCLIP_LLM_MODEL_DOWNLOAD_SOURCE`: `huggingface` or `modelscope`
-- `TENCLIP_LLM_CACHE_DIR`: optional cache directory
-- `USE_MODELSCOPE_HUB=1`: recommended when launching LLaMA-Factory with a ModelScope model id
-
-Hardware note:
-
-- `DeepSeek-R1-Distill-Qwen-7B` is feasible on this project as a local text model.
-- On a `RTX 3060 Laptop 6GB`, practical inference usually means quantized loading such as 4-bit.
-- Full-precision 7B inference is generally not recommended on this machine.
-
+（后续若统一 WSL 脚本，可在阶段 4 补 `download-deepseek-wsl.sh`。）

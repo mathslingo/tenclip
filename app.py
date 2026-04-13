@@ -1,6 +1,7 @@
 import logging
 import os
 import tempfile
+from pathlib import Path
 
 try:
     from dotenv import load_dotenv
@@ -8,6 +9,12 @@ try:
     load_dotenv()
 except ImportError:
     pass
+
+# 仓库在 ~/code/tenclip 等任意路径时：若存在本地权重目录，优先直接推理（不再走远程下载）
+_REPO_ROOT = Path(__file__).resolve().parent
+_LOCAL_VLM = _REPO_ROOT / "model" / "Qwen2-VL-2B-Instruct"
+if not os.environ.get("TENCLIP_VLM_MODEL", "").strip() and _LOCAL_VLM.is_dir():
+    os.environ["TENCLIP_VLM_MODEL"] = str(_LOCAL_VLM)
 
 import gradio as gr
 from moviepy.video.io.VideoFileClip import VideoFileClip

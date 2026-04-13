@@ -27,6 +27,13 @@ def download_source() -> str:
     return s if s in ("modelscope", "huggingface") else "modelscope"
 
 
+def _apply_hf_endpoint_alias() -> None:
+    """与 download_vlm_weights.py 一致：TENCLIP_HF_ENDPOINT 写入 HF_ENDPOINT。"""
+    alias = os.environ.get("TENCLIP_HF_ENDPOINT", "").strip().rstrip("/")
+    if alias and not os.environ.get("HF_ENDPOINT"):
+        os.environ["HF_ENDPOINT"] = alias
+
+
 def get_local_model_dir() -> str:
     """
     若 TENCLIP_VLM_MODEL 指向已存在目录，直接使用；
@@ -45,9 +52,14 @@ def get_local_model_dir() -> str:
         return _RESOLVED_DIR
 
     if src == "huggingface":
+        _apply_hf_endpoint_alias()
         from huggingface_hub import snapshot_download
 
-        logger.info("Downloading model from Hugging Face Hub: %s", model_id)
+        logger.info(
+            "Downloading model from Hugging Face Hub: %s (HF_ENDPOINT=%s)",
+            model_id,
+            os.environ.get("HF_ENDPOINT", "(default)"),
+        )
         path = snapshot_download(repo_id=model_id)
     else:
         try:
