@@ -14,7 +14,6 @@
 | 系统          | **WSL2 + Ubuntu**（与 Windows 同机即可）                                                        |
 | Python 环境   | **Conda 环境名必须为 `tenclip`**（Miniconda/Anaconda 均可）                                        |
 | 代码位置        | 放在 WSL 家目录下，例如 `**~/code/tenclip**`，避免长期放在 `/mnt/c/...`（IO 慢、易出权限/同步问题）                  |
-| Cursor 工作区  | 打开 `**\\wsl.localhost\Ubuntu-22.04\home\<用户>\code\tenclip**`（发行版名以 `wsl -l -v` 为准），与终端一致 |
 | 本地权重        | 放在 `**model/Qwen2-VL-2B-Instruct/**` 时，`app.py` 会自动设置 `TENCLIP_VLM_MODEL`，推理直接读 `model/` |
 | Windows 批处理 | `*.bat` 仅作**备选**，不作为主开发路径                                                                |
 
