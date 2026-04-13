@@ -169,3 +169,35 @@ tenclip/
 ## GitHub
 
 仓库示例：`https://github.com/mathslingo/tenclip`（若你 fork 后地址不同，以你的远程为准。）
+
+## DeepSeek 7B with LLaMA-Factory
+
+This repo now includes a separate local text-model path for LLaMA-Factory:
+
+- Default model: `deepseek-ai/DeepSeek-R1-Distill-Qwen-7B`
+- Download script: `scripts/download_llm_weights.py`
+- Conda helper: `download-deepseek-conda.bat`
+- Chat launcher: `start-llamafactory-deepseek-chat.bat`
+- Inference config: `configs/inference/deepseek_r1_7b.yaml`
+
+Recommended flow:
+
+```bat
+setup-conda-env.bat
+download-deepseek-conda.bat
+start-llamafactory-deepseek-chat.bat
+```
+
+Useful environment variables:
+
+- `TENCLIP_LLM_MODEL`: remote model id or local model directory
+- `TENCLIP_LLM_MODEL_DOWNLOAD_SOURCE`: `huggingface` or `modelscope`
+- `TENCLIP_LLM_CACHE_DIR`: optional cache directory
+- `USE_MODELSCOPE_HUB=1`: recommended when launching LLaMA-Factory with a ModelScope model id
+
+Hardware note:
+
+- `DeepSeek-R1-Distill-Qwen-7B` is feasible on this project as a local text model.
+- On a `RTX 3060 Laptop 6GB`, practical inference usually means quantized loading such as 4-bit.
+- Full-precision 7B inference is generally not recommended on this machine.
+

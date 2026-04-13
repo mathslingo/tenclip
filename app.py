@@ -152,7 +152,7 @@ with gr.Blocks(title="TenClip") as demo:
             )
 
 def main() -> None:
-    port = int(os.environ.get("GRADIO_SERVER_PORT", "7860"))
+    port = int(os.environ.get("GRADIO_SERVER_PORT", "7861"))
     host = os.environ.get("GRADIO_SERVER_NAME", "127.0.0.1")
     demo.launch(server_name=host, server_port=port)
 
