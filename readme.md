@@ -9,13 +9,11 @@
 ## 开发约定（本项目统一采用）
 
 
-| 项           | 要求                                                                                       |
-| ----------- | ---------------------------------------------------------------------------------------- |
-| 系统          | **WSL2 + Ubuntu**（与 Windows 同机即可）                                                        |
-| Python 环境   | **Conda 环境名必须为 `tenclip`**（Miniconda/Anaconda 均可）                                        |
-| 代码位置        | 放在 WSL 家目录下，例如 `**~/code/tenclip**`，避免长期放在 `/mnt/c/...`（IO 慢、易出权限/同步问题）                  |
-| 本地权重        | 放在 `**model/Qwen2-VL-2B-Instruct/**` 时，`app.py` 会自动设置 `TENCLIP_VLM_MODEL`，推理直接读 `model/` |
-| Windows 批处理 | `*.bat` 仅作**备选**，不作为主开发路径                                                                |
+| 项         | 要求                                                                                       |
+| --------- | ---------------------------------------------------------------------------------------- |
+| 系统        | **WSL2 + Ubuntu**（与 Windows 同机即可）                                                        |
+| Python 环境 | **Conda 环境名必须为 `tenclip`**（Miniconda/Anaconda 均可）                                        |
+| 本地权重      | 放在 `**model/Qwen2-VL-2B-Instruct/**` 时，`app.py` 会自动设置 `TENCLIP_VLM_MODEL`，推理直接读 `model/` |
 
 
 首次进入仓库建议在 WSL 里执行（可选）：
@@ -156,18 +154,20 @@ export HTTP_PROXY=http://127.0.0.1:7890
 完整说明见 `env.example`。
 
 
-| 变量                                          | 含义                                       | 默认                          |
-| ------------------------------------------- | ---------------------------------------- | --------------------------- |
-| `TENCLIP_VLM_MODEL`                         | 本地模型目录，或远程 ID（用于首次下载）                    | `Qwen/Qwen2-VL-2B-Instruct` |
-| `TENCLIP_MODEL_DOWNLOAD_SOURCE`             | `modelscope` / `huggingface`             | `modelscope`                |
-| `HF_ENDPOINT`                               | HF Hub 镜像根 URL，如 `https://hf-mirror.com` | 未设置（官方 hub）                 |
-| `TENCLIP_HF_ENDPOINT`                       | 与 `HF_ENDPOINT` 同义；未设 `HF_ENDPOINT` 时生效  | 未设置                         |
-| `HTTP_PROXY` / `HTTPS_PROXY`                | 下载走系统代理                                  | 未设置                         |
-| `TENCLIP_INFER_BACKEND`                     | `auto` / `llamafactory` / `transformers` | `auto`                      |
-| `MODELSCOPE_CACHE`                          | ModelScope 缓存目录                          | 系统默认                        |
-| `TENCLIP_MAX_VIDEO_SEC`                     | 分析时长上限（秒）                                | `300`                       |
-| `TENCLIP_FORCE_CPU`                         | 强制走 CPU                                  | 未设置                         |
-| `GRADIO_SERVER_NAME` / `GRADIO_SERVER_PORT` | 监听地址与端口                                  | `127.0.0.1` / `7860`        |
+| 变量                                          | 含义                                             | 默认                          |
+| ------------------------------------------- | ---------------------------------------------- | --------------------------- |
+| `TENCLIP_VLM_MODEL`                         | 本地模型目录，或远程 ID（用于首次下载）                          | `Qwen/Qwen2-VL-2B-Instruct` |
+| `TENCLIP_MODEL_DOWNLOAD_SOURCE`             | `modelscope` / `huggingface`                   | `modelscope`                |
+| `HF_ENDPOINT`                               | HF Hub 镜像根 URL，如 `https://hf-mirror.com`       | 未设置（官方 hub）                 |
+| `TENCLIP_HF_ENDPOINT`                       | 与 `HF_ENDPOINT` 同义；未设 `HF_ENDPOINT` 时生效        | 未设置                         |
+| `HTTP_PROXY` / `HTTPS_PROXY`                | 下载走系统代理                                        | 未设置                         |
+| `TENCLIP_INFER_BACKEND`                     | `auto` / `llamafactory` / `transformers`       | `auto`                      |
+| `TENCLIP_PROMPT_PROFILE`                    | 推理提示词档位：`default` / `compact` / `step_by_step` | `default`                   |
+| `TENCLIP_PROMPT_APPEND`                     | 追加到系统提示词末尾的额外要求（用于快速试验）                        | 未设置                         |
+| `MODELSCOPE_CACHE`                          | ModelScope 缓存目录                                | 系统默认                        |
+| `TENCLIP_MAX_VIDEO_SEC`                     | 分析时长上限（秒）                                      | `300`                       |
+| `TENCLIP_FORCE_CPU`                         | 强制走 CPU                                        | 未设置                         |
+| `GRADIO_SERVER_NAME` / `GRADIO_SERVER_PORT` | 监听地址与端口                                        | `127.0.0.1` / `7860`        |
 
 
 ---
@@ -196,6 +196,80 @@ export HTTP_PROXY=http://127.0.0.1:7890
 2. **网球动作分析**：上传 → 显存模式 → **开始分析**。
 
 可选：复制 `env.example` 为 `.env`（需 `python-dotenv`，已在 `requirements.txt`）。
+
+---
+
+## Qwen2-VL-2B 优化方案（Prompt / SFT / DPO）
+
+基于LLaMA-Factory 工作流，把优化拆成三层：**先 Prompt 微调（零训练成本）→ 再 SFT（监督学习）→ 最后 DPO（偏好对齐）**。
+
+### 1) Prompt 微调（最快，先做）
+
+适用场景：你想先快速改变输出风格、结构化程度和保守性，不改模型权重。  
+已实现能力（代码已接入）：
+
+- `services/vlm_tennis.py` 支持多档提示词 profile：
+  - `default`：当前通用教练风格
+  - `compact`：短答 + 清单
+  - `step_by_step`：按“观察-机制-纠正步骤-拍摄建议”结构输出
+- 可通过环境变量切换：
+
+```bash
+export TENCLIP_PROMPT_PROFILE=step_by_step
+export TENCLIP_PROMPT_APPEND="优先指出1个最关键风险，并给出一周训练计划。"
+bash run-wsl.sh
+```
+
+建议做法：
+
+1. 在相同视频集上做 A/B（`default` vs `compact` vs `step_by_step`）
+2. 用固定评估表（可执行性、清晰度、幻觉率、长度）打分
+3. 把最优 profile 作为 SFT 数据标注风格
+
+### 2) SFT（监督微调）
+
+目标：把“好回答风格”固化到模型参数里，提升稳定性与一致性。  
+已补配置（LLaMA-Factory）：
+
+- `configs/train/qwen2_vl_2b_qlora_sft.yaml`
+- `data/dataset_info.json` 新增 `mock_tennis_qwen2_vl_sft_10k`
+
+运行示例：
+
+```bash
+conda activate tenclip
+llamafactory-cli train configs/train/qwen2_vl_2b_qlora_sft.yaml
+```
+
+当前仓库提供的是文本 mock 数据（用于流程打通）。生产建议把样本升级为“**视频帧/图像 + 教练答复**”的多模态 SFT 数据，并保持 `template: qwen2_vl`。
+
+### 3) DPO（偏好优化）
+
+目标：在已有 SFT 基础上，把“更优回答 > 较差回答”的偏好进一步对齐。  
+已补配置（LLaMA-Factory）：
+
+- `configs/train/qwen2_vl_2b_lora_dpo.yaml`
+- `data/dataset_info.json` 新增 `mock_tennis_qwen2_vl_dpo_10k`
+
+运行示例：
+
+```bash
+conda activate tenclip
+llamafactory-cli train configs/train/qwen2_vl_2b_lora_dpo.yaml
+```
+
+推荐流程：
+
+1. 先跑 SFT 得到 adapter（`saves/qwen2_vl_2b/lora/sft`）
+2. 用线上/离线评测选出 bad case，构造 chosen/rejected 对
+3. 再跑 DPO，观察“建议可执行性”和“错误建议率”变化
+
+### 数据与工程建议（落地优先级）
+
+- **优先级 A：Prompt 评测闭环**（1-2 天就能看到收益）
+- **优先级 B：SFT 数据升级到多模态**（帧采样策略与前端分析一致）
+- **优先级 C：DPO 难例集**（重点覆盖逆光、远景、遮挡、低帧率）
+- 每轮训练都保留评测切分，避免只看训练损失
 
 ---
 

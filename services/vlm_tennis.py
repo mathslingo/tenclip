@@ -35,12 +35,42 @@ _TF_KEY: Tuple[str, bool] | None = None
 _LF_CHAT = None
 _LF_STATE: Tuple[str, Mode, int, int | None] | None = None
 
-COACH_PROMPT = """你是资深网球教练助手。下面是从同一段网球练习或比赛视频中按时间顺序均匀采样的若干关键帧（不是完整视频）。
+PROMPT_PROFILES: Dict[str, str] = {
+    "default": """你是资深网球教练助手。下面是从同一段网球练习或比赛视频中按时间顺序均匀采样的若干关键帧（不是完整视频）。
 请根据可见的身体姿态、站位、引拍、击球点、随挥与脚步，尽量回答：
 1) 动作整体上是否合理、有哪些明显优点或风险；
 2) 若为初学者，给出可操作的改进建议（分条、具体）；
 3) 若画面模糊、角度不佳或信息不足，请明确说明局限，不要编造细节。
-请用中文回答，语气专业、克制。"""
+请用中文回答，语气专业、克制。""",
+    "compact": """你是网球动作分析助手，请基于关键帧直接给结论。
+输出格式固定为三段：
+【动作判断】1-2 句；
+【问题优先级】最多 3 条；
+【下次训练清单】最多 5 条，每条一句。
+若信息不足必须明确指出，不要编造。""",
+    "step_by_step": """你是网球教练。请基于关键帧做结构化分析，输出以下小节：
+1. 观察到的客观事实（仅写看得见的）；
+2. 可能的问题机制（不超过 3 条）；
+3. 对初学者的可执行纠正步骤（按训练顺序给出）；
+4. 下一次拍摄建议（机位/距离/帧率）。
+请用中文，避免空泛描述。""",
+}
+
+
+def get_prompt_profile() -> str:
+    raw = os.environ.get("TENCLIP_PROMPT_PROFILE", "default").strip().lower()
+    if raw in PROMPT_PROFILES:
+        return raw
+    return "default"
+
+
+def get_coach_prompt() -> str:
+    profile = get_prompt_profile()
+    base = PROMPT_PROFILES[profile]
+    extra = os.environ.get("TENCLIP_PROMPT_APPEND", "").strip()
+    if extra:
+        return base + "\n\n额外要求：\n" + extra
+    return base
 
 
 def _import_llamafactory() -> bool:
@@ -197,12 +227,15 @@ def _analyze_llamafactory(
     max_side: int,
 ) -> str:
     chat = _get_lf_chat(local_dir, mode)
-    messages = [{"role": "user", "content": COACH_PROMPT}]
+    prompt_profile = get_prompt_profile()
+    prompt = get_coach_prompt()
+    messages = [{"role": "user", "content": prompt}]
     responses = chat.chat(messages, images=images, max_new_tokens=max_new_tokens)
     reply = responses[0].response_text
     header = (
         f"推理后端: LLaMA-Factory (HuggingFace engine)\n"
         f"权重: {_model_source_label(local_dir)} → `{local_dir}`\n"
+        f"Prompt profile: {prompt_profile}\n"
         f"模式={mode}，采样 {len(images)} 帧，最长边约 ≤{max_side}px，"
         f"分析时长约 {analyzed_duration:.1f}s（上限 {int(MAX_VIDEO_DURATION_SEC)}s）。\n"
         f"默认远程模型 ID（未指定本地目录时）: {default_remote_model_id()}\n\n---\n\n"
@@ -281,10 +314,12 @@ def _analyze_transformers(
 
     model, processor = _load_transformers_model(local_dir)
 
+    prompt_profile = get_prompt_profile()
+    prompt = get_coach_prompt()
     content: List[Dict[str, Any]] = []
     for im in images:
         content.append({"type": "image", "image": im})
-    content.append({"type": "text", "text": COACH_PROMPT})
+    content.append({"type": "text", "text": prompt})
     mm_messages = [{"role": "user", "content": content}]
 
     text = processor.apply_chat_template(mm_messages, tokenize=False, add_generation_prompt=True)
@@ -302,6 +337,7 @@ def _analyze_transformers(
     header = (
         f"推理后端: Transformers（直连）\n"
         f"权重: {_model_source_label(local_dir)} → `{local_dir}`\n"
+        f"Prompt profile: {prompt_profile}\n"
         f"模式={mode}，采样 {len(images)} 帧，最长边约 ≤{max_side}px，"
         f"分析时长约 {analyzed_duration:.1f}s（上限 {int(MAX_VIDEO_DURATION_SEC)}s）。\n"
         f"默认远程模型 ID（未指定本地目录时）: {default_remote_model_id()}\n\n---\n\n"

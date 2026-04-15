@@ -1,0 +1,151 @@
+:root {
+  --bg: #f2f3f5;
+  --card: #fff;
+  --text: #151821;
+  --sub: #6e7582;
+  --mint: #baf5e8;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang SC", "Helvetica Neue", Arial, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+}
+.page {
+  max-width: 430px;
+  margin: 0 auto;
+  min-height: 100vh;
+  padding: max(12px, env(safe-area-inset-top)) 12px calc(88px + env(safe-area-inset-bottom));
+}
+.status, .city-row, .search-row, .chip-row { display: flex; align-items: center; }
+.status { justify-content: space-between; font-weight: 600; font-size: 14px; }
+.pill { width: 86px; height: 18px; border-radius: 999px; background: #111; }
+.city-row { justify-content: space-between; margin-top: 8px; }
+h1 { margin: 0; font-size: 26px; }
+#nearbyCount { margin: 4px 0 0; color: var(--sub); font-size: 13px; }
+.icon-btn {
+  border: 0; width: 36px; height: 36px; border-radius: 12px; background: #fff;
+  box-shadow: 0 2px 8px rgba(0,0,0,.08); font-size: 18px;
+}
+.search-row { gap: 8px; margin-top: 10px; }
+#searchInput {
+  flex: 1; border: 0; border-radius: 13px; height: 44px; padding: 0 14px;
+  font-size: 16px; outline: none; background: #fff;
+}
+.chip-row { gap: 8px; margin: 12px 0; overflow: auto; }
+.chip {
+  border: 0; background: #fff; color: #374152; border-radius: 999px; padding: 8px 12px; white-space: nowrap;
+}
+.chip.active { background: #121722; color: #fff; }
+.banner {
+  background: linear-gradient(145deg, var(--mint), #d4fff4);
+  border-radius: 16px;
+  padding: 14px;
+}
+.banner h2 { margin: 0; font-size: 40px; letter-spacing: -1px; }
+.banner p { margin: 8px 0 0; color: #415360; }
+
+.analyze-card {
+  margin-top: 10px;
+  background: var(--card);
+  border-radius: 16px;
+  padding: 12px;
+  box-shadow: 0 1px 6px rgba(0, 0, 0, .06);
+}
+.analyze-card h3 {
+  margin: 0;
+  font-size: 20px;
+}
+.analyze-sub {
+  margin: 6px 0 0;
+  color: var(--sub);
+  font-size: 13px;
+}
+.analyze-controls {
+  margin-top: 10px;
+  display: grid;
+  gap: 8px;
+}
+.analyze-controls input[type="file"],
+.analyze-controls select {
+  width: 100%;
+  border: 1px solid #e5e9f0;
+  border-radius: 10px;
+  padding: 10px;
+  background: #fff;
+  font-size: 14px;
+}
+.primary-btn {
+  border: 0;
+  border-radius: 10px;
+  background: linear-gradient(140deg, #3bf0bf, #13d8a8);
+  color: #fff;
+  font-size: 15px;
+  font-weight: 600;
+  padding: 11px 12px;
+}
+.primary-btn:disabled {
+  opacity: .6;
+}
+.guidance-label {
+  display: block;
+  margin-top: 10px;
+  margin-bottom: 6px;
+  font-size: 13px;
+  color: #586172;
+}
+#guidanceBox {
+  width: 100%;
+  border: 1px solid #e5e9f0;
+  border-radius: 10px;
+  padding: 10px;
+  font-size: 14px;
+  resize: vertical;
+  background: #fbfcfe;
+}
+
+.list { margin-top: 10px; display: grid; gap: 10px; }
+.card {
+  background: var(--card);
+  border-radius: 16px;
+  padding: 12px;
+  box-shadow: 0 1px 6px rgba(0,0,0,.06);
+}
+.card h3 { margin: 0; font-size: 22px; line-height: 1.1; }
+.meta { margin: 6px 0 0; color: var(--sub); font-size: 13px; }
+.tags { margin-top: 8px; display: flex; gap: 6px; flex-wrap: wrap; }
+.tag { font-size: 11px; padding: 5px 8px; background: #f3f5f8; border-radius: 999px; }
+.error {
+  margin-top: 10px;
+  background: #fff1f0;
+  border: 1px solid #ffd7d4;
+  border-radius: 12px;
+  color: #b42318;
+  padding: 10px 12px;
+  font-size: 13px;
+}
+.tabbar {
+  position: fixed;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: max(12px, env(safe-area-inset-bottom));
+  width: min(402px, calc(100vw - 24px));
+  display: grid;
+  grid-template-columns: repeat(3,1fr);
+  gap: 8px;
+  padding: 8px;
+  border-radius: 14px;
+  background: #fff;
+  box-shadow: 0 8px 20px rgba(0,0,0,.12);
+}
+.tab { border: 0; background: transparent; border-radius: 10px; padding: 9px 0; color: #7e8793; font-weight: 600; }
+.tab.active { background: #f2f4f8; color: #151821; }
+.fab {
+  position: fixed;
+  right: calc((100vw - min(402px, calc(100vw - 24px))) / 2 + 10px);
+  bottom: calc(max(12px, env(safe-area-inset-bottom)) + 74px);
+  border: 0; width: 56px; height: 56px; border-radius: 50%;
+  background: radial-gradient(circle at 30% 30%, #70ffd9, #18deb0);
+  color: #fff; font-size: 34px; box-shadow: 0 8px 16px rgba(24, 222, 176, .45);
+}

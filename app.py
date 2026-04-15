@@ -1,5 +1,6 @@
 import logging
 import os
+import shutil
 import tempfile
 from pathlib import Path
 
@@ -17,7 +18,13 @@ if not os.environ.get("TENCLIP_VLM_MODEL", "").strip() and _LOCAL_VLM.is_dir():
     os.environ["TENCLIP_VLM_MODEL"] = str(_LOCAL_VLM)
 
 import gradio as gr
+import uvicorn
+from fastapi import FastAPI, File, Form, HTTPException, UploadFile
+from fastapi.responses import FileResponse, RedirectResponse
+from fastapi.staticfiles import StaticFiles
 from moviepy.video.io.VideoFileClip import VideoFileClip
+
+from pages.video_input.gradio_page import video_input_demo
 
 from services.vlm_tennis import (
     MAX_VIDEO_DURATION_SEC,
@@ -33,6 +40,51 @@ PERF_MAP = {
     "平衡": "balanced",
     "质量优先（显存充足）": "quality",
 }
+
+MOBILE_EVENTS = [
+    {
+        "id": "evt-101",
+        "title": "午间小团课【正手进阶】1号+2号场",
+        "timeText": "明天(周三)下午12点 · 1.5小时",
+        "locationText": "闵行区吴中路485号古北 · 室内 · 6.4km",
+        "joined": 1,
+        "capacity": 5,
+        "levelMin": 1.0,
+        "levelMax": 5.0,
+        "playType": "不限",
+        "distanceKm": 6.4,
+        "startTimestamp": 1765560000,
+        "hotScore": 98,
+    },
+    {
+        "id": "evt-102",
+        "title": "晨间2小时畅打【4号场】",
+        "timeText": "明天(周三)上午8点 · 2小时",
+        "locationText": "闵行区吴中路485号古北 · 室内 · 6.4km",
+        "joined": 1,
+        "capacity": 2,
+        "levelMin": 1.0,
+        "levelMax": 5.0,
+        "playType": "不限",
+        "distanceKm": 6.4,
+        "startTimestamp": 1765545600,
+        "hotScore": 88,
+    },
+    {
+        "id": "evt-103",
+        "title": "周日晚 OMC 5.0 双打比赛局",
+        "timeText": "本周日晚上8点 · 2小时",
+        "locationText": "徐汇区天钥桥路 · 室内 · 4.0km",
+        "joined": 2,
+        "capacity": 16,
+        "levelMin": 2.0,
+        "levelMax": 3.0,
+        "playType": "双打",
+        "distanceKm": 4.0,
+        "startTimestamp": 1765800000,
+        "hotScore": 76,
+    },
+]
 
 
 def _extract_video_path(video_file):
@@ -104,6 +156,13 @@ def run_tennis_analysis(video_file, perf_label, progress=gr.Progress()):
     return out
 
 
+def run_mobile_api_analysis(video_path: str, perf_mode: str) -> str:
+    hint = vlm_dependency_message()
+    if hint:
+        raise ValueError(hint)
+    return analyze_tennis_video(video_path, perf_mode)
+
+
 def _vlm_tab_intro():
     dep = vlm_dependency_message()
     base = (
@@ -140,7 +199,7 @@ with gr.Blocks(title="TenClip") as demo:
             trim_btn.click(trim_video, inputs=[trim_file, t_start, t_end], outputs=trim_out)
 
         with gr.Tab("网球动作分析（大模型）"):
-            tennis_intro = gr.Markdown(_vlm_tab_intro())
+            gr.Markdown(_vlm_tab_intro())
             with gr.Row():
                 tennis_file = gr.File(label="上传网球视频", file_types=[".mp4", ".mov", ".avi"])
                 perf = gr.Radio(
@@ -158,10 +217,65 @@ with gr.Blocks(title="TenClip") as demo:
                 "或在启动前设置环境变量 `TENCLIP_FORCE_CPU=1` 强制走 CPU（会慢很多）。"
             )
 
+
+def create_app() -> FastAPI:
+    api = FastAPI(title="TenClip API")
+
+    # 主 Gradio 若挂在 path="/"，会注册 Mount("/") 抢走所有子路径（含 /video_input），故主界面改挂 /gradio。
+    @api.get("/", include_in_schema=False)
+    def root_to_gradio():
+        return RedirectResponse(url="/gradio/", status_code=302)
+
+    @api.get("/api/mobile/events")
+    def mobile_events():
+        return {"events": MOBILE_EVENTS}
+
+    @api.post("/api/mobile/analyze-video")
+    async def mobile_analyze_video(video: UploadFile = File(...), perf_mode: str = Form("eco")):
+        suffix = Path(video.filename or "upload.mp4").suffix or ".mp4"
+        temp_path = Path(tempfile.NamedTemporaryFile(suffix=suffix, delete=False).name)
+        try:
+            with temp_path.open("wb") as out_file:
+                shutil.copyfileobj(video.file, out_file)
+            guidance = run_mobile_api_analysis(str(temp_path), perf_mode=perf_mode)
+            return {"guidance": guidance, "perf_mode": perf_mode}
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        except Exception as exc:
+            raise HTTPException(status_code=500, detail=f"分析失败: {exc}") from exc
+        finally:
+            try:
+                temp_path.unlink(missing_ok=True)
+            except Exception:
+                logging.exception("Failed to cleanup temp file: %s", temp_path)
+            await video.close()
+
+    front_page_dir = _REPO_ROOT / "pages" / "front_page"
+    if front_page_dir.exists():
+        # 独立 Web 入口（响应式：PC/手机皆可）；静态资源走独立前缀，避免与 Gradio 根路由冲突。
+        api.mount("/web-assets", StaticFiles(directory=str(front_page_dir)), name="web-assets")
+
+        @api.get("/web")
+        @api.get("/web/")
+        def web_home():
+            return FileResponse(front_page_dir / "index.html")
+
+        # 兼容旧地址：/mobile -> /web
+        @api.get("/mobile")
+        @api.get("/mobile/")
+        def mobile_home():
+            return FileResponse(front_page_dir / "index.html")
+
+    # 简单 H5（Gradio）：上传视频 + 指导意见，风格贴近 front_page（须在主界面 /gradio 之前注册，避免被吞）
+    gr.mount_gradio_app(api, video_input_demo, path="/video_input")
+
+    return gr.mount_gradio_app(api, demo, path="/gradio")
+
+
 def main() -> None:
     port = int(os.environ.get("GRADIO_SERVER_PORT", "7861"))
     host = os.environ.get("GRADIO_SERVER_NAME", "127.0.0.1")
-    demo.launch(server_name=host, server_port=port)
+    uvicorn.run(create_app(), host=host, port=port, log_level="info")
 
 
 if __name__ == "__main__":

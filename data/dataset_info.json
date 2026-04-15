@@ -2,7 +2,20 @@
   "mock_tennis_sft_10k": {
     "file_name": "mock_tennis_sft_10k.json"
   },
+  "mock_tennis_qwen2_vl_sft_10k": {
+    "file_name": "mock_tennis_sft_10k.json"
+  },
   "mock_tennis_dpo_10k": {
+    "file_name": "mock_tennis_dpo_10k.json",
+    "ranking": true,
+    "columns": {
+      "prompt": "instruction",
+      "query": "input",
+      "chosen": "chosen",
+      "rejected": "rejected"
+    }
+  },
+  "mock_tennis_qwen2_vl_dpo_10k": {
     "file_name": "mock_tennis_dpo_10k.json",
     "ranking": true,
     "columns": {
