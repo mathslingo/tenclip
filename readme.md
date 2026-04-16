@@ -241,7 +241,74 @@ conda activate tenclip
 llamafactory-cli train configs/train/qwen2_vl_2b_qlora_sft.yaml
 ```
 
-当前仓库提供的是文本 mock 数据（用于流程打通）。生产建议把样本升级为“**视频帧/图像 + 教练答复**”的多模态 SFT 数据，并保持 `template: qwen2_vl`。
+当前仓库已补一版**多模态 mock 数据流**（图像路径占位，用于先打通）：
+
+- 生成脚本：`scripts/generate_mock_vlm_datasets.py`
+- 生成文件：
+  - `data/mock_tennis_qwen2_vl_mm_sft_1k.json`
+  - `data/mock_tennis_qwen2_vl_mm_dpo_1k.json`
+- 数据注册：`data/dataset_info.json`
+- 多模态训练配置：
+  - `configs/train/qwen2_vl_2b_qlora_sft_mm.yaml`
+  - `configs/train/qwen2_vl_2b_lora_dpo_mm.yaml`
+
+先生成 mock 多模态数据：
+
+```bash
+conda activate tenclip
+python scripts/generate_mock_vlm_datasets.py --output-dir data --count 1000
+```
+
+再按数据里的 `images` 路径批量生成占位图（用于端到端冒烟）：
+
+```bash
+conda activate tenclip
+python scripts/materialize_mock_vlm_images.py --data-dir data --size 512
+```
+
+再跑多模态 SFT：
+
+```bash
+conda activate tenclip
+llamafactory-cli train configs/train/qwen2_vl_2b_qlora_sft_mm.yaml
+```
+
+> 注意：脚本默认写入 `mock_images/...` 的占位图像路径。真实训练时，请用你的视频抽帧路径替换，或把真实图片按该路径结构落盘。
+
+#### 用真实视频抽帧生成多模态数据（推荐）
+
+当你开始积累真实训练样本时，建议用与线上推理一致的抽帧策略来落盘图片，并把图片相对路径写入数据集。
+
+仓库提供脚本：`scripts/build_vlm_dataset_from_videos.py`  
+输入是一个 JSONL 清单（每行一个样本），最小字段示例（SFT）：
+
+```json
+{"id":"sft-0001","video_path":"/abs/path/a.mp4","instruction":"请基于图像序列分析正手稳定性","input":"场景：...","output":"..."}
+```
+
+DPO 样本示例：
+
+```json
+{"id":"dpo-0001","video_path":"/abs/path/a.mp4","instruction":"...","input":"...","chosen":"...","rejected":"..."}
+```
+
+生成 SFT 数据集（会把抽帧 jpg 写到 `data/vlm_images/<id>/frame_*.jpg`，并在数据里写入相对路径）。加 `--register-key` 会**自动写入** `data/dataset_info.json`（与 LLaMA-Factory 的 `dataset:` 名称一致）：
+
+```bash
+conda activate tenclip
+python scripts/build_vlm_dataset_from_videos.py --mode sft --manifest data/manifest_sft.jsonl --out data/tennis_vlm_sft.json --register-key tennis_vlm_sft
+```
+
+生成 DPO 数据集（同样可注册）：
+
+```bash
+conda activate tenclip
+python scripts/build_vlm_dataset_from_videos.py --mode dpo --manifest data/manifest_dpo.jsonl --out data/tennis_vlm_dpo.json --register-key tennis_vlm_dpo
+```
+
+可选：`--dataset-info path/to/dataset_info.json` 指定非默认的 dataset 注册文件。
+
+注册完成后，在训练 YAML 里把 `dataset:` 改成上述 key（例如 `tennis_vlm_sft`），并保持 `template: qwen2_vl`。
 
 ### 3) DPO（偏好优化）
 
@@ -256,6 +323,13 @@ llamafactory-cli train configs/train/qwen2_vl_2b_qlora_sft.yaml
 ```bash
 conda activate tenclip
 llamafactory-cli train configs/train/qwen2_vl_2b_lora_dpo.yaml
+```
+
+多模态 DPO 可用：
+
+```bash
+conda activate tenclip
+llamafactory-cli train configs/train/qwen2_vl_2b_lora_dpo_mm.yaml
 ```
 
 推荐流程：
