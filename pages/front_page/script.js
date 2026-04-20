@@ -11,8 +11,15 @@ const videoInput = document.getElementById("videoInput");
 const perfMode = document.getElementById("perfMode");
 const analyzeBtn = document.getElementById("analyzeBtn");
 const guidanceBox = document.getElementById("guidanceBox");
+const promptProfileRow = document.getElementById("promptProfileRow");
+const promptChips = promptProfileRow ? [...promptProfileRow.querySelectorAll(".prompt-chip")] : [];
 
 let state = { events: [], sort: "smart", keyword: "" };
+let selectedPromptProfile = "default";
+
+function getSelectedPromptProfile() {
+  return selectedPromptProfile;
+}
 
 function cardTemplate(item) {
   return `
@@ -86,6 +93,7 @@ async function analyzeVideo() {
   const formData = new FormData();
   formData.append("video", file);
   formData.append("perf_mode", perfMode.value);
+  formData.append("prompt_profile", getSelectedPromptProfile());
 
   try {
     const response = await fetch(`${API_BASE_URL}/api/mobile/analyze-video`, {
@@ -96,7 +104,9 @@ async function analyzeVideo() {
     if (!response.ok) {
       throw new Error(payload.detail || `分析失败 (${response.status})`);
     }
-    guidanceBox.value = payload.guidance || "分析完成，但没有返回文本。";
+    const text = payload.guidance || "分析完成，但没有返回文本。";
+    const prof = payload.prompt_profile ? `（提示词档位：${payload.prompt_profile}）` : "";
+    guidanceBox.value = prof ? `${text}\n\n${prof}` : text;
   } catch (error) {
     guidanceBox.value = "";
     showError(`视频分析失败：${error.message}`);
@@ -122,6 +132,14 @@ chips.forEach((chip) => {
     chip.classList.add("active");
     state.sort = chip.dataset.sort;
     render();
+  });
+});
+
+promptChips.forEach((chip) => {
+  chip.addEventListener("click", () => {
+    promptChips.forEach((v) => v.classList.remove("active"));
+    chip.classList.add("active");
+    selectedPromptProfile = chip.dataset.profile || "default";
   });
 });
 

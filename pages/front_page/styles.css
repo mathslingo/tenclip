@@ -62,6 +62,14 @@ h1 { margin: 0; font-size: 26px; }
   color: var(--sub);
   font-size: 13px;
 }
+.analyze-field-label {
+  margin: 0;
+  font-size: 13px;
+  color: var(--sub);
+}
+.prompt-profile-row {
+  margin: 0;
+}
 .analyze-controls {
   margin-top: 10px;
   display: grid;

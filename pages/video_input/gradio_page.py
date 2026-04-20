@@ -6,7 +6,12 @@ import os
 
 import gradio as gr
 
-from services.vlm_tennis import MAX_VIDEO_DURATION_SEC, analyze_tennis_video, vlm_dependency_message
+from services.vlm_tennis import (
+    MAX_VIDEO_DURATION_SEC,
+    analyze_tennis_video,
+    prompt_profile_radio_choices,
+    vlm_dependency_message,
+)
 
 PERF_MAP = {
     "省显存（弱显卡推荐）": "eco",
@@ -27,7 +32,7 @@ def _extract_video_path(video_file):
     return None
 
 
-def _run_analysis(video_file, perf_label, progress=gr.Progress()):
+def _run_analysis(video_file, perf_label, prompt_profile, progress=gr.Progress()):
     path = _extract_video_path(video_file)
     if not path:
         return "请先上传视频文件。"
@@ -37,9 +42,10 @@ def _run_analysis(video_file, perf_label, progress=gr.Progress()):
     if hint:
         return hint
     mode = PERF_MAP.get(perf_label, "eco")
+    pp = (prompt_profile or "").strip() or None
     progress(0.05, desc="检查视频与依赖…")
     progress(0.2, desc="抽帧 / 推理中…")
-    out = analyze_tennis_video(path, mode)
+    out = analyze_tennis_video(path, mode, prompt_profile=pp)
     progress(1.0, desc="完成")
     return out
 
@@ -96,6 +102,11 @@ with gr.Blocks(
             value="省显存（弱显卡推荐）",
             label="显存 / 质量",
         )
+        prompt_prof = gr.Radio(
+            choices=prompt_profile_radio_choices(),
+            value="default",
+            label="分析提示词（覆盖 TENCLIP_PROMPT_PROFILE）",
+        )
         submit = gr.Button("开始分析", variant="primary")
         guidance = gr.Textbox(
             label="指导意见",
@@ -103,4 +114,4 @@ with gr.Blocks(
             max_lines=24,
             placeholder="分析结果将显示在这里",
         )
-    submit.click(_run_analysis, inputs=[video, perf], outputs=guidance)
+    submit.click(_run_analysis, inputs=[video, perf, prompt_prof], outputs=guidance)

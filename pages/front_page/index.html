@@ -47,6 +47,13 @@
           <option value="balanced">平衡</option>
           <option value="quality">质量优先</option>
         </select>
+        <p class="analyze-field-label">分析提示词</p>
+        <div class="chip-row prompt-profile-row" id="promptProfileRow" role="group" aria-label="分析提示词">
+          <button type="button" class="chip prompt-chip active" data-profile="default">标准</button>
+          <button type="button" class="chip prompt-chip" data-profile="compact">精简</button>
+          <button type="button" class="chip prompt-chip" data-profile="step_by_step">分步</button>
+          <button type="button" class="chip prompt-chip" data-profile="motion_deep">深度</button>
+        </div>
         <button id="analyzeBtn" class="primary-btn">开始分析</button>
       </div>
       <label class="guidance-label" for="guidanceBox">指导意见</label>

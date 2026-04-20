@@ -154,20 +154,20 @@ export HTTP_PROXY=http://127.0.0.1:7890
 完整说明见 `env.example`。
 
 
-| 变量                                          | 含义                                             | 默认                          |
-| ------------------------------------------- | ---------------------------------------------- | --------------------------- |
-| `TENCLIP_VLM_MODEL`                         | 本地模型目录，或远程 ID（用于首次下载）                          | `Qwen/Qwen2-VL-2B-Instruct` |
-| `TENCLIP_MODEL_DOWNLOAD_SOURCE`             | `modelscope` / `huggingface`                   | `modelscope`                |
-| `HF_ENDPOINT`                               | HF Hub 镜像根 URL，如 `https://hf-mirror.com`       | 未设置（官方 hub）                 |
-| `TENCLIP_HF_ENDPOINT`                       | 与 `HF_ENDPOINT` 同义；未设 `HF_ENDPOINT` 时生效        | 未设置                         |
-| `HTTP_PROXY` / `HTTPS_PROXY`                | 下载走系统代理                                        | 未设置                         |
-| `TENCLIP_INFER_BACKEND`                     | `auto` / `llamafactory` / `transformers`       | `auto`                      |
-| `TENCLIP_PROMPT_PROFILE`                    | 推理提示词档位：`default` / `compact` / `step_by_step` | `default`                   |
-| `TENCLIP_PROMPT_APPEND`                     | 追加到系统提示词末尾的额外要求（用于快速试验）                        | 未设置                         |
-| `MODELSCOPE_CACHE`                          | ModelScope 缓存目录                                | 系统默认                        |
-| `TENCLIP_MAX_VIDEO_SEC`                     | 分析时长上限（秒）                                      | `300`                       |
-| `TENCLIP_FORCE_CPU`                         | 强制走 CPU                                        | 未设置                         |
-| `GRADIO_SERVER_NAME` / `GRADIO_SERVER_PORT` | 监听地址与端口                                        | `127.0.0.1` / `7860`        |
+| 变量                                          | 含义                                                                        | 默认                          |
+| ------------------------------------------- | ------------------------------------------------------------------------- | --------------------------- |
+| `TENCLIP_VLM_MODEL`                         | 本地模型目录，或远程 ID（用于首次下载）                                                     | `Qwen/Qwen2-VL-2B-Instruct` |
+| `TENCLIP_MODEL_DOWNLOAD_SOURCE`             | `modelscope` / `huggingface`                                              | `modelscope`                |
+| `HF_ENDPOINT`                               | HF Hub 镜像根 URL，如 `https://hf-mirror.com`                                  | 未设置（官方 hub）                 |
+| `TENCLIP_HF_ENDPOINT`                       | 与 `HF_ENDPOINT` 同义；未设 `HF_ENDPOINT` 时生效                                   | 未设置                         |
+| `HTTP_PROXY` / `HTTPS_PROXY`                | 下载走系统代理                                                                   | 未设置                         |
+| `TENCLIP_INFER_BACKEND`                     | `auto` / `llamafactory` / `transformers`                                  | `auto`                      |
+| `TENCLIP_PROMPT_PROFILE`                    | 推理提示词档位：`default` / `compact` / `step_by_step` / `motion_deep`（深度动作分析，偏长） | `default`                   |
+| `TENCLIP_PROMPT_APPEND`                     | 追加到系统提示词末尾的额外要求（用于快速试验）                                                   | 未设置                         |
+| `MODELSCOPE_CACHE`                          | ModelScope 缓存目录                                                           | 系统默认                        |
+| `TENCLIP_MAX_VIDEO_SEC`                     | 分析时长上限（秒）                                                                 | `300`                       |
+| `TENCLIP_FORCE_CPU`                         | 强制走 CPU                                                                   | 未设置                         |
+| `GRADIO_SERVER_NAME` / `GRADIO_SERVER_PORT` | 监听地址与端口                                                                   | `127.0.0.1` / `7860`        |
 
 
 ---
@@ -193,7 +193,7 @@ export HTTP_PROXY=http://127.0.0.1:7890
 ## 使用说明
 
 1. **视频剪辑**：上传 → 起止秒数 → 下载。
-2. **网球动作分析**：上传 → 显存模式 → **开始分析**。
+2. **网球动作分析**：上传 → 显存模式 → **可选提示词档位**（主站 Gradio「分析提示词」Radio，或 Mobile 静态页上的 chip）→ **开始分析**。界面/API 传入的档位会**覆盖**环境变量 `TENCLIP_PROMPT_PROFILE`（未选或未传时仍用环境变量默认）。
 
 可选：复制 `env.example` 为 `.env`（需 `python-dotenv`，已在 `requirements.txt`）。
 
@@ -212,7 +212,12 @@ export HTTP_PROXY=http://127.0.0.1:7890
   - `default`：当前通用教练风格
   - `compact`：短答 + 清单
   - `step_by_step`：按“观察-机制-纠正步骤-拍摄建议”结构输出
-- 可通过环境变量切换：
+  - `motion_deep`：**深度动作分析**（时间分段、证据绑定到帧序、机制解释、7 日训练处方；面向近年 Video-LLM 论文里强调的**时间诚实/反幻觉**写法）
+- **ArXiv 相关工作提要（Video-LLM / 时序与幻觉）**：工程上常用的「帧序证据绑定、显式不确定性」与近年论文结论方向一致，便于把 `motion_deep` 的设计放在文献脉络里理解（非穷举）：
+  - **VidHalluc**（[arXiv:2412.03735](https://arxiv.org/abs/2412.03735)）：构建评测集衡量视频中**动作、时序、场景转换**等维度的幻觉，说明稀疏采样或弱对齐下模型容易编造未发生片段。
+  - **Grounded-VideoLLM**（[arXiv:2410.03290](https://arxiv.org/abs/2410.03290)）：通过更细的时间表示与跨帧关系建模，强化**细粒度 temporal grounding**。
+  - **Relaxing Anchor-Frame Dominance for Mitigating Hallucinations in Video LLMs**（[arXiv:2604.12582](https://arxiv.org/abs/2604.12582)）：分析 decoder 对少数「锚帧」过度注意与幻觉的关系，并提出**无额外训练**的证据再平衡思路。
+- 切换方式：**Gradio 主站 / `pages/video_input` 页的「分析提示词」Radio**，或 **Mobile 静态页**上分析卡片内的 chip；**REST** `POST /api/mobile/analyze-video` 表单字段 `prompt_profile`（与上述 key 一致）。以上均优先于环境变量；仍可用 `.env` 设全局默认：
 
 ```bash
 export TENCLIP_PROMPT_PROFILE=step_by_step

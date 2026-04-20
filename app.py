@@ -29,6 +29,8 @@ from pages.video_input.gradio_page import video_input_demo
 from services.vlm_tennis import (
     MAX_VIDEO_DURATION_SEC,
     analyze_tennis_video,
+    prompt_profile_radio_choices,
+    resolve_prompt_profile,
     vlm_dependency_message,
 )
 
@@ -141,7 +143,7 @@ def trim_video(video_file, start_time, end_time):
             clip.close()
 
 
-def run_tennis_analysis(video_file, perf_label, progress=gr.Progress()):
+def run_tennis_analysis(video_file, perf_label, prompt_profile, progress=gr.Progress()):
     path = _extract_video_path(video_file)
     if not path:
         return "请先上传视频文件。"
@@ -149,18 +151,20 @@ def run_tennis_analysis(video_file, perf_label, progress=gr.Progress()):
     if hint:
         return hint
     mode = PERF_MAP.get(perf_label, "eco")
+    pp = (prompt_profile or "").strip() or None
     progress(0.05, desc="检查视频与依赖…")
     progress(0.15, desc="抽帧 / 加载模型（首次会下载权重，请耐心等待）…")
-    out = analyze_tennis_video(path, mode)
+    out = analyze_tennis_video(path, mode, prompt_profile=pp)
     progress(1.0, desc="完成")
     return out
 
 
-def run_mobile_api_analysis(video_path: str, perf_mode: str) -> str:
+def run_mobile_api_analysis(video_path: str, perf_mode: str, prompt_profile: str | None = None) -> str:
     hint = vlm_dependency_message()
     if hint:
         raise ValueError(hint)
-    return analyze_tennis_video(video_path, perf_mode)
+    pp = (prompt_profile or "").strip() or None
+    return analyze_tennis_video(video_path, perf_mode, prompt_profile=pp)
 
 
 def _vlm_tab_intro():
@@ -207,10 +211,19 @@ with gr.Blocks(title="TenClip") as demo:
                     value="省显存（弱显卡推荐）",
                     label="显存 / 质量模式",
                 )
+            prompt_prof = gr.Radio(
+                choices=prompt_profile_radio_choices(),
+                value="default",
+                label="分析提示词（可覆盖环境变量 TENCLIP_PROMPT_PROFILE）",
+            )
             tennis_btn = gr.Button("开始分析", variant="primary")
             tennis_out = gr.Markdown()
 
-            tennis_btn.click(run_tennis_analysis, inputs=[tennis_file, perf], outputs=tennis_out)
+            tennis_btn.click(
+                run_tennis_analysis,
+                inputs=[tennis_file, perf, prompt_prof],
+                outputs=tennis_out,
+            )
 
             gr.Markdown(
                 "**弱显卡建议**：保持「省显存」；若仍 OOM，可先剪辑更短片段，"
@@ -231,14 +244,25 @@ def create_app() -> FastAPI:
         return {"events": MOBILE_EVENTS}
 
     @api.post("/api/mobile/analyze-video")
-    async def mobile_analyze_video(video: UploadFile = File(...), perf_mode: str = Form("eco")):
+    async def mobile_analyze_video(
+        video: UploadFile = File(...),
+        perf_mode: str = Form("eco"),
+        prompt_profile: str = Form(""),
+    ):
         suffix = Path(video.filename or "upload.mp4").suffix or ".mp4"
         temp_path = Path(tempfile.NamedTemporaryFile(suffix=suffix, delete=False).name)
         try:
             with temp_path.open("wb") as out_file:
                 shutil.copyfileobj(video.file, out_file)
-            guidance = run_mobile_api_analysis(str(temp_path), perf_mode=perf_mode)
-            return {"guidance": guidance, "perf_mode": perf_mode}
+            pp = prompt_profile.strip() or None
+            guidance = run_mobile_api_analysis(
+                str(temp_path), perf_mode=perf_mode, prompt_profile=pp
+            )
+            return {
+                "guidance": guidance,
+                "perf_mode": perf_mode,
+                "prompt_profile": resolve_prompt_profile(pp),
+            }
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
         except Exception as exc:
