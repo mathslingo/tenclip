@@ -10,7 +10,7 @@ const chips = [...document.querySelectorAll(".chip")];
 const videoInput = document.getElementById("videoInput");
 const perfMode = document.getElementById("perfMode");
 const analyzeBtn = document.getElementById("analyzeBtn");
-const guidanceBox = document.getElementById("guidanceBox");
+const guidanceBody = document.getElementById("guidanceBody");
 const promptProfileRow = document.getElementById("promptProfileRow");
 const promptChips = promptProfileRow ? [...promptProfileRow.querySelectorAll(".prompt-chip")] : [];
 
@@ -19,6 +19,48 @@ let selectedPromptProfile = "default";
 
 function getSelectedPromptProfile() {
   return selectedPromptProfile;
+}
+
+function escapeHtml(s) {
+  return String(s)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+/** 与后端 `format_guidance_markdown` 一致：元信息 + --- + 正文 */
+function splitGuidanceRaw(raw) {
+  const sep = "\n\n---\n\n";
+  const idx = raw.indexOf(sep);
+  if (idx === -1) return { meta: "", body: raw.trim() };
+  return { meta: raw.slice(0, idx).trim(), body: raw.slice(idx + sep.length).trim() };
+}
+
+function setGuidancePlain(message) {
+  if (!guidanceBody) return;
+  guidanceBody.textContent = message;
+}
+
+function renderGuidance(raw) {
+  if (!guidanceBody) return;
+  const text = String(raw || "").trim();
+  if (!text) {
+    guidanceBody.innerHTML = "";
+    return;
+  }
+  const { meta, body } = splitGuidanceRaw(text);
+  const displayBody = body || "（模型未返回正文）";
+  const md = typeof marked !== "undefined" && typeof marked.parse === "function";
+  const articleHtml = md
+    ? `<article class="guidance-md">${marked.parse(displayBody, { breaks: true })}</article>`
+    : `<pre class="guidance-plain">${escapeHtml(displayBody)}</pre>`;
+  const runinfo = meta
+    ? `<details class="guidance-runinfo"><summary>运行环境与参数</summary><pre class="guidance-runinfo-pre">${escapeHtml(
+        meta
+      )}</pre></details>`
+    : "";
+  guidanceBody.innerHTML = `<h2 class="guidance-heading">指导意见</h2>${articleHtml}${runinfo}`;
 }
 
 function cardTemplate(item) {
@@ -81,14 +123,14 @@ async function fetchEvents() {
 async function analyzeVideo() {
   const file = videoInput.files?.[0];
   if (!file) {
-    guidanceBox.value = "请先选择一个视频文件。";
+    setGuidancePlain("请先选择一个视频文件。");
     return;
   }
 
   clearError();
   analyzeBtn.disabled = true;
   analyzeBtn.textContent = "分析中...";
-  guidanceBox.value = "正在上传并分析，请稍候...";
+  setGuidancePlain("正在上传并分析，请稍候...");
 
   const formData = new FormData();
   formData.append("video", file);
@@ -104,11 +146,13 @@ async function analyzeVideo() {
     if (!response.ok) {
       throw new Error(payload.detail || `分析失败 (${response.status})`);
     }
-    const text = payload.guidance || "分析完成，但没有返回文本。";
-    const prof = payload.prompt_profile ? `（提示词档位：${payload.prompt_profile}）` : "";
-    guidanceBox.value = prof ? `${text}\n\n${prof}` : text;
+    let text = payload.guidance || "分析完成，但没有返回文本。";
+    if (payload.prompt_profile) {
+      text += `\n\n*本次提示词档位：\`${payload.prompt_profile}\`。*`;
+    }
+    renderGuidance(text);
   } catch (error) {
-    guidanceBox.value = "";
+    setGuidancePlain("");
     showError(`视频分析失败：${error.message}`);
   } finally {
     analyzeBtn.disabled = false;

@@ -29,6 +29,7 @@ from pages.video_input.gradio_page import video_input_demo
 from services.vlm_tennis import (
     MAX_VIDEO_DURATION_SEC,
     analyze_tennis_video,
+    format_guidance_markdown,
     prompt_profile_radio_choices,
     resolve_prompt_profile,
     vlm_dependency_message,
@@ -156,7 +157,7 @@ def run_tennis_analysis(video_file, perf_label, prompt_profile, progress=gr.Prog
     progress(0.15, desc="抽帧 / 加载模型（首次会下载权重，请耐心等待）…")
     out = analyze_tennis_video(path, mode, prompt_profile=pp)
     progress(1.0, desc="完成")
-    return out
+    return format_guidance_markdown(out)
 
 
 def run_mobile_api_analysis(video_path: str, perf_mode: str, prompt_profile: str | None = None) -> str:
@@ -187,7 +188,35 @@ def _vlm_tab_intro():
     return base + "\n依赖已就绪，可直接点击「开始分析」。\n"
 
 
-with gr.Blocks(title="TenClip") as demo:
+TENNIS_GUIDANCE_CSS = """
+#tennis-guidance {
+  font-size: 0.95rem;
+  line-height: 1.55;
+  color: #1a1f26;
+  text-align: left;
+}
+#tennis-guidance h2 { margin: 0 0 0.5em; font-size: 1.12rem; color: #0d3d32; border-bottom: 1px solid #e5ebe9; padding-bottom: 0.35em; }
+#tennis-guidance h3, #tennis-guidance h4 { margin: 0.85em 0 0.35em; font-size: 1.02rem; color: #243240; }
+#tennis-guidance p { margin: 0.45em 0; }
+#tennis-guidance ul, #tennis-guidance ol { margin: 0.35em 0 0.55em; padding-left: 1.35em; }
+#tennis-guidance li { margin: 0.22em 0; }
+#tennis-guidance pre {
+  background: #f4f6f9;
+  border: 1px solid #e5e9f0;
+  border-radius: 10px;
+  padding: 10px 12px;
+  overflow-x: auto;
+  font-size: 0.8rem;
+  line-height: 1.45;
+}
+#tennis-guidance details { margin-top: 1rem; border-radius: 12px; border: 1px solid #e5e9f0; padding: 8px 10px; background: #fafbfc; }
+#tennis-guidance summary { cursor: pointer; font-size: 0.9rem; color: #415360; }
+#tennis-guidance hr { border: 0; border-top: 1px solid #e8ecf1; margin: 1em 0; }
+#tennis-guidance code { background: #eef2f6; padding: 0.12em 0.35em; border-radius: 4px; font-size: 0.88em; }
+"""
+
+
+with gr.Blocks(title="TenClip", css=TENNIS_GUIDANCE_CSS) as demo:
     gr.Markdown("# TenClip：网球视频剪辑与动作分析")
 
     with gr.Tabs():
@@ -217,7 +246,9 @@ with gr.Blocks(title="TenClip") as demo:
                 label="分析提示词版本",
             )
             tennis_btn = gr.Button("开始分析", variant="primary")
-            tennis_out = gr.Markdown()
+            tennis_out = gr.Markdown(
+                elem_id="tennis-guidance",
+            )
 
             tennis_btn.click(
                 run_tennis_analysis,

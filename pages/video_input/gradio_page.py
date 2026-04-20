@@ -9,6 +9,7 @@ import gradio as gr
 from services.vlm_tennis import (
     MAX_VIDEO_DURATION_SEC,
     analyze_tennis_video,
+    format_guidance_markdown,
     prompt_profile_radio_choices,
     vlm_dependency_message,
 )
@@ -47,12 +48,12 @@ def _run_analysis(video_file, perf_label, prompt_profile, progress=gr.Progress()
     progress(0.2, desc="抽帧 / 推理中…")
     out = analyze_tennis_video(path, mode, prompt_profile=pp)
     progress(1.0, desc="完成")
-    return out
+    return format_guidance_markdown(out)
 
 
 # 与 pages/front_page 一致的浅灰底 + 薄荷绿主色（覆盖 Gradio 默认）
 VIDEO_INPUT_CSS = """
-.gradio-container { max-width: min(100%, 520px) !important; margin-left: auto !important; margin-right: auto !important; }
+.gradio-container { max-width: min(100%, 640px) !important; margin-left: auto !important; margin-right: auto !important; }
 .gradio-app { background: #f2f3f5 !important; }
 #vi-hero {
   background: linear-gradient(145deg, #baf5e8, #d4fff4);
@@ -77,6 +78,31 @@ button.primary {
 textarea, .scroll-hide {
   border-radius: 10px !important;
 }
+#vi-guidance {
+  font-size: 0.92rem;
+  line-height: 1.55;
+  color: #1a1f26;
+  text-align: left;
+}
+#vi-guidance h2 { margin: 0 0 0.5em; font-size: 1.1rem; color: #0d3d32; border-bottom: 1px solid #e5ebe9; padding-bottom: 0.35em; }
+#vi-guidance h3, #vi-guidance h4 { margin: 0.85em 0 0.35em; font-size: 1rem; color: #243240; }
+#vi-guidance p { margin: 0.4em 0; }
+#vi-guidance ul, #vi-guidance ol { margin: 0.35em 0 0.5em; padding-left: 1.35em; }
+#vi-guidance li { margin: 0.2em 0; }
+#vi-guidance pre {
+  background: #f4f6f9;
+  border: 1px solid #e5e9f0;
+  border-radius: 10px;
+  padding: 10px 12px;
+  overflow-x: auto;
+  font-size: 0.78rem;
+  line-height: 1.45;
+}
+#vi-guidance details { margin-top: 1rem; border-radius: 12px; border: 1px solid #e5e9f0; padding: 8px 10px; background: #fafbfc; }
+#vi-guidance summary { cursor: pointer; font-size: 0.88rem; color: #415360; }
+#vi-guidance hr { border: 0; border-top: 1px solid #e8ecf1; margin: 1em 0; }
+#vi-guidance code { background: #eef2f6; padding: 0.12em 0.35em; border-radius: 4px; font-size: 0.88em; }
+#vi-guidance blockquote { margin: 0.5em 0; padding-left: 0.75em; border-left: 3px solid #13d8a8; color: #4a5568; }
 """
 
 with gr.Blocks(
@@ -105,13 +131,12 @@ with gr.Blocks(
         prompt_prof = gr.Radio(
             choices=prompt_profile_radio_choices(),
             value="default",
-            label="分析提示词（覆盖 TENCLIP_PROMPT_PROFILE）",
+            label="分析提示词",
         )
         submit = gr.Button("开始分析", variant="primary")
-        guidance = gr.Textbox(
+        guidance = gr.Markdown(
+            value="*上传视频并点击「开始分析」后，此处显示格式化的指导意见。*",
             label="指导意见",
-            lines=14,
-            max_lines=24,
-            placeholder="分析结果将显示在这里",
+            elem_id="vi-guidance",
         )
     submit.click(_run_analysis, inputs=[video, perf, prompt_prof], outputs=guidance)

@@ -96,22 +96,55 @@ h1 { margin: 0; font-size: 26px; }
 .primary-btn:disabled {
   opacity: .6;
 }
-.guidance-label {
-  display: block;
+.guidance-panel {
   margin-top: 10px;
-  margin-bottom: 6px;
-  font-size: 13px;
-  color: #586172;
-}
-#guidanceBox {
   width: 100%;
   border: 1px solid #e5e9f0;
-  border-radius: 10px;
-  padding: 10px;
-  font-size: 14px;
-  resize: vertical;
+  border-radius: 12px;
+  padding: 12px 12px 14px;
   background: #fbfcfe;
+  min-height: 120px;
+  max-height: min(55vh, 420px);
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
 }
+.guidance-body { font-size: 14px; line-height: 1.55; color: var(--text); text-align: left; }
+.guidance-body .guidance-heading {
+  margin: 0 0 10px;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #0d3d32;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #e5ebe9;
+}
+.guidance-md h3, .guidance-md h4 { margin: 12px 0 6px; font-size: 0.98rem; color: #243240; }
+.guidance-md p { margin: 6px 0; }
+.guidance-md ul, .guidance-md ol { margin: 6px 0 8px; padding-left: 1.25em; }
+.guidance-md li { margin: 4px 0; }
+.guidance-md code { background: #eef2f6; padding: 0.1em 0.3em; border-radius: 4px; font-size: 0.9em; }
+.guidance-md hr { border: 0; border-top: 1px solid #e8ecf1; margin: 12px 0; }
+.guidance-plain {
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+  color: #374152;
+}
+.guidance-runinfo { margin-top: 14px; border-radius: 10px; border: 1px solid #e5e9f0; padding: 8px 10px; background: #fff; }
+.guidance-runinfo summary { cursor: pointer; font-size: 13px; color: #586172; font-weight: 600; }
+.guidance-runinfo-pre {
+  margin: 8px 0 0;
+  padding: 8px;
+  background: #f4f6f9;
+  border-radius: 8px;
+  font-size: 11px;
+  line-height: 1.45;
+  overflow-x: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.guidance-footnote { margin-top: 10px; font-size: 12px; color: var(--sub); }
 
 .list { margin-top: 10px; display: grid; gap: 10px; }
 .card {

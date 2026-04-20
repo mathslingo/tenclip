@@ -516,3 +516,31 @@ def analyze_tennis_video(video_path: str, mode: Mode = "eco", prompt_profile: st
         max_side,
         prompt_profile_override=prompt_profile,
     )
+
+
+_GUIDANCE_META_SEP = "\n\n---\n\n"
+
+
+def format_guidance_markdown(raw: str) -> str:
+    """
+    将 `analyze_tennis_video` 返回的「元信息 + --- + Markdown 正文」整理为更易读的 Markdown，
+    供 Gradio `Markdown` 等组件渲染：正文在上，运行参数默认折叠在下方。
+    """
+    if not raw:
+        return ""
+    text = raw.strip()
+    if _GUIDANCE_META_SEP not in text:
+        return text
+    meta, body = text.split(_GUIDANCE_META_SEP, 1)
+    meta = meta.strip()
+    body = body.strip()
+    if not body:
+        body = "（模型未返回正文）"
+    # 避免 meta 内出现 ``` 破坏外层围栏
+    safe_meta = meta.replace("```", "``\u200b`")
+    return (
+        "## 指导意见\n\n"
+        f"{body}\n\n"
+        "<details><summary><strong>运行环境与参数</strong>（点击展开）</summary>\n\n"
+        f"```text\n{safe_meta}\n```\n\n</details>"
+    )
