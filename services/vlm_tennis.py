@@ -23,10 +23,25 @@ MAX_VIDEO_DURATION_SEC = float(os.environ.get("TENCLIP_MAX_VIDEO_SEC", "300"))
 Mode = Literal["eco", "balanced", "quality"]
 
 PRESETS: Dict[Mode, Dict[str, int]] = {
-    "eco": {"num_frames": 4, "max_side": 384, "max_new_tokens": 384},
-    "balanced": {"num_frames": 6, "max_side": 448, "max_new_tokens": 512},
-    "quality": {"num_frames": 8, "max_side": 512, "max_new_tokens": 640},
+    # max_new_tokens：解码上限；过小会在中文长回答中途被截断（表现为句子突然结束）。
+    "eco": {"num_frames": 4, "max_side": 384, "max_new_tokens": 1024},
+    "balanced": {"num_frames": 6, "max_side": 448, "max_new_tokens": 1536},
+    "quality": {"num_frames": 8, "max_side": 512, "max_new_tokens": 2048},
 }
+
+
+def effective_max_new_tokens(mode: Mode) -> int:
+    """各 perf 模式的默认 max_new_tokens；可由 `TENCLIP_MAX_NEW_TOKENS` 覆盖（整数，建议 512–4096）。"""
+    raw = os.environ.get("TENCLIP_MAX_NEW_TOKENS", "").strip()
+    if raw:
+        try:
+            n = int(raw)
+            return max(128, min(n, 8192))
+        except ValueError:
+            logger.warning("TENCLIP_MAX_NEW_TOKENS 无效，忽略: %r", raw)
+    preset = PRESETS.get(mode, PRESETS["eco"])
+    return int(preset["max_new_tokens"])
+
 
 _MODEL = None
 _PROCESSOR = None
@@ -63,46 +78,39 @@ PROMPT_PROFILES: Dict[str, str] = {
 2) **时间诚实**：不要声称采样间隔内发生的动作；可写“从 Fi 到 Fj 的姿态变化推断可能发生了…”并标注为**推测**。
 3) **主体识别**：若画面多人，先说明分析对象（例如离镜头最近、持拍手清晰者），否则默认分析最像主要练习者的人。
 4) **输出语言**：中文；可用 Markdown 标题与小节；避免空泛形容词堆砌。
+5) **去冗余（极重要）**：禁止用同一模板句反复排比（例如连续多句「我的左/右…准备挥拍」或「XX弯曲，准备挥拍」）；禁止对左右肢体对称式逐关节机械罗列——**同类信息合并为一条概括**；全篇句式要有变化；任一小节若要点超过 **12 条** 必须停笔并改为**一段不超过 6 句的概括**。
+6) **叙述视角**：用第三人称或「可见/画面中」客观描述；**不要**用第一人称扮演运动员讲故事。
 
-## 分析框架（尽量全面、相对深入）
+## 分析框架（在信息够用的前提下尽量具体；帧少时宁可短、准、合并写）
 请按下面结构输出（小节标题保持一致）：
 
 ### 1) 任务与输入约束复述
-- 用 2-4 句说明：你在做什么、关键帧采样意味着什么、哪些结论做不到。
+- **仅 2～3 句**：说明你在做「基于稀疏关键帧的网球动作点评」、采样意味着什么、哪些结论做不到。
+- **禁止**在本节展开具体动作描写或逐帧叙述（那些放在第 2 节）。
 
 ### 2) 逐段时序观察（按 F1→Fn）
-- 将帧序列划分为 2-4 个“时间段”（例如早期准备/引拍-挥拍过渡/随挥-还原），每段用要点描述**可见的身体部位与空间关系**（站位、躯干朝向、肩髋分离、手臂轨迹、拍面大致指向、重心、脚步类型如分腿垫步/交叉步等）。
-- 每段至少给出 1 条“**可核对的视觉证据**”（你看到了什么）。
+- 将帧序列划分为 **2～3 个**时间段（帧很少时只用 **2 段**）；每段 **≤4 条**要点，每条一行、信息不重复。
+- 每段写清：站位/躯干与髋肩关系/手臂与拍面大致走向/脚步或重心线索里**最关键的一两点**即可，附带 1 条可核对证据（Fi~Fj）。
+- **禁止**逐帧、逐关节、左右镜像式刷屏列举。
 
 ### 3) 动作分解与动力链（网球专项）
-从以下维度做点评（没有足够证据就写“不足以判断”）：
-- **准备与读球**：分腿垫步/启动时机、预判与站位是否合理
-- **转体与肩髋分离**：是否形成有效“线圈/链条”
-- **引拍与拍面管理**：引拍幅度、拍面稳定性、是否存在“甩臂”代偿
-- **击球区与接触点**：是否偏前/偏侧/偏高（仅在有线索时）
-- **随挥与减速**：随挥是否完整、是否有助于控球与肩部负荷
-- **还原与衔接**：回位路线、下一拍准备
+用 **≤6 条**短要点覆盖下列维度（无证据则写「不足以判断」一条带过，不要硬写）：
+准备与读球｜转体与肩髋分离｜引拍与拍面｜击球区（有线索才写）｜随挥与还原。
 
 ### 4) 机制层解释（为什么会这样）
-给出 2-5 条“**可能机制**”，每条格式为：
-- 现象 → 可能原因（标注：证据充分 / 推测）→ 对回合稳定性的影响
+**2～4 条**即可，每条一行，格式：现象 → 可能原因（证据充分/推测）→ 对稳定性的影响。
 
 ### 5) 风险与优先级（P0/P1/P2）
-- 列出最多 5 个风险点，按 P0（最优先）排序；每条说明**为什么是 P0** 与**可观察线索**。
+**最多 4 条**，每条 1～2 句，含可观察线索。
 
-### 6) 训练处方（7 天可执行）
-给出 **7 天** 计划（每天 20-40 分钟即可），每天包含：
-- 目标（1 句）
-- 2-3 个具体练习（名称 + 组数/时长 + 成功标准）
-- 自我检查问题（2 个）
-要求：练习必须能在常见业余条件下完成（半场/墙/影子挥拍均可）。
+### 6) 训练处方（可执行）
+给出 **5 天**即可（每天 20–35 分钟）；每天：**目标 1 句 + 练习 2 条（名称+组数/时长+成功标准）+ 自我检查 1 问**。不要复制粘贴多天相同内容。
 
 ### 7) 复盘与下次拍摄建议
-- **复盘**：建议用手机录什么角度、回看时重点看哪 3 个时间点/身体部位
-- **拍摄**：机位、距离、帧率/快门建议（避免只给空话）
+- 各 **≤3 条**要点：复盘看什么角度、拍摄机位/距离/帧率建议。
 
 ### 8) 不确定性与信息需求
-列出你希望再补充哪些信息才能更确定（例如：更侧面机位、更高帧率、全身入镜、连续慢动作等）。
+**≤5 条** bullet，说明还需哪些画面信息才能更确定。
 
 开始分析。""",
 }
@@ -306,7 +314,8 @@ def _analyze_llamafactory(
         f"权重: {_model_source_label(local_dir)} → `{local_dir}`\n"
         f"Prompt profile: {prompt_profile}\n"
         f"模式={mode}，采样 {len(images)} 帧，最长边约 ≤{max_side}px，"
-        f"分析时长约 {analyzed_duration:.1f}s（上限 {int(MAX_VIDEO_DURATION_SEC)}s）。\n"
+        f"分析时长约 {analyzed_duration:.1f}s（上限 {int(MAX_VIDEO_DURATION_SEC)}s），"
+        f"解码 token 上限 max_new_tokens={max_new_tokens}。\n"
         f"默认远程模型 ID（未指定本地目录时）: {default_remote_model_id()}\n\n---\n\n"
     )
     return header + reply.strip()
@@ -408,7 +417,8 @@ def _analyze_transformers(
         f"权重: {_model_source_label(local_dir)} → `{local_dir}`\n"
         f"Prompt profile: {prompt_profile}\n"
         f"模式={mode}，采样 {len(images)} 帧，最长边约 ≤{max_side}px，"
-        f"分析时长约 {analyzed_duration:.1f}s（上限 {int(MAX_VIDEO_DURATION_SEC)}s）。\n"
+        f"分析时长约 {analyzed_duration:.1f}s（上限 {int(MAX_VIDEO_DURATION_SEC)}s），"
+        f"解码 token 上限 max_new_tokens={max_new_tokens}。\n"
         f"默认远程模型 ID（未指定本地目录时）: {default_remote_model_id()}\n\n---\n\n"
     )
 
@@ -443,7 +453,7 @@ def analyze_tennis_video(video_path: str, mode: Mode = "eco", prompt_profile: st
     preset = PRESETS.get(mode, PRESETS["eco"])
     num_frames = preset["num_frames"]
     max_side = preset["max_side"]
-    max_new_tokens = preset["max_new_tokens"]
+    max_new_tokens = effective_max_new_tokens(mode)
 
     probe = VideoFileClip(video_path)
     try:

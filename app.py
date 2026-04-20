@@ -214,7 +214,7 @@ with gr.Blocks(title="TenClip") as demo:
             prompt_prof = gr.Radio(
                 choices=prompt_profile_radio_choices(),
                 value="default",
-                label="分析提示词（可覆盖环境变量 TENCLIP_PROMPT_PROFILE）",
+                label="分析提示词版本",
             )
             tennis_btn = gr.Button("开始分析", variant="primary")
             tennis_out = gr.Markdown()
