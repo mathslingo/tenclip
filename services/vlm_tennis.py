@@ -8,6 +8,7 @@
 
 from __future__ import annotations
 
+import importlib.util
 import logging
 import os
 from typing import Any, Dict, List, Literal, Tuple
@@ -70,6 +71,51 @@ PROMPT_PROFILES: Dict[str, str] = {
 4. 进一步给出可执行纠正步骤；
 5. 下一次拍摄建议（机位/距离/帧率）。
 请用中文，采用markdown格式。""",
+    "step_by_step_v2": """你是网球动作分析助手。输入是同一段视频按时间顺序采样的关键帧 F1→F2→...→Fn（非连续视频）。
+你的目标是：在不编造细节的前提下，给出“证据驱动 + 限额深度”的分析。
+
+## 总规则（必须遵守）
+1) 所有判断先有证据：先列观察证据，再给结论；没有证据就写“未知/不足以判断”。
+2) 禁止重复模板句和左右镜像罗列；同类信息必须合并。
+3) 不使用第一人称叙事，不写“我在挥拍”；使用客观第三人称。
+4) 帧间不可见动作只能写“推测”，且必须带上依据。
+5) 任何小节超过限定条数时，自动压缩，不要凑字数。
+
+## 输出采用“双阶段”结构（标题固定）
+
+### 阶段A：证据提取（仅观察，不下结论）
+输出一个证据表（最多 8 条）：
+| 证据ID | 帧段 | 可见事实（可核对） | 置信度(高/中/低) |
+要求：
+- 每条必须引用帧段（如 F1~F2、F3）。
+- “可见事实”只写画面可核对内容，不解释原因。
+- 若多人，先说明分析主体识别依据（占 1 条证据）。
+
+### 阶段B：基于证据的深度分析（所有结论必须引用证据ID）
+按以下小节输出：
+
+#### 1) 动作链与关键问题（≤4 条）
+- 每条格式：结论 → 证据ID（如 E2,E4）→ 对击球稳定性的影响
+
+#### 2) 机制解释（≤3 条）
+- 每条格式：现象 → 可能机制（证据充分/推测）→ 证据ID
+
+#### 3) 优先级（P0/P1/P2，最多 3 项）
+- 每项 1-2 句，必须包含对应证据ID
+
+#### 4) 纠正方案（3 天微周期）
+- Day1/Day2/Day3 各 1 行：目标 + 2 个练习（组数/时长）+ 1 个自检问题
+- 练习必须可在业余条件下执行（半场/墙/影子挥拍）
+
+#### 5) 不确定性与补拍建议（≤4 条）
+- 哪些关键判断受限于当前帧
+- 下次拍摄建议（机位/距离/帧率）
+
+## 额外格式要求
+- 使用 Markdown。
+- 全文控制在约 500-900 中文字，优先高信息密度。
+- 不得出现未在证据表中出现的新“硬事实”。
+""",
     # 参考近年 Video-LLM 工程常见做法：时间对齐、证据绑定到帧序、结构化输出、显式不确定性，降低“时间幻觉”。
     "motion_deep": """你是资深网球动作分析师（非医疗诊断）。输入为**同一段视频按时间顺序均匀采样的关键帧** F1→F2→…→Fn（不是连续视频；相邻帧之间可能存在未观测到的动作变化）。
 
@@ -146,6 +192,7 @@ def prompt_profile_radio_choices() -> list[tuple[str, str]]:
         ("标准", "default"),
         ("精简", "compact"),
         ("分步", "step_by_step"),
+        ("分步v2(证据驱动)", "step_by_step_v2"),
         ("深度", "motion_deep"),
     ]
 
@@ -166,6 +213,47 @@ def _import_transformers_stack() -> bool:
         return True
     except ImportError:
         return False
+
+
+def _spec_available(name: str) -> bool:
+    return importlib.util.find_spec(name) is not None
+
+
+def infer_backend_choice_specs_only() -> Tuple[bool, str, str]:
+    """
+    仅检查包是否「看起来已安装」，不 import torch/transformers（启动 Gradio 时否则会极慢）。
+    真正跑推理前仍由 `infer_backend_choice()` 做完整导入校验。
+    """
+    raw = os.environ.get("TENCLIP_INFER_BACKEND", "auto").strip().lower()
+    lf = _spec_available("llamafactory.chat") or _spec_available("llamafactory")
+    tf = (
+        _spec_available("torch")
+        and _spec_available("transformers")
+        and _spec_available("qwen_vl_utils")
+    )
+
+    if raw == "llamafactory":
+        if lf:
+            return True, "llamafactory", ""
+        return False, "", "未安装 LLaMA-Factory。请执行：pip install -r requirements-llm-lf.txt"
+    if raw == "transformers":
+        if tf:
+            return True, "transformers", ""
+        return (
+            False,
+            "",
+            "未安装 Transformers 视觉栈。请执行：pip install -r requirements-llm.txt",
+        )
+    if lf:
+        return True, "llamafactory", ""
+    if tf:
+        return True, "transformers", ""
+    return (
+        False,
+        "",
+        "未安装推理依赖。至少执行：pip install -r requirements-llm.txt；"
+        "若需默认的 LLaMA-Factory 推理再安装：pip install -r requirements-llm-lf.txt",
+    )
 
 
 def infer_backend_choice() -> Tuple[bool, str, str]:
@@ -202,14 +290,14 @@ def infer_backend_choice() -> Tuple[bool, str, str]:
 
 
 def vlm_dependency_message() -> str:
-    ok, _, err = infer_backend_choice()
+    ok, _, err = infer_backend_choice_specs_only()
     if ok:
         return ""
     return err
 
 
 def check_vlm_dependencies() -> Tuple[bool, str]:
-    ok, _, err = infer_backend_choice()
+    ok, _, err = infer_backend_choice_specs_only()
     return ok, err
 
 

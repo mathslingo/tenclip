@@ -74,6 +74,19 @@ bash scripts/verify_wsl_env.sh
 | 4.3 | （可选）统一 `requirements` 与 WSL 已装版本锁定 | ⬜       |
 
 
+### 阶段 5：网坛新闻（新增产品线）
+
+
+| 步骤  | 内容                                               | 状态                |
+| --- | ------------------------------------------------ | ----------------- |
+| 5.1 | 设计双列下滑 H5（图文混排，类似小红书瀑布流）                         | ✅ 第一版已接入 `/news`  |
+| 5.2 | 构建内容池：每日抓取主流网坛来源（先 RSS，再扩展站点解析）并入库               | ✅ RSS 抓取 + SQLite |
+| 5.3 | 推荐系统：基于偏好标签（球员/技战术）+ 新鲜度 + 反馈信号排序                | ✅ 基础版             |
+| 5.4 | 用户画像与反馈闭环：保存用户偏好标签，记录点击/点赞/不感兴趣，持续改进排序           | ✅ 已打通 API         |
+| 5.5 | 调度与治理：定时任务（每天 2-6 次）、去重、来源白名单、失败重试、内容质量审计（低质/重复） | ⬜ 待你确认部署方式        |
+| 5.6 | 算法升级：在基础排序稳定后，再加协同过滤（用户-文章隐式反馈矩阵）与多臂探索           | ⬜ 下一阶段            |
+
+
 ---
 
 ## WSL 快速开始（主路径）
@@ -90,6 +103,16 @@ bash download-vlm-conda.sh
 # 3）启动 Web（Windows 浏览器访问即可）
 bash run-wsl.sh
 ```
+
+如需“本地服务 + 公网可访问 URL”一键启动（临时隧道）：
+
+```bash
+cd ~/code/tenclip
+chmod +x scripts/run-public-wsl.sh
+bash scripts/run-public-wsl.sh
+```
+
+脚本会自动打印公网 URL（基于 `localhost.run`），并在你按 `Ctrl+C` 时一并关闭本地服务与隧道。
 
 浏览器打开：`http://127.0.0.1:7860`  
 若要从局域网访问，可在 `.env` 或环境中设置 `GRADIO_SERVER_NAME=0.0.0.0`（见 `env.example`）。
@@ -154,21 +177,24 @@ export HTTP_PROXY=http://127.0.0.1:7890
 完整说明见 `env.example`。
 
 
-| 变量                                          | 含义                                             | 默认                          |
-| ------------------------------------------- | ---------------------------------------------- | --------------------------- |
-| `TENCLIP_VLM_MODEL`                         | 本地模型目录，或远程 ID（用于首次下载）                          | `Qwen/Qwen2-VL-2B-Instruct` |
-| `TENCLIP_MODEL_DOWNLOAD_SOURCE`             | `modelscope` / `huggingface`                   | `modelscope`                |
-| `HF_ENDPOINT`                               | HF Hub 镜像根 URL，如 `https://hf-mirror.com`       | 未设置（官方 hub）                 |
-| `TENCLIP_HF_ENDPOINT`                       | 与 `HF_ENDPOINT` 同义；未设 `HF_ENDPOINT` 时生效        | 未设置                         |
-| `HTTP_PROXY` / `HTTPS_PROXY`                | 下载走系统代理                                        | 未设置                         |
-| `TENCLIP_INFER_BACKEND`                     | `auto` / `llamafactory` / `transformers`       | `auto`                      |
-| `TENCLIP_PROMPT_PROFILE`                    | 推理提示词档位：`default` / `compact` / `step_by_step` / `motion_deep`（深度动作分析，偏长） | `default`                   |
-| `TENCLIP_PROMPT_APPEND`                     | 追加到系统提示词末尾的额外要求（用于快速试验）                        | 未设置                         |
-| `MODELSCOPE_CACHE`                          | ModelScope 缓存目录                                | 系统默认                        |
-| `TENCLIP_MAX_VIDEO_SEC`                     | 分析时长上限（秒）                                      | `300`                       |
-| `TENCLIP_MAX_NEW_TOKENS`                    | 覆盖 VLM **解码长度上限**（`max_new_tokens`）；过小会导致中文长回答**中途截断**；不设则按模式默认（省显存约 1024，平衡约 1536，质量约 2048） | 未设置（用模式默认）                 |
-| `TENCLIP_FORCE_CPU`                         | 强制走 CPU                                        | 未设置                         |
-| `GRADIO_SERVER_NAME` / `GRADIO_SERVER_PORT` | 监听地址与端口                                        | `127.0.0.1` / `7860`        |
+| 变量                                          | 含义                                                                                           | 默认                          |
+| ------------------------------------------- | -------------------------------------------------------------------------------------------- | --------------------------- |
+| `TENCLIP_VLM_MODEL`                         | 本地模型目录，或远程 ID（用于首次下载）                                                                        | `Qwen/Qwen2-VL-2B-Instruct` |
+| `TENCLIP_MODEL_DOWNLOAD_SOURCE`             | `modelscope` / `huggingface`                                                                 | `modelscope`                |
+| `HF_ENDPOINT`                               | HF Hub 镜像根 URL，如 `https://hf-mirror.com`                                                     | 未设置（官方 hub）                 |
+| `TENCLIP_HF_ENDPOINT`                       | 与 `HF_ENDPOINT` 同义；未设 `HF_ENDPOINT` 时生效                                                      | 未设置                         |
+| `HTTP_PROXY` / `HTTPS_PROXY`                | 下载走系统代理                                                                                      | 未设置                         |
+| `TENCLIP_INFER_BACKEND`                     | `auto` / `llamafactory` / `transformers`                                                     | `auto`                      |
+| `TENCLIP_PROMPT_PROFILE`                    | 推理提示词档位：`default` / `compact` / `step_by_step` / `step_by_step_v2` / `motion_deep`           | `default`                   |
+| `TENCLIP_PROMPT_APPEND`                     | 追加到系统提示词末尾的额外要求（用于快速试验）                                                                      | 未设置                         |
+| `MODELSCOPE_CACHE`                          | ModelScope 缓存目录                                                                              | 系统默认                        |
+| `TENCLIP_MAX_VIDEO_SEC`                     | 分析时长上限（秒）                                                                                    | `300`                       |
+| `TENCLIP_MAX_NEW_TOKENS`                    | 覆盖 VLM **解码长度上限**（`max_new_tokens`）；过小会导致中文长回答**中途截断**；不设则按模式默认（省显存约 1024，平衡约 1536，质量约 2048） | 未设置（用模式默认）                  |
+| `TENCLIP_NEWS_HTTP_TIMEOUT_SEC`             | 网坛新闻：单次 HTTP 读超时（秒）                                                                          | `12`                        |
+| `TENCLIP_NEWS_SOURCE_TIMEOUT_SEC`           | 网坛新闻：**单个来源**抓取+解析总预算（秒），超时跳过该来源                                                             | `28`                        |
+| `TENCLIP_NEWS_SOURCES_CONFIG`               | 网坛新闻：来源列表 JSON 路径（不设则用仓库 `config/news_sources.json`）                                         | 未设置                         |
+| `TENCLIP_FORCE_CPU`                         | 强制走 CPU                                                                                      | 未设置                         |
+| `GRADIO_SERVER_NAME` / `GRADIO_SERVER_PORT` | 监听地址与端口                                                                                      | `127.0.0.1` / `7860`        |
 
 
 ---
@@ -195,10 +221,159 @@ export HTTP_PROXY=http://127.0.0.1:7890
 
 1. **视频剪辑**：上传 → 起止秒数 → 下载。
 2. **网球动作分析**：上传 → 显存模式 → **可选提示词档位**（主站 Gradio「分析提示词」Radio，或 Mobile 静态页上的 chip）→ **开始分析**。界面/API 传入的档位会**覆盖**环境变量 `TENCLIP_PROMPT_PROFILE`（未选或未传时仍用环境变量默认）。
+3. **网坛新闻（新增）**：访问 `/news`，先设置偏好标签（如“阿尔卡拉斯, 单手反拍, 红土”），系统按标签相关度 + 新鲜度推荐双列图文流；点击卡片可打开原文并回传反馈。
 
 可选：复制 `env.example` 为 `.env`（需 `python-dotenv`，已在 `requirements.txt`）。
 
 ---
+
+## 网坛新闻执行方案（评估 + 落地）
+
+### 需求评估（你给的思路）
+
+- **前端形态**：双列下滑图文流非常适合网坛资讯消费，优先做 H5 独立页，减少对当前 Gradio 主流程干扰。
+- **内容池**：`SQLite` 作为第一阶段非常合适（轻量、零运维、本机可跑）；单机 10~50 万条新闻都可承载，后续再迁移到 MySQL/PostgreSQL。
+- **推荐系统**：你提的 CF 是正确方向，但冷启动会明显（新用户/新内容稀疏）；第一阶段建议先“**内容召回 + 轻量排序**”，第二阶段再叠 CF。
+
+### 当前已落地（MVP）
+
+- 新增 `services/news_feed.py`：
+  - 抓取来源清单见 `**config/news_sources.json`**（可增删、`enabled` 开关、`quality_tier`、HTML `parser`）；也可用环境变量 `TENCLIP_NEWS_SOURCES_CONFIG` 指向自定义路径
+  - `news_feed.db`（`data/news_feed.db`）建表：`news_articles` / `news_feedback` / `news_user_profile`
+  - 多源抓取入库（RSS + 站点 HTML 抓取；支持 URL 去重更新）
+  - 标签抽取（球员、发球/反拍、场地等关键词）
+  - 推荐排序：`新鲜度（主） + 标签匹配 + 来源质量 + 反馈热度`
+- 新增 API：
+  - `POST /api/news/ingest`：抓取入库
+  - `GET /api/news/feed`：按 user_id/tags 分页推荐
+  - `GET /api/news/tags`：热门标签
+  - `POST /api/news/profile`：保存用户偏好标签
+  - `POST /api/news/feedback`：记录点击/点赞/不感兴趣
+- 新增页面：
+  - `pages/news_page/`*，入口 `/news`，静态资源 `/news-assets/`*
+  - 双列下滑、无限滚动、热门标签点击补全、卡片点击反馈回传
+  - 三按钮反馈：收藏 / 已读 / 不感兴趣
+
+### 手动跑通链路（抓取 → SQLite → 前端）
+
+不依赖 cron，按顺序执行即可验收：
+
+1. **抓取入库**（写入 `data/news_feed.db`）：
+
+```bash
+conda activate tenclip
+cd ~/code/tenclip
+python scripts/news_ingest_once.py --limit-per-source 30
+```
+
+终端应打印一行 JSON（含 `inserted_or_updated`、`sources`、`failed`，以及 `http_timeout_sec` / `source_timeout_sec`）。每个来源若在 `source_timeout_sec` 内仍未完成抓取+解析，会**自动放弃该来源**并继续下一个，避免整条任务被单个站点拖死。详细日志写入 `data/news_ingest_last_run.log`；若进程异常退出，栈在 `data/news_ingest_last_error.txt`。
+
+1. **启动 Web**（默认端口见 `app.py`，一般为 `7861`）：
+
+```bash
+python app.py
+```
+
+1. **打开 H5**：浏览器访问 `http://127.0.0.1:7861/news`
+  若首屏偏空，可点页面上的 **「抓取最新」**（等价于 `POST /api/news/ingest`），或回到第 1 步再跑一次脚本。
+2. **可选自检 API**：
+
+```bash
+curl -s "http://127.0.0.1:7861/api/news/feed?limit=5" | head
+```
+
+### 第二批来源与质量分层（已执行）
+
+- 已加入第二批中文来源：`ThePaper Sports`（澎湃「运动家」移动端列表 `m.thepaper.cn/list_25599`，HTML 抓取；避免使用 PC 栏目 CSR 页导致抓不到列表）
+- 推荐排序新增来源分层加权（`source_tier`）：
+  - `3` = 官方机构（ATP/WTA）
+  - `2` = 主流媒体（BBC/ESPN/澎湃）
+  - `1` = 聚合或其它来源
+- 在“优先时效”的前提下，来源质量分仅作为次级加分，不会压过新鲜度。
+
+### 推荐算法路线（建议）
+
+1. **现在（已做）**：内容召回 + 规则排序（可解释、稳定、低复杂度）
+2. **下一步**：隐式反馈 CF（点击/停留/点赞矩阵，ALS 或 item-based）
+3. **再下一步**：混排（CF 分 + 内容相关分 + 时效分）+ 探索机制
+
+### 需要你拍板的点（请直接选）
+
+1. **抓取频率**：✅ 每天 4 次（建议在 `00:00 / 06:00 / 12:00 / 18:00` 执行抓取任务）
+2. **来源策略**：先走 RSS 白名单（见下）再扩展站点深爬
+3. **推荐目标**：✅ 优先时效（排序中时效权重高于标签权重）
+4. **反馈行为**：✅ 三按钮：收藏 / 已读 / 不感兴趣
+
+### RSS 白名单是什么？
+
+RSS 白名单 = **一组你明确允许抓取的来源清单**（按源域名 + RSS 链接维护），例如：
+
+- `feeds.bbci.co.uk` 的网球头条 RSS（替代已下线的 Reuters 公共 RSS）
+- `www.atptour.com` 官方新闻 RSS
+- `www.wtatennis.com` 官方新闻 RSS
+- `www.espn.com` 网球 RSS
+
+为什么先做白名单：
+
+- 法务与合规更可控（只抓公开订阅流，不先做侵入式爬虫）
+- 结构稳定，维护成本低（优先保证每天稳定更新）
+- 便于后续扩展（再按你确认的站点逐个接入“正文解析抓取”）
+
+当前默认来源（与 `config/news_sources.json` 同步；后续以配置文件为准）：
+
+- **CNN · Sport（RSS）**：`http://rss.cnn.com/rss/edition_sport.rss`（推荐；含标题/摘要/链接，常带缩略图；比直接爬 `edition.cnn.com/sport` 前端页稳定）
+- **Tennis.com · All news（HTML）**：`https://www.tennis.com/news/all-news/`（`parser: tennis_com_list`）
+- ATP（官方）
+- WTA（官方）
+- BBC Sport · Tennis
+- Google News · Tennis（聚合兜底，tier 较低）
+- ESPN Tennis
+- ThePaper Sports（移动端列表页 HTML 抓取方式接入）
+
+### 调度建议（每天 4 次）
+
+- 开发机先用手动触发：`POST /api/news/ingest`
+- 生产/常驻环境建议由系统定时器触发（Linux cron 示例）：
+
+```bash
+0 0,6,12,18 * * * curl -X POST http://127.0.0.1:7861/api/news/ingest
+```
+
+仓库已提供可直接安装的脚本（推荐）：
+
+```bash
+cd ~/code/tenclip
+chmod +x scripts/install_news_cron.sh
+bash scripts/install_news_cron.sh
+```
+
+脚本会自动：
+
+- 在 `tenclip` conda 环境下执行 `scripts/news_ingest_once.py`
+- 安装每天 `00:00 / 06:00 / 12:00 / 18:00` 的 cron 任务
+- 输出日志到 `data/logs/news_ingest.log`
+
+手动验证单次抓取：
+
+```bash
+conda activate tenclip
+python scripts/news_ingest_once.py --limit-per-source 30
+```
+
+卸载定时任务（仅移除新闻抓取，不影响其它 cron）：
+
+```bash
+cd ~/code/tenclip
+chmod +x scripts/uninstall_news_cron.sh
+bash scripts/uninstall_news_cron.sh
+```
+
+重装流程：
+
+```bash
+bash scripts/uninstall_news_cron.sh
+bash scripts/install_news_cron.sh
+```
 
 ## Qwen2-VL-2B 优化方案（Prompt / SFT / DPO）
 
@@ -413,3 +588,34 @@ python scripts/download_llm_weights.py
 ```
 
 （后续若统一 WSL 脚本，可在阶段 4 补 `download-deepseek-wsl.sh`。）
+
+---
+
+## 附录 B：Prompt 工程论文趋势（2024-2026）
+
+结合当前项目瓶颈（小模型在视频动作分析里容易“浅结论 + 冗余重复”），我们参考了近年多模态与 Video-LLM 的实证趋势，形成如下工程结论：
+
+1. **小模型（<4B）并不总是“多想就更好”**
+  在多模态任务上，长链 CoT / ToT 这类“重推理提示”对小模型常见副作用：输出更长但错误未减少，甚至幻觉和重复上升。  
+   代表性参考：
+  - Qwen2-VL 系列论文（[arXiv:2409.12191](https://arxiv.org/abs/2409.12191)）
+  - R1-Zero-like 视觉推理工作（[arXiv:2504.00883](https://arxiv.org/abs/2504.00883)）
+  - 多模态 Prompt 评测（[arXiv:2504.10179](https://arxiv.org/abs/2504.10179)）
+2. **“证据先行”的结构化输出比“自由思考”更稳**
+  对视频任务，先强制输出“可核对证据（帧段 + 事实）”，再引用证据给结论，通常能降低时间幻觉与凭空补全。  
+   相关方向：
+  - Grounded-VideoLLM（[arXiv:2410.03290](https://arxiv.org/abs/2410.03290)）
+  - VidHal（[arXiv:2411.16771](https://arxiv.org/abs/2411.16771)）
+  - VidHalluc（[arXiv:2412.03735](https://arxiv.org/abs/2412.03735)）
+  - TimeRefine（[arXiv:2412.09601](https://arxiv.org/abs/2412.09601)）
+3. **“限额深度”比“无限展开”更适合 2B 级模型**
+  对 2B 级模型，给出每节条目上限、固定格式和证据引用约束，通常比开放式深度提示更能提高信息密度与可读性。
+
+### 已落地到本项目的策略
+
+- 新增提示词档位：`step_by_step_v2`（证据驱动双阶段）
+  - 阶段A：证据提取（证据表）
+  - 阶段B：引用证据ID做机制分析、优先级和 3 天微周期训练处方
+  - 强约束：去重复、禁第一人称、限条数、限总字数、禁止新增“无证据硬事实”
+
+推荐在 6GB 显存 + `Qwen2-VL-2B` 场景优先使用该档位，并与 `step_by_step` / `motion_deep` 做 A/B 评测。
