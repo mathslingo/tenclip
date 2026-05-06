@@ -1,0 +1,4 @@
+# 仅用于 subprojects/core_api 子项目；不并入根 requirements.txt，避免影响现有环境。
+fastapi>=0.115.0
+uvicorn[standard]>=0.30.0
+sqlalchemy>=2.0.30
