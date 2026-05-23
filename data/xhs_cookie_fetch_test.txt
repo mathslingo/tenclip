@@ -1,0 +1,47 @@
+=== Cookie 机制检查 ===
+默认文件: /home/hayden/code/tenclip/data/xhs_cookie.txt
+文件存在: True
+文件大小: 2851 字节
+TENCLIP_XHS_COOKIE_FILE: (未设置)
+TENCLIP_XHS_COOKIE: (未设置)
+TENCLIP_XHS_NO_COOKIE: (未设置)
+合并结果: 37 个键
+  a1: 有
+  web_session: 有
+  webId: 有
+  gid: 有
+  xsec_token: 无
+（不打印 Cookie 值，避免泄露）
+
+=== 按 note_id 抓取（Core API xhs_preview + Cookie）===
+
+--- 6912f396000000000700aca9 ---
+title: 用万能旅行拍照姿势美美出片
+image: 
+body:  
+tags:  []
+
+--- 69dd7f1d000000001b022940 ---
+title: 用万能旅行拍照姿势美美出片
+image: 
+body:  
+tags:  []
+
+--- 696e4c6c0000000021029806 ---
+title: 用万能旅行拍照姿势美美出片
+image: 
+body:  
+tags:  []
+
+--- 697f00b6000000000e00cb66 ---
+title: 用万能旅行拍照姿势美美出片
+image: 
+body:  
+tags:  []
+
+有标题: 4/4
+1/4 ERROR home-demo 6912f396000000000700aca9 empty og:title (likely wall / need cookie or residential IP)
+2/4 ERROR home-demo 696e4c6c0000000021029806 empty og:title (likely wall / need cookie or residential IP)
+3/4 ERROR home-demo 697f00b6000000000e00cb66 empty og:title (likely wall / need cookie or residential IP)
+4/4 ERROR home-demo 69dd7f1d000000001b022940 empty og:title (likely wall / need cookie or residential IP)
+OK: 0/4 (0.00%)  -> data/xhs_crab_meta.json

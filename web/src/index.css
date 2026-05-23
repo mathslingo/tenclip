@@ -1,0 +1,461 @@
+* {
+  box-sizing: border-box;
+}
+
+:root {
+  --sport-font-display: "Oswald", "Noto Sans SC", system-ui, sans-serif;
+  --sport-font-body: "Noto Sans SC", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+  --sport-xhs-radius: 16px;
+  --sport-wire-border: rgba(4, 120, 87, 0.18);
+}
+
+[data-theme="dark"] {
+  --sport-wire-border: rgba(74, 222, 128, 0.22);
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: var(--sport-font-body);
+  -webkit-font-smoothing: antialiased;
+}
+
+.sport-brand-mark {
+  font-family: var(--sport-font-display);
+  font-weight: 600;
+  font-size: 26px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--ant-color-primary);
+  line-height: 1.2;
+}
+
+/* —— Hero —— */
+.sport-hero {
+  position: relative;
+  overflow: hidden;
+  padding: 48px 20px 56px;
+  margin-bottom: 8px;
+}
+
+[data-theme="light"] .sport-hero {
+  background: linear-gradient(122deg, #064e3b 0%, #0f172a 52%, #14532d 100%);
+}
+
+[data-theme="dark"] .sport-hero {
+  background: linear-gradient(122deg, #022c22 0%, #020617 48%, #052e16 100%);
+}
+
+.sport-hero-grid {
+  position: absolute;
+  inset: 0;
+  opacity: 0.14;
+  background-image:
+    repeating-linear-gradient(
+      -28deg,
+      transparent,
+      transparent 12px,
+      rgba(255, 255, 255, 0.06) 12px,
+      rgba(255, 255, 255, 0.06) 13px
+    ),
+    radial-gradient(circle at 18% 22%, rgba(74, 222, 128, 0.35), transparent 42%),
+    radial-gradient(circle at 88% 8%, rgba(56, 189, 248, 0.2), transparent 38%);
+  pointer-events: none;
+}
+
+.sport-hero-inner {
+  position: relative;
+  max-width: 1180px;
+  margin: 0 auto;
+}
+
+.sport-hero-title {
+  font-family: var(--sport-font-display);
+  letter-spacing: 0.02em;
+  font-weight: 600 !important;
+  line-height: 1.12 !important;
+}
+
+/* —— Section headings —— */
+.section-heading {
+  margin-bottom: 20px;
+}
+
+.section-kicker {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ant-color-primary);
+  opacity: 0.9;
+}
+
+.wire-kicker {
+  color: var(--ant-color-info);
+}
+
+.match-kicker {
+  color: var(--ant-color-warning);
+}
+
+/* —— 小红书风双列 feed —— */
+.xhs-dual-feed {
+  max-width: 640px;
+  margin: 0 auto;
+}
+
+@media (min-width: 992px) {
+  .xhs-dual-feed {
+    max-width: 720px;
+  }
+}
+
+.xhs-dual-feed-label {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ant-color-text-secondary);
+  margin-bottom: 12px;
+}
+
+.xhs-dual-feed-label-local {
+  color: var(--ant-color-primary);
+}
+
+.xhs-badge-xhs {
+  background: linear-gradient(90deg, #ff2442, #ff6b81) !important;
+  color: #fff !important;
+}
+
+.xhs-card-external {
+  cursor: pointer;
+}
+
+.xhs-card-external:focus-visible {
+  outline: 2px solid var(--ant-color-primary);
+  outline-offset: 2px;
+}
+
+.xhs-card {
+  display: block;
+  text-decoration: none;
+  border-radius: var(--sport-xhs-radius);
+  overflow: hidden;
+  background: var(--ant-color-bg-container);
+  border: 1px solid var(--ant-color-border-secondary);
+  box-shadow: 0 8px 26px rgba(15, 23, 42, 0.06);
+  transition:
+    transform 0.18s ease,
+    box-shadow 0.18s ease;
+}
+
+[data-theme="dark"] .xhs-card {
+  box-shadow: 0 10px 32px rgba(0, 0, 0, 0.45);
+}
+
+.xhs-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 14px 36px rgba(15, 23, 42, 0.12);
+}
+
+[data-theme="dark"] .xhs-card:hover {
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.55);
+}
+
+.xhs-card-cover {
+  position: relative;
+  height: 132px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: flex-end;
+  padding: 12px;
+}
+
+/* 小红书站外封面多为竖图：用接近笔记卡的比例 + contain，避免 cover 裁掉上下文案 */
+.xhs-card-external .xhs-card-cover {
+  height: auto;
+  aspect-ratio: 3 / 4;
+  align-items: flex-end;
+  justify-content: flex-end;
+}
+
+.xhs-card-cover-img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  z-index: 0;
+}
+
+.xhs-card-external .xhs-card-cover-img {
+  object-fit: contain;
+  object-position: center;
+}
+
+.xhs-card-cover-loading {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1;
+  background: rgba(0, 0, 0, 0.12);
+}
+
+.xhs-card-cover-badge {
+  z-index: 2;
+}
+
+.xhs-card-cover-emoji {
+  z-index: 2;
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: #fff;
+  background: rgba(0, 0, 0, 0.28);
+  padding: 3px 8px;
+  border-radius: 999px;
+}
+
+.xhs-card-cover-emoji {
+  font-size: 40px;
+  line-height: 1;
+  filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.35));
+}
+
+.xhs-card-body {
+  padding: 14px 14px 16px;
+}
+
+.xhs-card-title {
+  font-weight: 700;
+  font-size: 15px;
+  line-height: 1.45;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  color: var(--ant-color-text);
+}
+
+.xhs-card-desc {
+  margin-top: 8px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--ant-color-text-secondary);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.xhs-card-meta {
+  margin-top: 12px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.xhs-pill {
+  font-size: 12px;
+  color: var(--ant-color-primary);
+  font-weight: 600;
+}
+
+.xhs-time {
+  font-size: 12px;
+  color: var(--ant-color-text-tertiary);
+}
+
+/* —— 通讯社 wire —— */
+.wire-board {
+  border: 1px solid var(--sport-wire-border);
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--ant-color-bg-container);
+}
+
+.wire-row {
+  display: flex;
+  align-items: stretch;
+  gap: 0;
+  border-bottom: 1px solid var(--ant-color-border-secondary);
+  transition: background 0.15s ease;
+}
+
+.wire-row:last-child {
+  border-bottom: none;
+}
+
+.wire-row:hover {
+  background: var(--ant-color-fill-quaternary);
+}
+
+.wire-date {
+  flex: 0 0 76px;
+  padding: 14px 10px 14px 16px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.wire-date-d {
+  font-family: var(--sport-font-display);
+  font-size: 28px;
+  line-height: 1;
+  font-weight: 600;
+  color: var(--ant-color-text);
+}
+
+.wire-date-my {
+  font-size: 11px;
+  color: var(--ant-color-text-tertiary);
+  margin-top: 4px;
+}
+
+.wire-date-hm {
+  font-size: 11px;
+  color: var(--ant-color-text-secondary);
+  margin-top: 2px;
+}
+
+.wire-divider {
+  width: 3px;
+  align-self: stretch;
+  background: linear-gradient(
+    180deg,
+    var(--ant-color-primary) 0%,
+    var(--ant-color-info) 100%
+  );
+  opacity: 0.85;
+}
+
+.wire-main {
+  flex: 1;
+  min-width: 0;
+  padding: 14px 18px 14px 14px;
+}
+
+.wire-title {
+  display: block;
+  font-size: 17px;
+  font-weight: 700;
+  line-height: 1.35;
+  color: var(--ant-color-text);
+  text-decoration: none;
+  letter-spacing: 0.01em;
+}
+
+.wire-title:hover {
+  color: var(--ant-color-primary);
+}
+
+.wire-summary {
+  margin-top: 8px;
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--ant-color-text-secondary);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.wire-foot {
+  margin-top: 10px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+  font-size: 12px;
+}
+
+.wire-link {
+  color: var(--ant-color-info);
+  font-weight: 600;
+}
+
+.wire-muted {
+  color: var(--ant-color-text-tertiary);
+}
+
+/* —— 赛程板 —— */
+.match-board-card {
+  position: relative;
+  border-radius: 14px;
+  border: 1px solid var(--ant-color-border-secondary);
+  background: var(--ant-color-bg-container);
+  overflow: hidden;
+  box-shadow: 0 6px 20px rgba(15, 23, 42, 0.05);
+  transition:
+    transform 0.16s ease,
+    box-shadow 0.16s ease;
+}
+
+[data-theme="dark"] .match-board-card {
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+}
+
+.match-board-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.1);
+}
+
+.match-board-strip {
+  height: 4px;
+  width: 100%;
+  background: linear-gradient(90deg, var(--ant-color-primary), var(--ant-color-warning));
+}
+
+.match-board-inner {
+  padding: 14px 16px 16px;
+}
+
+.match-board-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+
+.match-board-round {
+  font-size: 12px;
+  display: block;
+  margin-bottom: 8px;
+}
+
+.match-board-vs {
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.4;
+  margin-bottom: 6px;
+}
+
+.match-board-score {
+  font-size: 22px;
+  font-weight: 800;
+  font-family: var(--sport-font-display);
+  letter-spacing: 0.04em;
+  line-height: 1.2;
+  margin-bottom: 10px;
+  color: var(--ant-color-text);
+}
+
+.match-board-foot {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}

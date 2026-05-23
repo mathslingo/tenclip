@@ -1,8 +1,18 @@
-# TenClip：本地轻量网球视频理解 Demo
+# TenClip
 
-在**有限本机 GPU**上跑通一条完整链路：**视频剪辑** + **网球动作相关的视频理解**（抽帧 + 小参数多模态模型），**模型与推理数据默认都在本地**（权重首次从 ModelScope/HF 拉取后缓存在本机，视频由用户本地上传）。
+在**有限本机 GPU**上跑通网球视频链路（**剪辑** + **Qwen2-VL 动作理解**），并扩展**网坛资讯与内容站**相关能力。模型与推理数据默认在本地（权重首次从 ModelScope/HF 拉取后缓存；视频由用户本地上传）。
 
-推理栈与 [LLaMA-Factory](https://github.com/hiyouga/LLaMA-Factory) 对齐：默认用其 `ChatModel`（可回退 Transformers）。后续若要做网球域 SFT，可在同环境用 LLaMA-Factory 训练，再把合并后的**本地目录**指给 `TENCLIP_VLM_MODEL`。
+| 模块 | 路径 | 说明 |
+|------|------|------|
+| **主应用** | `app.py`、`run-wsl.sh` | Gradio：剪辑 / 动作分析；RSS 网坛新闻 H5（`/news`） |
+| **Core API** | `subprojects/core_api/` | FastAPI：新闻、球员、比赛、视频 CRUD、JWT；小红书工具路由 |
+| **用户站** | `web/` | React + Ant Design（Vite，开发端口 **5174**） |
+| **管理后台** | `admin/` | React + Ant Design（Vite，开发端口 **5173**） |
+| **小红书抓取** | `subprojects/xhs_note/` | 按 24 位笔记 ID + Cookie 拉取标题/封面等（独立于旧 `xhs_preview`） |
+
+子项目安装、联调、npm/WSL 排错：**[`subprojects/README.md`](subprojects/README.md)**。
+
+主应用推理栈与 [LLaMA-Factory](https://github.com/hiyouga/LLaMA-Factory) 对齐：默认用其 `ChatModel`（可回退 Transformers）。网球域 SFT 可在同环境训练后，将 `TENCLIP_VLM_MODEL` 指向合并后的本地目录。
 
 ---
 
@@ -14,6 +24,7 @@
 | 系统        | **WSL2 + Ubuntu**（与 Windows 同机即可）                                                        |
 | Python 环境 | **Conda 环境名必须为 `tenclip`**（Miniconda/Anaconda 均可）                                        |
 | 本地权重      | 放在 `**model/Qwen2-VL-2B-Instruct/**` 时，`app.py` 会自动设置 `TENCLIP_VLM_MODEL`，推理直接读 `model/` |
+| 换行符        | 文本文件统一 **LF**（根目录 `.editorconfig`、`.gitattributes`）。若在 Windows 上保存成 **CRLF**，WSL 下运行 `*.sh` 易出现 `set: invalid option`、路径含 `$'\r'` 等问题 |
 
 
 首次进入仓库建议在 WSL 里执行（可选）：
@@ -22,6 +33,38 @@
 chmod +x run-wsl.sh download-vlm-conda.sh scripts/verify_wsl_env.sh
 bash scripts/verify_wsl_env.sh
 ```
+
+---
+
+## 子项目快速启动（Core API + 用户站）
+
+在 **WSL** 仓库根目录 `~/code/tenclip` 准备两个终端（不要用 `\\wsl.localhost\...` 路径跑 npm）：
+
+**终端 1 — API（必须先起）**
+
+```bash
+conda activate tenclip
+pip install -r requirements-subproject-core-api.txt   # 首次
+python3 -m uvicorn subprojects.core_api.app:app --host 127.0.0.1 --port 8000
+```
+
+文档：`http://127.0.0.1:8000/docs` · 健康检查：`GET /health`
+
+**终端 2 — 用户站**
+
+```bash
+cd ~/code/tenclip/web
+npm install   # Node >= 18，须为 WSL 内 npm
+npm run dev -- --host 0.0.0.0
+```
+
+浏览器一般为 **http://127.0.0.1:5174**；`/api` 由 Vite 代理到本机 **8000**（见 `web/vite.config.ts`）。
+
+**管理后台（可选）**：`cd admin && npm install && npm run dev`（默认 **5173**）。
+
+**自检**：`python3 scripts/verify_core_api.py` · **小红书笔记（需 Cookie）**：`python3 scripts/xhs_note_fetch.py <24位note_id>`（Cookie 见下文与 `subprojects/README.md`）。
+
+一键脚本（若 `.sh` 遇 CRLF 报错，见 `subprojects/README.md`）：`bash scripts/start_core_api.sh`、`bash scripts/start_web.sh`。
 
 ---
 
@@ -87,9 +130,21 @@ bash scripts/verify_wsl_env.sh
 | 5.6 | 算法升级：在基础排序稳定后，再加协同过滤（用户-文章隐式反馈矩阵）与多臂探索           | ⬜ 下一阶段            |
 
 
+### 阶段 6：Core API 与前端（与 Gradio 并行）
+
+
+| 步骤  | 内容                                                                 | 状态        |
+| --- | ------------------------------------------------------------------ | --------- |
+| 6.1 | `subprojects/core_api`：新闻/球员/比赛/视频 CRUD、JWT、SQLite `data/core_api.db` | ✅         |
+| 6.2 | `web/` 用户站：首页、新闻/比赛详情、小红书 explore 卡片展示                         | ✅ 第一版    |
+| 6.3 | `admin/` 管理后台：资源 CRUD                                          | ✅ 第一版    |
+| 6.4 | `subprojects/xhs_note`：按笔记 ID + Cookie 抓取；`scripts/xhs_note_fetch.py` | ✅         |
+| 6.5 | 生产：构建静态资源 + Nginx 反代 `/api`、绑定腾讯云域名                              | ⬜ 见下文部署节 |
+
+
 ---
 
-## WSL 快速开始（主路径）
+## WSL 快速开始（主路径 · Gradio）
 
 ```bash
 cd ~/code/tenclip   # 你的克隆路径
@@ -195,7 +250,35 @@ export HTTP_PROXY=http://127.0.0.1:7890
 | `TENCLIP_NEWS_SOURCES_CONFIG`               | 网坛新闻：来源列表 JSON 路径（不设则用仓库 `config/news_sources.json`）                                         | 未设置                         |
 | `TENCLIP_FORCE_CPU`                         | 强制走 CPU                                                                                      | 未设置                         |
 | `GRADIO_SERVER_NAME` / `GRADIO_SERVER_PORT` | 监听地址与端口                                                                                      | `127.0.0.1` / `7860`        |
+| `TENCLIP_CORE_API_DATABASE_URL`             | Core API 数据库（SQLite 默认 `data/core_api.db`）                                                  | 见 `env.example`             |
+| `TENCLIP_CORE_API_JWT_SECRET`               | Core API JWT 密钥（**生产必设**）                                                                   | 未设置                        |
+| `TENCLIP_XHS_COOKIE` / `TENCLIP_XHS_COOKIE_FILE` | 小红书抓取 Cookie（默认文件 `data/xhs_cookie.txt`，已 gitignore）                              | 见 `subprojects/README.md`   |
 
+
+Core API、小红书、`web`/`admin` 的变量与接口细节见 **`env.example`** 与 **[`subprojects/README.md`](subprojects/README.md)**。
+
+---
+
+## 生产部署（腾讯云域名）
+
+主应用 Gradio 与子项目 **可分开部署**。常见做法：在 **腾讯云 CVM** 上跑 Nginx，域名解析 **A 记录** 到公网 IP，由 Nginx **反向代理**（「透传」）到本机进程：
+
+| 对外路径 | 后端 | 说明 |
+|----------|------|------|
+| `/` | `web/dist` 静态文件 | `cd web && npm run build` |
+| `/api/` | `http://127.0.0.1:8000/` | 与开发时 Vite 代理一致；API 仅监听 `127.0.0.1` |
+| （可选）`admin.example.com` | `admin/dist` | 管理后台单独子域名 |
+| （可选）Gradio | `127.0.0.1:7860` | 视频 Demo，可单独子域名 |
+
+要点：
+
+1. **DNS**：在腾讯云 DNSPod 将 `@` / `www` 指到 CVM 公网 IP；大陆站点通常需 **ICP 备案**。
+2. **安全组**：放行 80、443；勿对公网直接暴露 8000/5174。
+3. **HTTPS**：`certbot` 或腾讯云 SSL 证书。
+4. **前端构建**：生产默认 `VITE_API_BASE=/api`（同域），无需改 CORS（Core API 当前未开跨域，应同域反代）。
+5. **仅家里 WSL、无公网 IP**：域名无法直接指到本机；需 CVM + 部署，或临时用 `scripts/run-public-wsl.sh`（localhost.run，**不能**绑自有域名）。
+
+`uvicorn` 常驻示例、`nginx` 片段与 npm 排错见 **`subprojects/README.md`**（部署小节可随子项目文档继续补充）。
 
 ---
 
@@ -208,6 +291,8 @@ export HTTP_PROXY=http://127.0.0.1:7890
   conda env update -f environment.yml --prune
   ```
 - 根目录 `requirements.txt` / `requirements-llm.txt` / `requirements-llm-lf.txt` 用于对齐依赖意图；**开发以 WSL `tenclip` 为真源**。
+- **Core API 子项目**：`requirements-subproject-core-api.txt`（与主 `requirements.txt` 分离，见 `subprojects/README.md`）。
+- **前端**：`web/package.json`、`admin/package.json`（Node **>= 18**）。
 
 ---
 
@@ -221,7 +306,8 @@ export HTTP_PROXY=http://127.0.0.1:7890
 
 1. **视频剪辑**：上传 → 起止秒数 → 下载。
 2. **网球动作分析**：上传 → 显存模式 → **可选提示词档位**（主站 Gradio「分析提示词」Radio，或 Mobile 静态页上的 chip）→ **开始分析**。界面/API 传入的档位会**覆盖**环境变量 `TENCLIP_PROMPT_PROFILE`（未选或未传时仍用环境变量默认）。
-3. **网坛新闻（新增）**：访问 `/news`，先设置偏好标签（如“阿尔卡拉斯, 单手反拍, 红土”），系统按标签相关度 + 新鲜度推荐双列图文流；点击卡片可打开原文并回传反馈。
+3. **网坛新闻（Gradio）**：访问 `/news`（随 `app.py` 启动），设置偏好标签后浏览双列图文流并回传反馈。
+4. **用户站（子项目）**：`web/` 开发服首页展示新闻、比赛与小红书 explore 卡片；需先启动 Core API（见上文「子项目快速启动」）。
 
 可选：复制 `env.example` 为 `.env`（需 `python-dotenv`，已在 `requirements.txt`）。
 
@@ -541,25 +627,30 @@ python test_trim2.py
 
 ```text
 tenclip/
-├─ app.py
-├─ run-wsl.sh              # WSL 主启动（conda tenclip）
-├─ download-vlm-conda.sh   # WSL 下载 VLM 权重到本地缓存
-├─ run.bat                 # Windows 备选
+├─ app.py                      # Gradio 主应用 + /news H5
+├─ run-wsl.sh                  # WSL 启动 Gradio（conda tenclip）
+├─ download-vlm-conda.sh
 ├─ env.example
-├─ environment.yml
 ├─ requirements*.txt
-├─ configs/                # LLaMA-Factory 等实验配置
-├─ data/                   # 数据集占位与 dataset_info
-├─ model/
-│   └─ README.md          # 权重放此目录（已 gitignore，见文内说明）
+├─ requirements-subproject-core-api.txt
+├─ subprojects/
+│   ├─ README.md               # Core API / web / admin / xhs_note 说明
+│   ├─ core_api/               # FastAPI（app, models, xhs_preview, xhs_note_routes）
+│   └─ xhs_note/               # 按笔记 ID + Cookie 抓取（新）
+├─ web/                        # 用户站（Vite + React）
+├─ admin/                      # 管理后台
+├─ configs/                    # LLaMA-Factory 训练配置
+├─ config/                     # 网坛 RSS 来源 news_sources.json
+├─ data/                       # SQLite、Cookie、抓取日志（多数已 gitignore）
+├─ model/                      # VLM 权重（见 model/README.md）
 ├─ scripts/
-│   ├─ download_vlm_weights.py
-│   ├─ copy_vlm_to_model.sh
 │   ├─ verify_wsl_env.sh
+│   ├─ verify_core_api.py
+│   ├─ start_core_api.sh / start_web.sh
+│   ├─ xhs_note_fetch.py
+│   ├─ news_ingest_once.py
 │   └─ ...
-├─ services/
-│   ├─ model_resolve.py
-│   └─ vlm_tennis.py
+├─ services/                   # 主应用：新闻抓取、VLM 推理等
 └─ test_*.py
 ```
 

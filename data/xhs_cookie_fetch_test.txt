@@ -1,0 +1,8 @@
+Traceback (most recent call last):
+  File "/home/hayden/code/tenclip/scripts/test_xhs_cookie_fetch.py", line 17, in <module>
+    from subprojects.core_api.xhs_preview import (  # noqa: E402
+  File "/home/hayden/code/tenclip/subprojects/core_api/__init__.py", line 3, in <module>
+    from .db import Base, SessionLocal, engine, get_db
+  File "/home/hayden/code/tenclip/subprojects/core_api/db.py", line 9, in <module>
+    from sqlalchemy import create_engine, text
+ModuleNotFoundError: No module named 'sqlalchemy'

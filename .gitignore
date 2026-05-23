@@ -14,6 +14,10 @@ Thumbs.db
 # local secrets / overrides
 .env
 
+# 小红书登录 Cookie（本地粘贴，勿提交）
+data/xhs_cookie.txt
+data/.xhs_curl_cookie_jar.txt
+
 # VLM weights (multi-GB); keep only model/README.md in git
 model/*
 !model/README.md
