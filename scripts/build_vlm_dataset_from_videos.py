@@ -27,7 +27,34 @@ def parse_args() -> argparse.Namespace:
         default="",
         help="Path to dataset_info.json (default: <data-dir>/dataset_info.json).",
     )
+    p.add_argument("--limit", type=int, default=0, help="Only process first N rows (0=all); handy for trial runs.")
+    p.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Validate manifest (video_path exists, fields present) and preview first sample; no frame/dataset output.",
+    )
     return p.parse_args()
+
+
+def _required_fields(mode: str) -> tuple[str, ...]:
+    return ("instruction", "output") if mode == "sft" else ("instruction", "chosen", "rejected")
+
+
+def _validate_manifest(rows: List[Dict[str, Any]], mode: str, single_video: str = "") -> List[str]:
+    """返回问题列表（空=通过）。检查 video_path 存在与必填标注字段。"""
+    problems: List[str] = []
+    req = _required_fields(mode)
+    for i, r in enumerate(rows):
+        sid = r.get("id") or f"row_{i}"
+        vp = r.get("video_path") or single_video
+        if not vp:
+            problems.append(f"[{sid}] 缺少 video_path")
+        elif not Path(vp).is_file():
+            problems.append(f"[{sid}] 视频文件不存在: {vp}")
+        for k in req:
+            if not str(r.get(k, "")).strip():
+                problems.append(f"[{sid}] 缺少必填字段 {k!r}（mode={mode}）")
+    return problems
 
 
 def _load_manifest(path: Path) -> List[Dict[str, Any]]:
@@ -112,13 +139,39 @@ def main() -> None:
     data_dir = Path(args.data_dir)
     image_root = Path(args.image_root)
 
+    rows = _load_manifest(manifest_path)
+    if args.limit and args.limit > 0:
+        rows = rows[: args.limit]
+
+    if args.dry_run:
+        problems = _validate_manifest(rows, args.mode)
+        print(f"[dry-run] manifest 行数: {len(rows)}  模式: {args.mode}")
+        if problems:
+            print(f"[dry-run] 发现 {len(problems)} 个问题：")
+            for p in problems[:50]:
+                print("  - " + p)
+            if len(problems) > 50:
+                print(f"  ... 其余 {len(problems) - 50} 条略")
+        else:
+            print("[dry-run] 校验通过：video_path 均存在，必填字段齐全。")
+        if rows:
+            sample = rows[0]
+            preview = {
+                "id": sample.get("id"),
+                "video_path": sample.get("video_path"),
+                "instruction": (str(sample.get("instruction", ""))[:60]),
+                "num_frames_plan": int(args.num_frames),
+            }
+            print("[dry-run] 首条样本预览:", json.dumps(preview, ensure_ascii=False))
+        print("[dry-run] 未抽帧、未写数据集、未改 dataset_info.json。")
+        return
+
     try:
         # 复用项目内抽帧逻辑（保证与线上推理帧策略一致）
         from services.vlm_tennis import sample_frames
     except Exception as e:
         raise SystemExit(f"Failed to import sample_frames from services.vlm_tennis: {e}") from e
 
-    rows = _load_manifest(manifest_path)
     out_rows: List[Dict[str, Any]] = []
 
     for r in rows:

@@ -308,6 +308,7 @@ Core API、小红书、`web`/`admin` 的变量与接口细节见 **`env.example`
 2. **网球动作分析**：上传 → 显存模式 → **可选提示词档位**（主站 Gradio「分析提示词」Radio，或 Mobile 静态页上的 chip）→ **开始分析**。界面/API 传入的档位会**覆盖**环境变量 `TENCLIP_PROMPT_PROFILE`（未选或未传时仍用环境变量默认）。
 3. **网坛新闻（Gradio）**：访问 `/news`（随 `app.py` 启动），设置偏好标签后浏览双列图文流并回传反馈。
 4. **用户站（子项目）**：`web/` 开发服首页展示新闻、比赛与小红书 explore 卡片；需先启动 Core API（见上文「子项目快速启动」）。
+5. **击球片段提取（长视频）**：Gradio 标签页「击球片段提取（去等待）」或 CLI `scripts/extract_stroke_clips.py` — 基于画面运动 + 击球声剪掉等待/非击球时间（200MB+ 长视频流式处理）；可选 VLM 二次过滤。
 
 可选：复制 `env.example` 为 `.env`（需 `python-dotenv`，已在 `requirements.txt`）。
 
@@ -546,7 +547,24 @@ llamafactory-cli train configs/train/qwen2_vl_2b_qlora_sft_mm.yaml
 
 当你开始积累真实训练样本时，建议用与线上推理一致的抽帧策略来落盘图片，并把图片相对路径写入数据集。
 
-仓库提供脚本：`scripts/build_vlm_dataset_from_videos.py`  
+> **关键：先切片再造样本。** `build_vlm_dataset_from_videos.py` 对单个 `video_path` **整段均匀抽 N 帧**。若直接喂一整场比赛，4 帧会稀疏到无意义。应先把比赛切成「单拍 / 单回合」短片（3~10 秒），每个短片一条样本。
+
+**步骤 0 — 比赛切片（新增脚本 `scripts/slice_match_to_clips.py`）**：按「切片表」批量 ffmpeg 切片，并直接生成下一步要用的 manifest 骨架。切片表 JSONL 每行 `id/start/end`（时间支持 `秒` 或 `HH:MM:SS`）+ 可选标注字段；CSV 亦可（表头含 `id,start,end`）。
+
+```bash
+conda activate tenclip
+# 先 --dry-run 只看将执行的 ffmpeg 命令与 manifest 预览，不落盘
+python scripts/slice_match_to_clips.py --video data/matches/match.mp4 \
+  --segments data/segments.jsonl --clips-dir data/clips \
+  --manifest-out data/manifest_sft.jsonl --mode sft --dry-run
+
+# 确认无误后去掉 --dry-run 实际切片（默认重编码保证精度；加 --copy 走快速不重编码）
+python scripts/slice_match_to_clips.py --video data/matches/match.mp4 \
+  --segments data/segments.jsonl --clips-dir data/clips \
+  --manifest-out data/manifest_sft.jsonl --mode sft
+```
+
+**步骤 1 — 写 / 校验 manifest**：`scripts/build_vlm_dataset_from_videos.py`  
 输入是一个 JSONL 清单（每行一个样本），最小字段示例（SFT）：
 
 ```json
@@ -559,10 +577,14 @@ DPO 样本示例：
 {"id":"dpo-0001","video_path":"/abs/path/a.mp4","instruction":"...","input":"...","chosen":"...","rejected":"..."}
 ```
 
-生成 SFT 数据集（会把抽帧 jpg 写到 `data/vlm_images/<id>/frame_*.jpg`，并在数据里写入相对路径）。加 `--register-key` 会**自动写入** `data/dataset_info.json`（与 LLaMA-Factory 的 `dataset:` 名称一致）：
+**步骤 2 — 生成数据集**（会把抽帧 jpg 写到 `data/vlm_images/<id>/frame_*.jpg`，并在数据里写入相对路径）。加 `--register-key` 会**自动写入** `data/dataset_info.json`（与 LLaMA-Factory 的 `dataset:` 名称一致）：
 
 ```bash
 conda activate tenclip
+# 先校验试跑：检查 video_path 是否存在、必填字段是否齐全、预览首条样本（不抽帧、不写盘）
+python scripts/build_vlm_dataset_from_videos.py --mode sft --manifest data/manifest_sft.jsonl --out data/tennis_vlm_sft.json --dry-run
+# 也可只处理前 N 条：--limit 5
+
 python scripts/build_vlm_dataset_from_videos.py --mode sft --manifest data/manifest_sft.jsonl --out data/tennis_vlm_sft.json --register-key tennis_vlm_sft
 ```
 
@@ -575,7 +597,77 @@ python scripts/build_vlm_dataset_from_videos.py --mode dpo --manifest data/manif
 
 可选：`--dataset-info path/to/dataset_info.json` 指定非默认的 dataset 注册文件。
 
-注册完成后，在训练 YAML 里把 `dataset:` 改成上述 key（例如 `tennis_vlm_sft`），并保持 `template: qwen2_vl`。
+注册完成后，在训练 YAML 里把 `dataset:` 改成上述 key（例如 `tennis_vlm_sft`），并保持 `template: qwen2_vl`（Qwen3-VL 用 `qwen3_vl`）。
+
+#### 击球片段提取（去等待 / 长视频）
+
+从整段比赛视频中**自动剪掉等待、换边、捡球等非击球时间**，只保留击球/回合画面。  
+**不是**全片 VLM 理解（太慢），而是 **ffmpeg 流式分析 + 启发式信号**；可选 **VLM 二次过滤** 去掉误检。
+
+##### 实现方案
+
+| 层级 | 模块 | 作用 |
+|------|------|------|
+| 检测 | `services/stroke_detect.py` | 画面运动（降采样灰度帧差分）+ 击球声（流式 PCM 能量峰）→ 合并时间段 |
+| 精修 | `services/stroke_vlm_filter.py` | （可选）每段抽 2 帧，Qwen2-VL 判断是否在比赛/击球回合 |
+| 导出 | `export_stroke_clips()` | 分段 **H.264 + yuv420p + faststart** 再拼接；**iPhone MOV/HEVC 自动重编码**（避免 Windows 无法播放） |
+| CLI | `scripts/extract_stroke_clips.py` | 命令行：分析 / 导出 / 报告 / 切片表 |
+| UI | Gradio **「击球片段提取（去等待）」** | 上传长视频 → 下载击球集锦 |
+
+**长视频（200MB+）**：画面与音频均为 ffmpeg **管道流式**处理，不整段载入内存；导出后用 **ffprobe 校验**，损坏文件会直接报错。
+
+**局限**：换边走动、鼓掌、镜头推拉可能误检/漏检；可调 `--motion-percentile` 或 `--vlm-filter`。
+
+##### 用法
+
+```bash
+# 1) 只分析时间段（推荐先跑）
+python scripts/extract_stroke_clips.py /path/to/match.MOV --analyze-only \
+  --report-out data/stroke_report.json \
+  --segments-out data/match_segments.jsonl
+
+# 2) 导出击球集锦（WSL 写 Windows 路径用 /mnt/c/...）
+python scripts/extract_stroke_clips.py /mnt/c/Users/you/Pictures/match.MOV \
+  --out /mnt/c/Users/you/Pictures/match_strokes_only.mp4
+
+# 3) 可选 VLM 二次过滤（更准、更慢，需 GPU + 模型）
+python scripts/extract_stroke_clips.py match.MOV --vlm-filter --out out.mp4
+```
+
+**调参**：检不全 → `--motion-percentile 65`；误保留等待 → `78` 或 `--vlm-filter`。  
+**勿对 MOV 使用 `--copy`**（易剪坏/无法播放）。
+
+Gradio：`bash run-wsl.sh` → 标签页 **「击球片段提取（去等待）」**。
+
+##### 接入训练流水线
+
+```bash
+# 切片表 → 独立短片 + manifest
+python scripts/slice_match_to_clips.py --video match.MOV \
+  --segments data/match_segments.jsonl --clips-dir data/clips \
+  --manifest-out data/manifest_sft.jsonl --mode sft
+
+# 抽帧 → 多模态 SFT 数据集
+python scripts/build_vlm_dataset_from_videos.py --mode sft \
+  --manifest data/manifest_sft.jsonl --out data/tennis_vlm_sft.json \
+  --register-key tennis_vlm_sft
+```
+
+##### 故障排查
+
+| 现象 | 处理 |
+|------|------|
+| 导出 MP4 无法播放（尤其 iPhone MOV） | 已默认重编码；删旧文件后重新导出，**不要** `--copy` |
+| `IsADirectoryError: '.'` | `--segments-out` 须为**文件路径**，如 `data/segments.jsonl` |
+| 保留比例过低/过高 | 调整 `--motion-percentile`（默认 72）或 `--merge-gap`（默认 2.8） |
+
+#### 改动总结（模型训练相关）
+
+- **新增模型升级配置**：`configs/train/qwen3_vl_2b_qlora_sft_mm.yaml`、`qwen3_vl_2b_lora_dpo_mm.yaml`（多模态主线升级，模板 `qwen3_vl`，本机可 QLoRA）；`configs/train/qwen3_5_4b_qlora_sft.yaml`、`qwen3_5_4b_lora_dpo.yaml`（文本附录线，模板 `qwen3_5`，可替代 DeepSeek-7B）。DPO 配置默认开 4bit 以适配低显存。
+- **新增切片脚本** `scripts/slice_match_to_clips.py`：把比赛长视频按切片表批量 ffmpeg 切成单拍/回合短片，并生成 manifest 骨架；支持 `--dry-run`、`--limit`、`--copy`。
+- **`scripts/build_vlm_dataset_from_videos.py` 增强**：新增 `--dry-run`（校验 `video_path` 存在与必填字段、预览首条样本，不抽帧/不写盘）与 `--limit`（只处理前 N 条）。
+- **新增击球片段提取**：`services/stroke_detect.py`、`services/stroke_vlm_filter.py`、`scripts/extract_stroke_clips.py`；Gradio 标签页「击球片段提取（去等待）」；长视频流式检测 + MOV/HEVC 兼容导出。
+- **关于 Qwen3.6**：实为 27B/35B 纯文本大模型，模态与体量都不适配 6GB 本机与视频主线，故不纳入；视频线升级走 `Qwen3-VL`。
 
 ### 3) DPO（偏好优化）
 
@@ -643,14 +735,16 @@ tenclip/
 ├─ config/                     # 网坛 RSS 来源 news_sources.json
 ├─ data/                       # SQLite、Cookie、抓取日志（多数已 gitignore）
 ├─ model/                      # VLM 权重（见 model/README.md）
+├─ services/
+│   ├─ vlm_tennis.py           # VLM 抽帧与动作分析
+│   ├─ stroke_detect.py        # 击球/回合时间段检测 + 导出
+│   └─ stroke_vlm_filter.py    # 可选 VLM 二次过滤
 ├─ scripts/
-│   ├─ verify_wsl_env.sh
-│   ├─ verify_core_api.py
-│   ├─ start_core_api.sh / start_web.sh
+│   ├─ extract_stroke_clips.py # 击球片段提取 CLI
+│   ├─ slice_match_to_clips.py
+│   ├─ build_vlm_dataset_from_videos.py
 │   ├─ xhs_note_fetch.py
-│   ├─ news_ingest_once.py
 │   └─ ...
-├─ services/                   # 主应用：新闻抓取、VLM 推理等
 └─ test_*.py
 ```
 

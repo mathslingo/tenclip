@@ -1,0 +1,44 @@
+### model
+# 本地目录优先；也可改为 HF/ModelScope ID（如 Qwen/Qwen3-VL-2B-Instruct）由框架下载
+model_name_or_path: model/Qwen3-VL-2B-Instruct
+trust_remote_code: true
+quantization_bit: 4
+quantization_method: bnb
+
+### method
+stage: sft
+do_train: true
+finetuning_type: lora
+lora_rank: 8
+lora_target: all
+
+### dataset
+# 多模态数据集列结构通用（instruction/input/output/images），可与 Qwen2-VL 共用
+dataset_dir: data
+dataset: mock_tennis_qwen2_vl_mm_sft_1k
+template: qwen3_vl
+cutoff_len: 2048
+max_samples: 1000
+preprocessing_num_workers: 4
+dataloader_num_workers: 2
+
+### output
+output_dir: saves/qwen3_vl_2b/lora/sft_mm
+logging_steps: 10
+save_steps: 200
+plot_loss: true
+overwrite_output_dir: true
+save_only_model: false
+report_to: none
+
+### train
+per_device_train_batch_size: 1
+gradient_accumulation_steps: 8
+learning_rate: 1.0e-4
+num_train_epochs: 2.0
+lr_scheduler_type: cosine
+warmup_ratio: 0.1
+bf16: true
+gradient_checkpointing: true
+ddp_timeout: 180000000
+resume_from_checkpoint: null

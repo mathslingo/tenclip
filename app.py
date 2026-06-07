@@ -31,6 +31,7 @@ from moviepy.video.io.VideoFileClip import VideoFileClip
 
 from pages.video_input.gradio_page import video_input_demo
 
+from services.stroke_detect import StrokeDetectConfig, run_stroke_extract_pipeline
 from services.vlm_tennis import (
     MAX_VIDEO_DURATION_SEC,
     analyze_tennis_video,
@@ -484,6 +485,70 @@ def run_mobile_api_analysis(video_path: str, perf_mode: str, prompt_profile: str
     return analyze_tennis_video(video_path, perf_mode, prompt_profile=pp)
 
 
+def run_stroke_extract(
+    video_file,
+    detect_mode,
+    motion_percentile,
+    use_vlm_filter,
+    progress=gr.Progress(),
+):
+    """检测击球/回合片段并导出集锦（适合长视频，流式 ffmpeg 分析）。"""
+    path = _extract_video_path(video_file)
+    if not path:
+        return None, "请先上传视频文件。"
+    if not os.path.isfile(path):
+        return None, f"视频不存在: {path}"
+
+    def _prog(msg: str, frac: float) -> None:
+        progress(frac, desc=msg)
+
+    cfg = StrokeDetectConfig(motion_percentile=float(motion_percentile))
+    out_path = tempfile.NamedTemporaryFile(suffix=".mp4", delete=False).name
+
+    try:
+        if use_vlm_filter:
+            hint = vlm_dependency_message()
+            if hint:
+                return None, f"已勾选 VLM 过滤，但模型不可用：\n\n{hint}"
+
+        _prog("开始分析（长视频流式处理，请耐心等待）…", 0.02)
+        result = run_stroke_extract_pipeline(
+            path,
+            out_path,
+            mode=detect_mode,
+            config=cfg,
+            vlm_filter=bool(use_vlm_filter),
+            vlm_mode="eco",
+            copy=False,
+            progress=_prog,
+        )
+    except Exception as e:
+        logging.exception("stroke extract failed")
+        return None, f"提取失败: {e}"
+
+    if not result.segments:
+        return None, (
+            "未检测到击球/回合片段。可尝试：降低「运动灵敏度」、换「仅画面运动」模式，"
+            "或取消 VLM 过滤后再试。"
+        )
+
+    ratio = result.kept_sec / result.duration_sec if result.duration_sec > 0 else 0.0
+    lines = [
+        f"**原时长** {result.duration_sec:.1f}s → **保留** {result.kept_sec:.1f}s（{ratio:.0%}）",
+        f"**片段数** {len(result.segments)}  ·  **模式** {result.mode}"
+        + ("  ·  **VLM 过滤** 已启用" if use_vlm_filter else ""),
+        "",
+        "| # | 开始 | 结束 | 时长 |",
+        "|---|---:|---:|---:|",
+    ]
+    for i, seg in enumerate(result.segments[:15]):
+        lines.append(f"| {i} | {seg.start:.1f}s | {seg.end:.1f}s | {seg.duration():.1f}s |")
+    if len(result.segments) > 15:
+        lines.append(f"| … | 共 {len(result.segments)} 段 | | |")
+    lines.append("\n下方下载为 **仅含击球/回合** 的拼接视频（MP4）。")
+    return out_path, "\n".join(lines)
+
+
 def _vlm_tab_intro():
     dep = vlm_dependency_message()
     base = (
@@ -575,6 +640,38 @@ with gr.Blocks(title="TenClip", css=TENNIS_GUIDANCE_CSS) as demo:
             gr.Markdown(
                 "**弱显卡建议**：保持「省显存」；若仍 OOM，可先剪辑更短片段，"
                 "或在启动前设置环境变量 `TENCLIP_FORCE_CPU=1` 强制走 CPU（会慢很多）。"
+            )
+
+        with gr.Tab("击球片段提取（去等待）"):
+            gr.Markdown(
+                "上传网球比赛/练习**长视频**（支持 MOV/MP4，200MB+ 可处理）。"
+                "基于 **画面运动 + 击球声** 自动识别回合/击球时间段，剪掉换边、等待等非击球画面，"
+                "输出拼接后的集锦。可选 **VLM 二次过滤**（更准但更慢，需 GPU）。"
+            )
+            with gr.Row():
+                stroke_file = gr.File(label="上传视频", file_types=[".mp4", ".mov", ".avi"])
+                stroke_mode = gr.Radio(
+                    ["combined", "motion", "audio"],
+                    value="combined",
+                    label="检测模式",
+                    info="combined=运动+击球声；无音轨时用 motion",
+                )
+            motion_p = gr.Slider(
+                55,
+                90,
+                value=72,
+                step=1,
+                label="运动灵敏度（数值越低保留越多）",
+            )
+            stroke_vlm = gr.Checkbox(label="VLM 二次过滤（较慢，减少误保留的等待/捡球）", value=False)
+            stroke_btn = gr.Button("提取击球片段", variant="primary")
+            stroke_summary = gr.Markdown()
+            stroke_out = gr.File(label="击球集锦（MP4）")
+
+            stroke_btn.click(
+                run_stroke_extract,
+                inputs=[stroke_file, stroke_mode, motion_p, stroke_vlm],
+                outputs=[stroke_out, stroke_summary],
             )
 
 

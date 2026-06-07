@@ -1,0 +1,75 @@
+{
+  "duration_sec": 111.035,
+  "kept_sec": 42.26,
+  "kept_ratio": 0.3806,
+  "mode": "combined",
+  "segment_count": 8,
+  "segments": [
+    {
+      "start": 3.65,
+      "end": 6.75,
+      "duration": 3.1,
+      "score": 3.4391,
+      "source": "motion"
+    },
+    {
+      "start": 14.9,
+      "end": 24.75,
+      "duration": 9.85,
+      "score": 4.089,
+      "source": "motion"
+    },
+    {
+      "start": 29.9,
+      "end": 35.25,
+      "duration": 5.35,
+      "score": 2.805,
+      "source": "motion"
+    },
+    {
+      "start": 39.65,
+      "end": 47.25,
+      "duration": 7.6,
+      "score": 12.7465,
+      "source": "motion"
+    },
+    {
+      "start": 50.15,
+      "end": 53.31,
+      "duration": 3.16,
+      "score": 2579.6295,
+      "source": "combined"
+    },
+    {
+      "start": 58.85,
+      "end": 61.99,
+      "duration": 3.14,
+      "score": 4622.1928,
+      "source": "audio"
+    },
+    {
+      "start": 92.13,
+      "end": 94.59,
+      "duration": 2.46,
+      "score": 1750.6166,
+      "source": "audio"
+    },
+    {
+      "start": 98.4,
+      "end": 106.0,
+      "duration": 7.6,
+      "score": 4.0817,
+      "source": "motion"
+    }
+  ],
+  "debug": {
+    "duration_sec": 111.035,
+    "mode": "combined",
+    "motion_segment_count": 14,
+    "motion_threshold_percentile": 72.0,
+    "motion_frames": 444,
+    "audio_available": true,
+    "audio_segment_count": 3,
+    "output_path": "/mnt/c/Users/baozi/Pictures/IMG_2834_strokes_only.mp4"
+  }
+}

@@ -1,0 +1,665 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>TenClip · 项目全景</title>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<style>
+  :root {
+    --bg: #0f1419;
+    --bg-soft: #161c24;
+    --card: #1b232e;
+    --card-2: #212b38;
+    --border: #2b3644;
+    --text: #e6edf3;
+    --text-dim: #9aa7b4;
+    --accent: #c6f135;      /* tennis ball green-yellow */
+    --accent-2: #5ad1a8;
+    --accent-3: #4aa3ff;
+    --warn: #ffb454;
+    --radius: 14px;
+    --maxw: 1080px;
+    font-synthesis: none;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    background:
+      radial-gradient(1200px 600px at 80% -10%, rgba(198,241,53,.10), transparent 60%),
+      radial-gradient(900px 500px at -10% 10%, rgba(74,163,255,.10), transparent 55%),
+      var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+      "Hiragino Sans GB", "Microsoft YaHei", Roboto, Helvetica, Arial, sans-serif;
+    line-height: 1.65;
+  }
+  a { color: var(--accent-3); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  code {
+    font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+    background: rgba(255,255,255,.06);
+    border: 1px solid var(--border);
+    padding: .1em .4em;
+    border-radius: 6px;
+    font-size: .88em;
+    color: var(--accent-2);
+  }
+
+  /* layout */
+  .wrap { max-width: var(--maxw); margin: 0 auto; padding: 0 20px; }
+  header.hero {
+    position: relative;
+    padding: 72px 0 52px;
+    border-bottom: 1px solid var(--border);
+    overflow: hidden;
+  }
+  .badge-row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 22px; }
+  .badge {
+    font-size: 12px; letter-spacing: .04em;
+    padding: 5px 11px; border-radius: 999px;
+    border: 1px solid var(--border);
+    background: var(--card);
+    color: var(--text-dim);
+  }
+  .badge.accent { color: #1a1f12; background: var(--accent); border-color: transparent; font-weight: 600; }
+  h1 {
+    font-size: clamp(34px, 6vw, 56px);
+    line-height: 1.05; margin: 0 0 14px;
+    letter-spacing: -.02em;
+  }
+  h1 .dot { color: var(--accent); }
+  .subtitle { font-size: clamp(15px, 2.4vw, 19px); color: var(--text-dim); max-width: 720px; }
+
+  .quick { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 28px; }
+  .quick a {
+    display: inline-flex; align-items: center; gap: 7px;
+    padding: 9px 15px; border-radius: 10px;
+    background: var(--card); border: 1px solid var(--border);
+    color: var(--text); font-size: 14px; font-weight: 500;
+  }
+  .quick a:hover { border-color: var(--accent); text-decoration: none; }
+
+  section { padding: 52px 0; border-bottom: 1px solid var(--border); }
+  section > .wrap > h2 {
+    font-size: 13px; text-transform: uppercase; letter-spacing: .18em;
+    color: var(--accent); margin: 0 0 6px; font-weight: 700;
+  }
+  section > .wrap > .h2-title {
+    font-size: clamp(24px, 4vw, 34px); margin: 0 0 8px; letter-spacing: -.01em;
+  }
+  section > .wrap > .lead { color: var(--text-dim); max-width: 760px; margin: 0 0 28px; }
+
+  /* cards */
+  .grid { display: grid; gap: 16px; }
+  .grid.cols-2 { grid-template-columns: repeat(2, 1fr); }
+  .grid.cols-3 { grid-template-columns: repeat(3, 1fr); }
+  @media (max-width: 820px) { .grid.cols-2, .grid.cols-3 { grid-template-columns: 1fr; } }
+  .card {
+    background: linear-gradient(180deg, var(--card), var(--bg-soft));
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px 20px 18px;
+    transition: transform .15s ease, border-color .15s ease;
+  }
+  .card:hover { transform: translateY(-3px); border-color: #3b4a5c; }
+  .card .ico { font-size: 22px; }
+  .card h3 { margin: 10px 0 6px; font-size: 17px; }
+  .card p { margin: 0; color: var(--text-dim); font-size: 14px; }
+  .card .meta { margin-top: 12px; font-size: 12.5px; color: var(--accent-2); }
+  .tag-port { color: var(--warn); }
+
+  /* diagram panel */
+  .panel {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 14px;
+    overflow-x: auto;
+  }
+  .panel + .panel { margin-top: 16px; }
+  .mermaid { display: flex; justify-content: center; }
+  .panel .cap { color: var(--text-dim); font-size: 13px; padding: 4px 6px 12px; }
+
+  /* table */
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th, td { text-align: left; padding: 11px 12px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  th { color: var(--text-dim); font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: .06em; }
+  tbody tr:hover { background: rgba(255,255,255,.02); }
+  .pill { font-size: 11.5px; padding: 2px 9px; border-radius: 999px; white-space: nowrap; }
+  .pill.done { background: rgba(90,209,168,.15); color: var(--accent-2); }
+  .pill.wip  { background: rgba(255,180,84,.15); color: var(--warn); }
+  .pill.plan { background: rgba(154,167,180,.15); color: var(--text-dim); }
+
+  /* timeline / outlook */
+  .timeline { position: relative; margin: 0; padding-left: 26px; }
+  .timeline::before {
+    content: ""; position: absolute; left: 7px; top: 4px; bottom: 4px;
+    width: 2px; background: linear-gradient(var(--accent), var(--accent-3));
+  }
+  .tl-item { position: relative; padding: 0 0 24px 6px; }
+  .tl-item::before {
+    content: ""; position: absolute; left: -23px; top: 4px;
+    width: 12px; height: 12px; border-radius: 50%;
+    background: var(--bg); border: 2px solid var(--accent);
+  }
+  .tl-item.future::before { border-color: var(--accent-3); }
+  .tl-item h4 { margin: 0 0 4px; font-size: 16px; }
+  .tl-item p { margin: 0; color: var(--text-dim); font-size: 14px; }
+
+  footer { padding: 40px 0 64px; color: var(--text-dim); font-size: 13px; }
+  .kbd { color: var(--accent); }
+  .note { font-size: 13px; color: var(--text-dim); margin-top: 14px; }
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="wrap">
+    <div class="badge-row">
+      <span class="badge accent">TenClip</span>
+      <span class="badge">本地 GPU · Qwen2-VL-2B</span>
+      <span class="badge">WSL2 + Conda</span>
+      <span class="badge">FastAPI · React</span>
+      <span class="badge">网坛资讯 / 内容站</span>
+    </div>
+    <h1>TenClip<span class="dot">.</span> 网球视频理解 &amp; 资讯平台</h1>
+    <p class="subtitle">
+      在有限本机显存上跑通「视频剪辑 + 网球动作多模态分析」，并向外延伸出网坛资讯抓取、
+      内容运营后台与小红书笔记采集。本页用流程图呈现整体架构、数据流与未来展望。
+    </p>
+    <nav class="quick">
+      <a href="#overview">▸ 模块全景</a>
+      <a href="#arch">▸ 系统架构</a>
+      <a href="#flows">▸ 数据流</a>
+      <a href="#stroke">▸ 击球提取</a>
+      <a href="#training">▸ 模型训练</a>
+      <a href="#deploy">▸ 部署拓扑</a>
+      <a href="#roadmap">▸ 路线图</a>
+      <a href="#outlook">▸ 延伸与展望</a>
+    </nav>
+  </div>
+</header>
+
+<!-- OVERVIEW -->
+<section id="overview">
+  <div class="wrap">
+    <h2>Modules</h2>
+    <div class="h2-title">核心模块，一套仓库</div>
+    <p class="lead">
+      主应用（Gradio）专注本地视频理解；子项目（FastAPI + 两个前端）承载资讯内容站；
+      小红书模块负责外部内容采集。各部分依赖隔离，可独立启动。
+    </p>
+    <div class="grid cols-3">
+      <div class="card">
+        <div class="ico">🎾</div>
+        <h3>主应用 · Gradio</h3>
+        <p>视频剪辑、Qwen2-VL-2B 抽帧动作分析、RSS 网坛新闻 H5（<code>/news</code>）。省显存策略适配 6GB 级 GPU。</p>
+        <div class="meta">app.py · services/ · 端口 7860/7861</div>
+      </div>
+      <div class="card">
+        <div class="ico">⚙️</div>
+        <h3>Core API · FastAPI</h3>
+        <p>新闻 / 球员 / 比赛 / 视频 CRUD，JWT 登录，SQLite 存储，可选 Redis 热点缓存。</p>
+        <div class="meta">subprojects/core_api · 端口 8000</div>
+      </div>
+      <div class="card">
+        <div class="ico">🖥️</div>
+        <h3>用户站 · web/</h3>
+        <p>React + Ant Design，首页资讯、比赛与小红书 explore 卡片，<code>/api</code> 同域代理。</p>
+        <div class="meta">Vite · 端口 5174</div>
+      </div>
+      <div class="card">
+        <div class="ico">🛠️</div>
+        <h3>管理后台 · admin/</h3>
+        <p>内容运营：新闻 / 球员 / 比赛 / 视频的列表与表单 CRUD。</p>
+        <div class="meta">Vite · 端口 5173</div>
+      </div>
+      <div class="card">
+        <div class="ico">📕</div>
+        <h3>小红书采集 · xhs_note/</h3>
+        <p>按 24 位笔记 ID + Cookie 拉取标题/封面/话题，优先解析内嵌 JSON，独立于旧 <code>xhs_preview</code>。</p>
+        <div class="meta">subprojects/xhs_note · CLI + HTTP</div>
+      </div>
+      <div class="card">
+        <div class="ico">✂️</div>
+        <h3>击球片段提取</h3>
+        <p>长视频流式检测画面运动 + 击球声，剪掉等待/非击球时间；可选 VLM 过滤；MOV/HEVC 兼容导出。</p>
+        <div class="meta">stroke_detect · extract_stroke_clips.py · Gradio 标签页</div>
+      </div>
+      <div class="card">
+        <div class="ico">🧠</div>
+        <h3>训练 · LLaMA-Factory</h3>
+        <p>Prompt 档位 → QLoRA SFT → DPO 三层优化，配置与 mock 多模态数据已就绪。</p>
+        <div class="meta">configs/ · data/</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ARCHITECTURE -->
+<section id="arch">
+  <div class="wrap">
+    <h2>Architecture</h2>
+    <div class="h2-title">系统架构总览</div>
+    <p class="lead">两条相对独立的链路：① 本地视频理解（Gradio + 本地 VLM 权重）；② 资讯内容站（FastAPI + 双前端 + 外部采集）。</p>
+    <div class="panel">
+      <div class="mermaid">
+flowchart TB
+    subgraph User["使用者"]
+      B1["浏览器 / H5"]
+      OP["运营人员"]
+    end
+
+    subgraph Main["主应用 (Gradio · app.py)"]
+      G["视频剪辑 UI"]
+      A["动作分析 UI"]
+      N["网坛新闻 /news"]
+      VLM["services/vlm_tennis.py<br/>Qwen2-VL-2B 抽帧推理"]
+      NF["services/news_feed.py<br/>RSS 抓取 + 排序"]
+    end
+
+    subgraph Sub["子项目 (FastAPI · subprojects/core_api)"]
+      API["REST: news / players<br/>matches / videos / auth"]
+      XP["xhs_preview 路由"]
+      XR["xhs_note_routes"]
+    end
+
+    subgraph FE["前端 (Vite + React)"]
+      WEB["web/ 用户站 :5174"]
+      ADM["admin/ 后台 :5173"]
+    end
+
+    subgraph XHS["小红书采集 (subprojects/xhs_note)"]
+      XC["client + parse<br/>Cookie 登录态"]
+    end
+
+    subgraph Store["本地存储"]
+      WT[("本地 VLM 权重<br/>model/")]
+      DB1[("news_feed.db")]
+      DB2[("core_api.db")]
+      RDS[("Redis · 可选")]
+    end
+
+    B1 --> G & A & N
+    OP --> ADM
+    B1 --> WEB
+    G --> VLM --> WT
+    A --> VLM
+    N --> NF --> DB1
+    WEB -->|/api 代理| API
+    ADM -->|/api| API
+    API --> DB2
+    API -.热点缓存.-> RDS
+    XR --> XC
+    XC -->|HTTPS + Cookie| XWWW["xiaohongshu.com"]
+    NF -->|RSS / HTML| SRC["ATP · WTA · BBC · ESPN ..."]
+      </div>
+      <div class="cap">图 1 · 模块与依赖关系（实线=调用，虚线=可选/缓存）</div>
+    </div>
+  </div>
+</section>
+
+<!-- DATA FLOWS -->
+<section id="flows">
+  <div class="wrap">
+    <h2>Data Flows</h2>
+    <div class="h2-title">三条核心数据流</div>
+    <p class="lead">分别对应「视频理解」「资讯召回与推荐」「小红书笔记采集」。</p>
+
+    <div class="panel">
+      <div class="mermaid">
+flowchart LR
+    U["上传视频"] --> C{"时长 > 300s?"}
+    C -->|是| TR["先剪辑截断"]
+    C -->|否| FR
+    TR --> FR["均匀抽帧"]
+    FR --> PR["选择提示词档位<br/>default / step_by_step_v2 / motion_deep"]
+    PR --> M["Qwen2-VL-2B<br/>省显存 / 平衡 / 质量"]
+    M --> O["结构化中文动作指导<br/>证据 + 机制 + 训练处方"]
+      </div>
+      <div class="cap">图 2 · 视频动作分析链路（本地，权重不出本机）</div>
+    </div>
+
+    <div class="panel">
+      <div class="mermaid">
+flowchart LR
+    SRC["RSS / 站点 HTML<br/>ATP·WTA·BBC·ESPN·澎湃"] --> ING["news_ingest_once.py<br/>抓取 + 去重 + 标签抽取"]
+    ING --> DB[("news_feed.db")]
+    DB --> RK["排序：新鲜度 + 标签匹配<br/>+ 来源分层 + 反馈热度"]
+    RK --> FEED["/api/news/feed 双列流"]
+    FEED --> FB["反馈：收藏 / 已读 / 不感兴趣"]
+    FB --> PROF["用户偏好画像"]
+    PROF -.影响排序.-> RK
+      </div>
+      <div class="cap">图 3 · 网坛资讯召回与推荐（cron 每日 4 次或手动触发）</div>
+    </div>
+
+    <div class="panel">
+      <div class="mermaid">
+flowchart LR
+    ID["24 位笔记 ID"] --> CK{"Cookie 就绪?<br/>data/xhs_cookie.txt"}
+    CK -->|否| ERR["报错：需登录态"]
+    CK -->|是| FETCH["requests + Cookie<br/>explore 页"]
+    FETCH --> P1["解析 __INITIAL_STATE__<br/>按 note_id 锚定 JSON"]
+    P1 --> P2{"命中标题/封面?"}
+    P2 -->|否| MOB["移动 UA 回退重试"]
+    P2 -->|是| OUT["NoteInfo<br/>标题/简介/封面/话题"]
+    MOB --> OUT
+      </div>
+      <div class="cap">图 4 · 小红书笔记采集（CLI / HTTP / Python 三种入口）</div>
+    </div>
+  </div>
+</section>
+
+<!-- STROKE EXTRACT -->
+<section id="stroke">
+  <div class="wrap">
+    <h2>Stroke Extract</h2>
+    <div class="h2-title">击球片段提取：去等待 / 长视频</div>
+    <p class="lead">
+      输入整段网球视频，自动保留<strong>击球与回合</strong>画面，剪掉换边、等待、捡球等。
+      采用 ffmpeg <strong>流式</strong>分析（适合 200MB+），非全片 VLM；可选 Qwen2-VL 二次过滤。
+    </p>
+
+    <div class="panel">
+      <div class="mermaid">
+flowchart TB
+    IN["输入视频<br/>MP4 / MOV / 200MB+"] --> M["画面运动<br/>4fps 灰度帧差分"]
+    IN --> A["击球声<br/>流式 PCM 能量峰"]
+    M --> MERGE["合并时间段<br/>缓冲 + 合并近邻段"]
+    A --> MERGE
+    MERGE --> VLM{"VLM 过滤?<br/>可选"}
+    VLM -->|否| EXP
+    VLM -->|是| VF["每段抽 2 帧<br/>Qwen2-VL 是/否"]
+    VF --> EXP["ffmpeg 导出<br/>H.264 yuv420p faststart"]
+    EXP --> OUT["击球集锦 MP4"]
+    MERGE -.-> SEG["segments.jsonl"]
+    SEG -.-> TRAIN["slice_match → build_vlm_dataset → SFT"]
+      </div>
+      <div class="cap">图 5 · 击球片段提取流水线（启发式检测 + 可选 VLM + 训练数据衔接）</div>
+    </div>
+
+    <table style="margin-top:16px">
+      <thead><tr><th>组件</th><th>路径</th><th>说明</th></tr></thead>
+      <tbody>
+        <tr><td>检测核心</td><td><code>services/stroke_detect.py</code></td><td>运动 + 音频信号、合并、导出、ffprobe 校验</td></tr>
+        <tr><td>VLM 过滤</td><td><code>services/stroke_vlm_filter.py</code></td><td>候选段二次确认，减少误保留等待画面</td></tr>
+        <tr><td>CLI</td><td><code>scripts/extract_stroke_clips.py</code></td><td><code>--analyze-only</code> / <code>--out</code> / <code>--vlm-filter</code></td></tr>
+        <tr><td>UI</td><td>Gradio 标签页</td><td>「击球片段提取（去等待）」</td></tr>
+      </tbody>
+    </table>
+
+    <div class="grid cols-2" style="margin-top:16px">
+      <div class="card">
+        <div class="ico">📱</div>
+        <h3>iPhone MOV / 长视频</h3>
+        <p>源为 HEVC/MOV 时<strong>自动重编码</strong>为 H.264 + yuv420p + faststart，避免 Windows 播放器无法打开。勿用 <code>--copy</code>。</p>
+      </div>
+      <div class="card">
+        <div class="ico">🎛️</div>
+        <h3>调参</h3>
+        <p><code>--motion-percentile</code> 默认 72（越低保留越多）；<code>--merge-gap</code> 默认 2.8s；误检多开 <code>--vlm-filter</code>。</p>
+      </div>
+    </div>
+
+    <p class="note">
+      示例（WSL 访问 Windows 视频）：<code>python scripts/extract_stroke_clips.py /mnt/c/Users/you/Pictures/match.MOV --out /mnt/c/Users/you/Pictures/match_strokes_only.mp4</code>
+      · 先 <code>--analyze-only --report-out data/stroke_report.json</code> 看保留比例。
+    </p>
+  </div>
+</section>
+
+<!-- TRAINING -->
+<section id="training">
+  <div class="wrap">
+    <h2>Model Training</h2>
+    <div class="h2-title">模型训练：Prompt → SFT → DPO</div>
+    <p class="lead">
+      统一基于 <a href="https://github.com/hiyouga/LLaMA-Factory" target="_blank">LLaMA-Factory</a>，
+      按成本由低到高分三层优化。主线为多模态 <code>Qwen2-VL-2B</code>，附带纯文本 <code>DeepSeek-R1-7B</code> 实验线。
+    </p>
+
+    <div class="panel">
+      <div class="mermaid">
+flowchart LR
+    subgraph L1["① Prompt 微调 · 0 训练成本"]
+      P["切换提示词档位<br/>default / step_by_step_v2 / motion_deep"]
+    end
+    subgraph L2["② SFT · QLoRA 4bit"]
+      S["固化『好回答风格』<br/>lora_rank 8 · lr 1e-4"]
+    end
+    subgraph L3["③ DPO · LoRA"]
+      D["偏好对齐 优答 > 劣答<br/>pref_beta 0.1 · lr 5e-6"]
+    end
+    P -->|选出最佳范式作为标注风格| S
+    S -->|adapter 作为基座| D
+    D --> MERGE["合并 LoRA → 本地权重目录"]
+    MERGE --> INF["TENCLIP_VLM_MODEL 指向<br/>线上推理生效"]
+      </div>
+      <div class="cap">图 6 · 三层优化路线（建议顺序：A 先做 Prompt 闭环 → B 升级多模态 SFT → C 构建 DPO 难例）</div>
+    </div>
+
+    <div class="grid cols-2" style="margin-top:16px">
+      <div class="card">
+        <div class="ico">🎾</div>
+        <h3>Qwen2-VL-2B-Instruct（主线 · 多模态）</h3>
+        <p>网球动作分析核心，约 2B，适配 6GB 级显存。本地权重 <code>model/Qwen2-VL-2B-Instruct/</code>，模板 <code>qwen2_vl</code>。</p>
+        <div class="meta">SFT（文本 / 多模态）· DPO（文本 / 多模态）</div>
+      </div>
+      <div class="card">
+        <div class="ico">📎</div>
+        <h3>DeepSeek-R1-Distill-Qwen-7B（附录 · 纯文本）</h3>
+        <p>与视频主线<strong>独立</strong>，仅供本地文本 / 对话实验。模板 <code>deepseekr1</code>，含 4bit nf4 推理配置。</p>
+        <div class="meta">SFT · DPO · inference</div>
+      </div>
+    </div>
+
+    <h3 style="margin:28px 0 10px;font-size:18px">训练配置（configs/train/）</h3>
+    <table>
+      <thead>
+        <tr><th>配置文件</th><th>阶段</th><th>数据集</th><th>关键超参</th></tr>
+      </thead>
+      <tbody>
+        <tr><td><code>qwen2_vl_2b_qlora_sft.yaml</code></td><td><span class="pill done">SFT</span></td><td>mock_tennis_qwen2_vl_sft_10k</td><td>4bit · LoRA r8 · lr 1e-4 · 3 ep</td></tr>
+        <tr><td><code>qwen2_vl_2b_qlora_sft_mm.yaml</code></td><td><span class="pill done">SFT·多模态</span></td><td>mock_tennis_qwen2_vl_mm_sft_1k</td><td>4bit · 带 images 列 · 2 ep</td></tr>
+        <tr><td><code>qwen2_vl_2b_lora_dpo.yaml</code></td><td><span class="pill wip">DPO</span></td><td>mock_tennis_qwen2_vl_dpo_10k</td><td>LoRA · β0.1 sigmoid · lr 5e-6</td></tr>
+        <tr><td><code>qwen2_vl_2b_lora_dpo_mm.yaml</code></td><td><span class="pill wip">DPO·多模态</span></td><td>mock_tennis_qwen2_vl_mm_dpo_1k</td><td>LoRA · 带 images 列 · lr 5e-6</td></tr>
+        <tr><td><code>qwen3_vl_2b_qlora_sft_mm.yaml</code></td><td><span class="pill done">SFT·多模态</span></td><td>mock_tennis_qwen2_vl_mm_sft_1k</td><td>🆕 模板 qwen3_vl · 4bit · 升级路径</td></tr>
+        <tr><td><code>qwen3_vl_2b_lora_dpo_mm.yaml</code></td><td><span class="pill wip">DPO·多模态</span></td><td>mock_tennis_qwen2_vl_mm_dpo_1k</td><td>🆕 qwen3_vl · 4bit QLoRA-DPO</td></tr>
+        <tr><td><code>deepseek_r1_7b_qlora_sft.yaml</code></td><td><span class="pill plan">SFT·文本</span></td><td>mock_tennis_sft_10k</td><td>4bit · 模板 deepseekr1</td></tr>
+        <tr><td><code>deepseek_r1_7b_lora_dpo.yaml</code></td><td><span class="pill plan">DPO·文本</span></td><td>mock_tennis_dpo_10k</td><td>LoRA · β0.1 sigmoid</td></tr>
+        <tr><td><code>qwen3_5_4b_qlora_sft.yaml</code></td><td><span class="pill plan">SFT·文本</span></td><td>mock_tennis_sft_10k</td><td>🆕 模板 qwen3_5 · 4B/2B 可本机</td></tr>
+        <tr><td><code>qwen3_5_4b_lora_dpo.yaml</code></td><td><span class="pill plan">DPO·文本</span></td><td>mock_tennis_dpo_10k</td><td>🆕 qwen3_5 · 4bit QLoRA-DPO</td></tr>
+      </tbody>
+    </table>
+    <p class="note">
+      🆕 升级路径：网球视频主线建议 <code>Qwen2-VL-2B</code> → <strong>Qwen3-VL-2B</strong>（同为多模态、模板 <code>qwen3_vl</code>，本机可 QLoRA）；
+      文本附录线可由 DeepSeek-7B 换 <strong>Qwen3.5-4B/2B</strong>（模板 <code>qwen3_5</code>）。
+      <code>Qwen3.6</code>（27B/35B，纯文本）体量与模态都不适配 6GB 本机，故不纳入主线。
+    </p>
+
+    <h3 style="margin:28px 0 10px;font-size:18px">从比赛视频构造训练数据</h3>
+    <div class="panel">
+      <div class="mermaid">
+flowchart LR
+    M["比赛长视频"] --> AUTO["extract_stroke_clips.py<br/>可选：自动去等待"]
+    AUTO --> CUT["slice_match_to_clips.py<br/>按切片表 ffmpeg 切片"]
+    CUT --> CLIP["单拍 / 回合短片"]
+    CLIP --> MAN["manifest.jsonl"]
+    MAN --> DRY["build_... --dry-run"]
+    DRY --> BUILD["抽帧 → vlm_images/"]
+    BUILD --> TRAIN["SFT / DPO"]
+      </div>
+      <div class="cap">图 7 · 视频 → 数据集 → 训练（可先自动去等待，再切片抽帧）</div>
+    </div>
+
+    <div class="grid cols-2" style="margin-top:16px">
+      <div class="card">
+        <div class="ico">✂️</div>
+        <h3>① 去等待 / 切片</h3>
+        <p><code>extract_stroke_clips.py</code> 自动保留击球段（可选）；<code>slice_match_to_clips.py</code> 按表切短片 + manifest。</p>
+      </div>
+      <div class="card">
+        <div class="ico">🎬</div>
+        <h3>② 抽帧建数据集</h3>
+        <p><code>build_vlm_dataset_from_videos.py</code>：线上同款抽帧 → <code>data/vlm_images/&lt;id&gt;/</code>，<code>--register-key</code> 自动注册；🆕 <code>--dry-run</code> 校验+预览、<code>--limit</code> 试跑。</p>
+      </div>
+      <div class="card">
+        <div class="ico">🧪</div>
+        <h3>mock 快速打通</h3>
+        <p><code>generate_mock_vlm_datasets.py</code> 造多模态 SFT/DPO；<code>materialize_mock_vlm_images.py</code> 落盘占位图，端到端冒烟。</p>
+      </div>
+      <div class="card">
+        <div class="ico">🔌</div>
+        <h3>③ 接回推理</h3>
+        <p>adapter → <code>saves/qwen*/lora/</code>；合并后 <code>TENCLIP_VLM_MODEL</code> 指向本地目录即生效（后端 LLaMA-Factory / Transformers 可切）。</p>
+      </div>
+    </div>
+
+    <p class="note">
+      运行示例：<code>conda activate tenclip</code> →
+      <code>python scripts/slice_match_to_clips.py --video match.mp4 --segments segments.jsonl --manifest-out data/manifest_sft.jsonl --mode sft</code> →
+      <code>python scripts/build_vlm_dataset_from_videos.py --mode sft --manifest data/manifest_sft.jsonl --out data/tennis_vlm_sft.json --register-key tennis_vlm_sft</code> →
+      <code>llamafactory-cli train configs/train/qwen2_vl_2b_qlora_sft_mm.yaml</code>。
+    </p>
+
+    <h3 style="margin:28px 0 10px;font-size:18px">本次改动总结</h3>
+    <table>
+      <thead><tr><th>类型</th><th>内容</th></tr></thead>
+      <tbody>
+        <tr><td><span class="pill done">新增配置</span></td><td><code>qwen3_vl_2b_qlora_sft_mm</code> / <code>qwen3_vl_2b_lora_dpo_mm</code>（多模态升级，<code>qwen3_vl</code>）；<code>qwen3_5_4b_qlora_sft</code> / <code>qwen3_5_4b_lora_dpo</code>（文本线，<code>qwen3_5</code>）。DPO 默认开 4bit 适配低显存</td></tr>
+        <tr><td><span class="pill done">新增脚本</span></td><td><code>extract_stroke_clips.py</code> + <code>stroke_detect.py</code> / <code>stroke_vlm_filter.py</code>：长视频击球段检测与导出</td></tr>
+        <tr><td><span class="pill done">新增脚本</span></td><td><code>scripts/slice_match_to_clips.py</code>：比赛长视频 → 单拍/回合短片 + manifest 骨架</td></tr>
+        <tr><td><span class="pill done">脚本增强</span></td><td><code>build_vlm_dataset_from_videos.py</code> 加 <code>--dry-run</code>（校验+预览）与 <code>--limit</code></td></tr>
+        <tr><td><span class="pill plan">说明</span></td><td>Qwen3.6（27B/35B 纯文本）模态与体量不适配 6GB 本机视频主线，升级走 Qwen3-VL</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- DEPLOY -->
+<section id="deploy">
+  <div class="wrap">
+    <h2>Deployment</h2>
+    <div class="h2-title">部署拓扑（腾讯云域名）</div>
+    <p class="lead">生产以 Nginx 反向代理为核心：静态前端 + <code>/api</code> 透传到本机 8000；API 只监听 <code>127.0.0.1</code>。</p>
+    <div class="panel">
+      <div class="mermaid">
+flowchart TB
+    DNS["腾讯云 DNSPod<br/>A 记录 → CVM 公网 IP"] --> NX
+    subgraph CVM["腾讯云 CVM"]
+      NX["Nginx :443 / :80<br/>HTTPS (certbot)"]
+      NX -->|/ 静态| WEBD["web/dist"]
+      NX -->|/api/| UV["uvicorn :8000<br/>Core API"]
+      NX -.admin 子域.-> ADMD["admin/dist"]
+      NX -.可选子域.-> GR["Gradio :7860"]
+      UV --> SQL[("SQLite")]
+    end
+    BROWSER["浏览器"] -->|HTTPS| DNS
+      </div>
+      <div class="cap">图 8 · 单机部署。无公网 IP 时可用 frp 内网穿透或 run-public-wsl.sh 临时隧道</div>
+    </div>
+    <p class="note">⚠️ 大陆站点解析到大陆服务器通常需 <strong>ICP 备案</strong>；安全组仅放行 80/443，避免裸奔 8000/5174。</p>
+  </div>
+</section>
+
+<!-- ROADMAP -->
+<section id="roadmap">
+  <div class="wrap">
+    <h2>Roadmap</h2>
+    <div class="h2-title">分阶段进度</div>
+    <p class="lead">与 <code>readme.md</code> 路线图同步，状态随迭代更新。</p>
+    <table>
+      <thead>
+        <tr><th style="width:80px">阶段</th><th>内容</th><th style="width:110px">状态</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>1 环境</td><td>WSL2 + Conda <code>tenclip</code> + 本地 VLM 权重下载与缓存</td><td><span class="pill done">已具备</span></td></tr>
+        <tr><td>2 Demo</td><td>剪辑闭环 + 网球动作分析（省显存策略内置）</td><td><span class="pill done">已实现</span></td></tr>
+        <tr><td>3 数据</td><td>多模态 SFT / DPO 数据规范与 mock 流水线</td><td><span class="pill wip">进行中</span></td></tr>
+        <tr><td>4 加固</td><td>烟雾测试、环境变量与故障排查</td><td><span class="pill done">基本完成</span></td></tr>
+        <tr><td>5 资讯</td><td>RSS 抓取 + SQLite + 双列推荐 + 反馈闭环</td><td><span class="pill done">MVP 上线</span></td></tr>
+        <tr><td>5.6 算法</td><td>协同过滤（隐式反馈）+ 多臂探索</td><td><span class="pill plan">下一阶段</span></td></tr>
+        <tr><td>6 平台</td><td>Core API + web + admin + 小红书采集</td><td><span class="pill done">第一版</span></td></tr>
+        <tr><td>6.5 部署</td><td>静态构建 + Nginx 反代 + 腾讯云域名</td><td><span class="pill plan">规划中</span></td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- OUTLOOK -->
+<section id="outlook">
+  <div class="wrap">
+    <h2>Outlook</h2>
+    <div class="h2-title">延伸方向与展望</div>
+    <p class="lead">在现有「本地视频理解 + 资讯内容站」双链路基础上，可向以下方向延伸。</p>
+    <div class="timeline">
+      <div class="tl-item">
+        <h4>① 模型与推理：从通用到网球专精</h4>
+        <p>用真实视频抽帧构建 SFT/DPO 数据，沉淀网球域 LoRA；引入「证据先行」时序对齐，降低少帧幻觉；探索更大上下文与多视角输入。</p>
+      </div>
+      <div class="tl-item">
+        <h4>② 推荐：内容召回 → 协同过滤 → 混排探索</h4>
+        <p>在规则排序稳定后叠加隐式反馈 CF（ALS / item-based），再做「CF 分 + 内容相关 + 时效」混排与多臂探索，缓解冷启动。</p>
+      </div>
+      <div class="tl-item">
+        <h4>③ 内容生态：多源采集与合规</h4>
+        <p>小红书之外扩展更多平台采集，统一 <code>NoteInfo</code> 抽象；坚持 RSS 白名单优先、按需深爬，沉淀来源质量分层与审计。</p>
+      </div>
+      <div class="tl-item future">
+        <h4>④ 产品形态：从 Demo 到可运营平台</h4>
+        <p>打通「资讯 → 球员 → 比赛 → 视频分析」的内容图谱；用户画像驱动个性化首页；后台支持定时任务与内容质量治理看板。</p>
+      </div>
+      <div class="tl-item future">
+        <h4>⑤ 工程化：可观测、可扩展</h4>
+        <p>SQLite → PostgreSQL 平滑迁移；引入任务队列与调度（替代 cron）；接入日志/指标，容器化与 CI 构建前端制品。</p>
+      </div>
+      <div class="tl-item future">
+        <h4>⑥ 互动：训练计划与社区</h4>
+        <p>将动作分析结论转为可执行训练微周期，结合用户反馈形成进步追踪；引导 UGC 与教练点评，形成数据飞轮。</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <p>
+      文档入口：<a href="readme.md">readme.md</a> ·
+      <a href="subprojects/README.md">subprojects/README.md</a> ·
+      <a href="env.example">env.example</a>
+    </p>
+    <p>
+      快速启动：<span class="kbd">conda activate tenclip</span> →
+      主应用 <code>bash run-wsl.sh</code>；
+      API <code>uvicorn subprojects.core_api.app:app --port 8000</code>；
+      用户站 <code>cd web &amp;&amp; npm run dev</code>；
+      击球提取 <code>python scripts/extract_stroke_clips.py match.MOV --analyze-only</code>。
+    </p>
+    <p>TenClip · 本地轻量网球视频理解 &amp; 网坛资讯平台 · 本页为项目全景总览，细节以源码与 Markdown 文档为准。</p>
+  </div>
+</footer>
+
+<script>
+  mermaid.initialize({
+    startOnLoad: true,
+    theme: "base",
+    themeVariables: {
+      darkMode: true,
+      background: "#1b232e",
+      primaryColor: "#212b38",
+      primaryTextColor: "#e6edf3",
+      primaryBorderColor: "#3b4a5c",
+      lineColor: "#5a6b7c",
+      secondaryColor: "#1b232e",
+      tertiaryColor: "#161c24",
+      fontSize: "14px",
+      fontFamily: "-apple-system, Segoe UI, PingFang SC, Microsoft YaHei, sans-serif"
+    },
+    flowchart: { curve: "basis", htmlLabels: true, padding: 14 }
+  });
+</script>
+</body>
+</html>
