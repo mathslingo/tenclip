@@ -9,8 +9,9 @@
 | **用户站** | `web/` | React + Ant Design（Vite，开发端口 **5174**） |
 | **管理后台** | `admin/` | React + Ant Design（Vite，开发端口 **5173**） |
 | **小红书抓取** | `subprojects/xhs_note/` | 按 24 位笔记 ID + Cookie 拉取标题/封面等（独立于旧 `xhs_preview`） |
+| **微信小程序** | `miniprogram/` | 击球剪辑 + 大模型动作分析（调用 `app.py` 的 `/api/mobile/*`） |
 
-子项目安装、联调、npm/WSL 排错：**[`subprojects/README.md`](subprojects/README.md)**。
+子项目安装、联调、npm/WSL 排错：**[`subprojects/README.md`](subprojects/README.md)**。小程序说明：**[`miniprogram/README.md`](miniprogram/README.md)**。
 
 主应用推理栈与 [LLaMA-Factory](https://github.com/hiyouga/LLaMA-Factory) 对齐：默认用其 `ChatModel`（可回退 Transformers）。网球域 SFT 可在同环境训练后，将 `TENCLIP_VLM_MODEL` 指向合并后的本地目录。
 
@@ -65,6 +66,108 @@ npm run dev -- --host 0.0.0.0
 **自检**：`python3 scripts/verify_core_api.py` · **小红书笔记（需 Cookie）**：`python3 scripts/xhs_note_fetch.py <24位note_id>`（Cookie 见下文与 `subprojects/README.md`）。
 
 一键脚本（若 `.sh` 遇 CRLF 报错，见 `subprojects/README.md`）：`bash scripts/start_core_api.sh`、`bash scripts/start_web.sh`。
+
+---
+
+## 微信小程序启动（击球剪辑 + 动作分析）
+
+小程序依赖**主应用** `app.py`（不是 Core API `8000` 端口）。在 **WSL** 仓库根目录：
+
+**1. 启动后端（终端 1）**
+
+```bash
+conda activate tenclip
+cd ~/code/tenclip
+# 小程序 / 真机调试须监听所有网卡（勿仅用 127.0.0.1）
+GRADIO_SERVER_NAME=0.0.0.0 bash run-wsl.sh
+# 等价：GRADIO_SERVER_NAME=0.0.0.0 python app.py
+```
+
+默认端口 **`7861`**。WSL 下查本机 IP：`hostname -I | awk '{print $1}'`。  
+动作分析需本机 VLM 权重与 GPU；击球剪辑主要依赖 **ffmpeg**。
+
+**2. 配置小程序 API 地址（必做，否则会报 `url not in domain list`）**
+
+编辑 `miniprogram/utils/config.js`：
+
+```js
+const LOCAL_DEV = true;
+const LOCAL_API_HOST = "http://172.22.x.x:7861";  // WSL 里 hostname -I 得到的 IP
+```
+
+**3. 微信开发者工具 → 详情 → 本地设置**
+
+勾选 **「不校验合法域名、web-view（业务域名）、TLS 版本以及 HTTPS 证书」**（仅本地调试；`project.config.json` 里 `urlCheck` 已为 `false`）。
+
+上线时：`LOCAL_DEV = false`，`PROD_API_BASE_URL` 填 HTTPS 域名，并在[微信公众平台](https://mp.weixin.qq.com) → 开发设置 → 服务器域名 配置 `request` / `uploadFile` 合法域名。
+
+上传超时默认 **10 分钟**（`UPLOAD_TIMEOUT_MS`）。
+
+微信公众平台 → **开发设置 → 服务器域名**：将同一域名加入 `request`、`uploadFile` 合法域名（上线必须 HTTPS）。
+
+**4. 用微信开发者工具打开项目**
+
+1. 安装 [微信开发者工具](https://developers.weixin.qq.com/miniprogram/dev/devtools/download.html)。
+2. **导入项目** → 目录选仓库内 **`miniprogram/`**（不是仓库根目录）。
+3. `project.config.json` 里把 `appid` 换成你的小程序 AppID（体验可用测试号）。
+5. 编译后底部切换：**击球剪辑** | **动作分析**。
+
+| Tab | 页面 | 后端接口 |
+|-----|------|----------|
+| 击球剪辑 | `pages/stroke-extract/` | `POST /api/mobile/stroke-extract/submit` + 任务轮询 + 下载 MP4 |
+| 动作分析 | `pages/action-analyze/` | `POST /api/mobile/analyze-video/submit` + 任务轮询 |
+
+**5. 可选自检（后端已启动时）**
+
+```bash
+curl -s http://127.0.0.1:7861/api/mobile/events | head
+```
+
+H5 对照页（同一后端）：`http://127.0.0.1:7861/web`（动作分析）、Gradio `http://127.0.0.1:7861/gradio`（击球提取标签页）。
+
+**6. 常见报错**
+
+| 报错 | 处理 |
+|------|------|
+| `url not in domain list` / `your-domain.example.com` | 改 `config.js` 的 `LOCAL_API_HOST`；勾选「不校验合法域名」；勿保留占位域名 |
+| `Error: timeout` | 上传超时已改为 10 分钟；大视频看上传百分比 |
+| WSL 连不上 | `GRADIO_SERVER_NAME=0.0.0.0` 启动；`LOCAL_API_HOST` 用 `hostname -I` 的 IP（模拟器可试 `127.0.0.1`） |
+| 轮询偶发超时 | 会自动重试 |
+
+Windows 侧可先测通：`curl http://<WSL_IP>:7861/api/mobile/events`
+
+### 提交微信审核 / 上线：后台不能跑在本机
+
+截图里的 `connect ECONNREFUSED 127.0.0.1:7861` 说明：**审核员手机访问不到你电脑上的 WSL**。`bash run-wsl.sh` 仅适合开发；**审核与正式用户都必须连公网 HTTPS API**。
+
+```
+┌─────────────┐     HTTPS      ┌──────────────┐    反代     ┌─────────────────┐
+│ 微信小程序   │ ──────────────►│ api.你的域名  │ ─────────►│ 云服务器 app.py │
+│ (用户/审核)  │  uploadFile    │  (Nginx+证书) │  :7861    │ systemd 常驻     │
+└─────────────┘                └──────────────┘            └─────────────────┘
+```
+
+**推荐做法（与现有「生产部署」一致）**
+
+| 步骤 | 内容 |
+|------|------|
+| 1. 买云主机 | 腾讯云 CVM 等，有**公网 IP**；域名 **ICP 备案**（大陆） |
+| 2. 装环境 | Ubuntu + conda `tenclip` + `ffmpeg`；击球剪辑只需 CPU；动作分析需 **GPU 机** 或审核期先只开击球 Tab |
+| 3. 部署代码 | `git clone` → 权重放到 `model/` 或 `TENCLIP_VLM_MODEL` |
+| 4. 常驻进程 | `scripts/deploy/tenclip-api.service`（systemd，`Restart=always`） |
+| 5. HTTPS 反代 | `scripts/deploy/nginx-tenclip-api.conf.example`（`client_max_body_size 512m`） |
+| 6. 小程序配置 | `miniprogram/utils/config.js`：`LOCAL_DEV = false`，`PROD_API_BASE_URL = "https://api.你的域名"` |
+| 7. 微信公众平台 | 开发设置 → 服务器域名：`request`、`uploadFile`、`downloadFile` 均填 `https://api.你的域名` |
+| 8. 提审前自测 | 手机微信（非开发者工具）打开体验版，上传短视频；`curl https://api.你的域名/api/mobile/health` |
+
+**不能保证后台运行的方式（勿用于审核）**
+
+- 家里 WSL + `127.0.0.1` / 局域网 IP
+- `scripts/run-public-wsl.sh` 临时隧道（域名会变，无法写进小程序合法域名）
+
+**审核备注建议**：在「版本说明 / 测试说明」写明体验账号（若需要）、API 已 7×24 常驻、仅支持网球视频上传等。
+
+配置与 Nginx/systemd 示例见 `scripts/deploy/`。
 
 ---
 
@@ -613,6 +716,7 @@ python scripts/build_vlm_dataset_from_videos.py --mode dpo --manifest data/manif
 | 导出 | `export_stroke_clips()` | 分段 **H.264 + yuv420p + faststart** 再拼接；**iPhone MOV/HEVC 自动重编码**（避免 Windows 无法播放） |
 | CLI | `scripts/extract_stroke_clips.py` | 命令行：分析 / 导出 / 报告 / 切片表 |
 | UI | Gradio **「击球片段提取（去等待）」** | 上传长视频 → 下载击球集锦 |
+| 小程序 | `miniprogram/` | 微信小程序：**击球剪辑** + **动作分析**（见上文「微信小程序启动」） |
 
 **长视频（200MB+）**：画面与音频均为 ffmpeg **管道流式**处理，不整段载入内存；导出后用 **ffprobe 校验**，损坏文件会直接报错。
 
@@ -637,7 +741,8 @@ python scripts/extract_stroke_clips.py match.MOV --vlm-filter --out out.mp4
 **调参**：检不全 → `--motion-percentile 65`；误保留等待 → `78` 或 `--vlm-filter`。  
 **勿对 MOV 使用 `--copy`**（易剪坏/无法播放）。
 
-Gradio：`bash run-wsl.sh` → 标签页 **「击球片段提取（去等待）」**。
+Gradio：`bash run-wsl.sh` → 标签页 **「击球片段提取（去等待）」**。  
+微信小程序：见上文 **「微信小程序启动」** 与 `miniprogram/README.md`。
 
 ##### 接入训练流水线
 

@@ -1,0 +1,6 @@
+{
+  "navigationBarTitleText": "击球片段提取",
+  "usingComponents": {
+    "bottom-tabs": "/components/bottom-tabs/index"
+  }
+}

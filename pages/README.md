@@ -8,6 +8,8 @@
 | `video_input/` | Gradio 极简上传页，同一套视频理解逻辑 | `/video_input` |
 | `news_page/` | 网坛新闻双列下滑 H5（标签偏好 + 推荐流） | `/news` |
 
+仓库根目录 `miniprogram/` 为 **微信小程序**（击球剪辑 + 动作分析两个 Tab），风格与 `front_page` / `video_input` 一致。见 `miniprogram/README.md` 与根目录 `readme.md`「微信小程序启动」。
+
 主 TenClip Gradio 界面挂在 **`/gradio`**（根路径 **`/`** 会 **302 跳转到 `/gradio/`**），避免与 `/video_input`、`/web` 等子路径冲突。
 
 静态资源通过 `/web-assets/*`、`/news-assets/*` 提供（见 `app.py`）。

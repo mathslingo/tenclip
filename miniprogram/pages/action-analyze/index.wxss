@@ -1,0 +1,36 @@
+@import "../../styles/common.wxss";
+
+.guidance-panel {
+  margin-top: 16rpx;
+  max-height: 55vh;
+  border: 2rpx solid #e5e9f0;
+  border-radius: 24rpx;
+  padding: 20rpx;
+  background: #fbfcfe;
+  box-sizing: border-box;
+}
+
+.guidance-body {
+  display: block;
+  font-size: 26rpx;
+  line-height: 1.55;
+  color: #1a1f26;
+  white-space: pre-wrap;
+}
+
+.meta-toggle {
+  margin-top: 16rpx;
+  font-size: 24rpx;
+  color: #415360;
+}
+
+.guidance-meta {
+  display: block;
+  margin-top: 12rpx;
+  padding: 16rpx;
+  background: #f4f6f9;
+  border-radius: 16rpx;
+  font-size: 22rpx;
+  color: #415360;
+  white-space: pre-wrap;
+}

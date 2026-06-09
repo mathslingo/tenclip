@@ -1,0 +1,6 @@
+{
+  "navigationBarTitleText": "动作分析",
+  "usingComponents": {
+    "bottom-tabs": "/components/bottom-tabs/index"
+  }
+}

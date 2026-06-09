@@ -32,6 +32,13 @@ from moviepy.video.io.VideoFileClip import VideoFileClip
 from pages.video_input.gradio_page import video_input_demo
 
 from services.stroke_detect import StrokeDetectConfig, run_stroke_extract_pipeline
+from services.stroke_extract_tasks import (
+    ensure_stroke_worker_started,
+    get_stroke_output_path,
+    get_stroke_task,
+    init_stroke_db,
+    submit_stroke_task,
+)
 from services.vlm_tennis import (
     MAX_VIDEO_DURATION_SEC,
     analyze_tennis_video,
@@ -407,6 +414,19 @@ def _ensure_analysis_worker_started() -> None:
         ANALYSIS_WORKER_STARTED = True
 
 
+def _upload_suffix(filename: str | None, content_type: str | None) -> str:
+    """Preserve .mov etc. when WeChat temp filename has no extension."""
+    suffix = Path(filename or "").suffix.lower()
+    if suffix in (".mp4", ".mov", ".avi", ".mkv", ".m4v", ".webm"):
+        return suffix
+    ct = (content_type or "").lower()
+    if "quicktime" in ct or ct == "video/mov":
+        return ".mov"
+    if "mp4" in ct:
+        return ".mp4"
+    return ".mp4"
+
+
 def _extract_video_path(video_file):
     """Support Gradio file values across versions."""
     if video_file is None:
@@ -679,7 +699,9 @@ def create_app() -> FastAPI:
     api = FastAPI(title="TenClip API")
     init_news_db()
     init_analysis_db()
+    init_stroke_db()
     _ensure_analysis_worker_started()
+    ensure_stroke_worker_started()
     try:
         prune_expired_uploads()
     except Exception:
@@ -690,6 +712,10 @@ def create_app() -> FastAPI:
     @api.get("/", include_in_schema=False)
     def root_to_gradio():
         return RedirectResponse(url="/gradio/", status_code=302)
+
+    @api.get("/api/mobile/health")
+    def mobile_health():
+        return {"ok": True, "service": "tenclip", "stroke_worker": True}
 
     @api.get("/api/mobile/events")
     def mobile_events():
@@ -789,6 +815,70 @@ def create_app() -> FastAPI:
     @api.post("/api/mobile/analyze-video/tasks/prune")
     def mobile_analyze_video_tasks_prune():
         return prune_expired_uploads()
+
+    def _stroke_task_payload(task_id: str) -> dict:
+        data = get_stroke_task(task_id)
+        if data is None:
+            raise HTTPException(status_code=404, detail="任务不存在")
+        from services.stroke_extract_tasks import STROKE_QUEUE
+
+        data["queue_size"] = STROKE_QUEUE.qsize()
+        if data.get("status") == "succeeded":
+            data["download_url"] = f"/api/mobile/stroke-extract/tasks/{task_id}/download"
+        return data
+
+    @api.post("/api/mobile/stroke-extract/submit")
+    async def mobile_stroke_extract_submit(
+        video: UploadFile = File(...),
+        detect_mode: str = Form("combined"),
+        motion_percentile: float = Form(72.0),
+        vlm_filter: str = Form("0"),
+    ):
+        mode = detect_mode if detect_mode in ("combined", "motion", "audio") else "combined"
+        mp = max(55.0, min(90.0, float(motion_percentile)))
+        use_vlm = vlm_filter.strip().lower() in ("1", "true", "yes", "on")
+        task_id = uuid.uuid4().hex
+        suffix = _upload_suffix(video.filename, video.content_type)
+        upload_path = (
+            _REPO_ROOT / "data" / "uploads" / "stroke" / f"{task_id}{suffix}"
+        )
+        upload_path.parent.mkdir(parents=True, exist_ok=True)
+        try:
+            with upload_path.open("wb") as out_file:
+                shutil.copyfileobj(video.file, out_file)
+            result = submit_stroke_task(
+                upload_path=upload_path,
+                original_filename=video.filename or "",
+                content_type=video.content_type or "",
+                detect_mode=mode,
+                motion_percentile=mp,
+                vlm_filter=use_vlm,
+                task_id=task_id,
+            )
+            return result
+        except Exception as exc:
+            try:
+                upload_path.unlink(missing_ok=True)
+            except Exception:
+                logging.exception("Failed to cleanup stroke upload: %s", upload_path)
+            raise HTTPException(status_code=500, detail=f"提交失败: {exc}") from exc
+        finally:
+            await video.close()
+
+    @api.get("/api/mobile/stroke-extract/tasks/{task_id}")
+    def mobile_stroke_extract_task_status(task_id: str):
+        return _stroke_task_payload(task_id)
+
+    @api.get("/api/mobile/stroke-extract/tasks/{task_id}/download")
+    def mobile_stroke_extract_download(task_id: str):
+        out = get_stroke_output_path(task_id)
+        if out is None:
+            raise HTTPException(status_code=404, detail="输出文件不存在或任务未完成")
+        return FileResponse(
+            path=str(out),
+            media_type="video/mp4",
+            filename=f"stroke_{task_id[:8]}.mp4",
+        )
 
     @api.post("/api/news/ingest")
     def news_ingest(limit_per_source: int = Query(20, ge=1, le=100)):

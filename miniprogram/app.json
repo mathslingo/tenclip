@@ -1,0 +1,15 @@
+{
+  "pages": [
+    "pages/stroke-extract/index",
+    "pages/action-analyze/index"
+  ],
+  "window": {
+    "navigationBarTitleText": "TenniTi",
+    "navigationBarBackgroundColor": "#f2f3f5",
+    "navigationBarTextStyle": "black",
+    "backgroundColor": "#f2f3f5",
+    "backgroundTextStyle": "dark"
+  },
+  "style": "v2",
+  "sitemapLocation": "sitemap.json"
+}

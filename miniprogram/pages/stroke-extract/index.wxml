@@ -1,0 +1,94 @@
+<view class="page">
+  <view class="hero">
+    <text class="hero-title">击球片段提取</text>
+    <text class="hero-sub">上传网球视频，自动剪掉换边与等待，保留击球/回合画面（与 TenClip 服务端同一套检测逻辑）。</text>
+  </view>
+
+  <view class="card">
+    <text class="card-title">选择视频</text>
+    <text class="card-sub">支持相册或拍摄；长视频请耐心等待分析完成。</text>
+
+    <view class="video-pick" bindtap="onChooseVideo">
+      <block wx:if="{{!videoName}}">
+        <text class="pick-icon">＋</text>
+        <text class="pick-text">点击选择视频</text>
+      </block>
+      <block wx:else>
+        <text class="pick-name">{{videoName}}</text>
+        <text class="pick-meta" wx:if="{{videoSizeText}}">{{videoSizeText}}</text>
+        <text class="pick-change">重新选择</text>
+      </block>
+    </view>
+
+    <text class="field-label">检测模式</text>
+    <view class="chip-row">
+      <view
+        wx:for="{{modeOptions}}"
+        wx:key="value"
+        class="chip {{detectMode === item.value ? 'active' : ''}}"
+        data-value="{{item.value}}"
+        bindtap="onModeTap"
+      >{{item.label}}</view>
+    </view>
+
+    <text class="field-label">运动灵敏度 {{motionPercentile}}（越低保留越多）</text>
+    <slider
+      min="55"
+      max="90"
+      step="1"
+      value="{{motionPercentile}}"
+      activeColor="#13d8a8"
+      backgroundColor="#e5e9f0"
+      block-size="20"
+      bindchange="onMotionChange"
+      disabled="{{busy}}"
+    />
+
+    <view class="switch-row">
+      <text>VLM 二次过滤（较慢）</text>
+      <switch checked="{{vlmFilter}}" color="#13d8a8" bindchange="onVlmChange" disabled="{{busy}}" />
+    </view>
+
+    <button class="primary-btn" bindtap="onSubmit" loading="{{busy}}" disabled="{{busy || !videoPath}}">
+      {{busy ? progressText : '开始提取'}}
+    </button>
+  </view>
+
+  <view class="card" wx:if="{{status}}">
+    <text class="card-title">处理状态</text>
+    <view class="status-row">
+      <text class="status-badge status-{{status}}">{{statusLabel}}</text>
+      <text class="status-queue" wx:if="{{queueSize > 0}}">排队 {{queueSize}}</text>
+    </view>
+    <progress wx:if="{{busy}}" percent="{{progressPercent}}" active stroke-width="6" activeColor="#13d8a8" backgroundColor="#e5e9f0" />
+    <text class="progress-msg" wx:if="{{progressMessage}}">{{progressMessage}}</text>
+    <text class="error-text" wx:if="{{errorText}}">{{errorText}}</text>
+  </view>
+
+  <view class="card" wx:if="{{summary}}">
+    <text class="card-title">提取结果</text>
+    <text class="summary-text">{{summary}}</text>
+
+    <view class="segment-list" wx:if="{{segments.length}}">
+      <view class="segment-item" wx:for="{{segments}}" wx:key="index">
+        <text class="seg-idx">#{{index + 1}}</text>
+        <text>{{item.start}}s – {{item.end}}s（{{item.duration}}s）</text>
+      </view>
+    </view>
+
+    <video
+      wx:if="{{previewUrl}}"
+      class="result-video"
+      src="{{previewUrl}}"
+      controls
+      show-center-play-btn
+      object-fit="contain"
+    />
+
+    <view class="action-row" wx:if="{{previewUrl}}">
+      <button class="secondary-btn" bindtap="onSaveVideo">保存到相册</button>
+    </view>
+  </view>
+</view>
+
+<bottom-tabs active="stroke" />

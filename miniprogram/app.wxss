@@ -1,0 +1,13 @@
+page {
+  --bg: #f2f3f5;
+  --card: #ffffff;
+  --text: #151821;
+  --sub: #6e7582;
+  --mint: #baf5e8;
+  --mint-deep: #13d8a8;
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Helvetica Neue", Arial, sans-serif;
+  font-size: 28rpx;
+  line-height: 1.5;
+}

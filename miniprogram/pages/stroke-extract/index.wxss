@@ -1,0 +1,58 @@
+@import "../../styles/common.wxss";
+
+.switch-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 16rpx 0 8rpx;
+  font-size: 28rpx;
+}
+
+.secondary-btn {
+  border: 2rpx solid #13d8a8;
+  border-radius: 20rpx;
+  background: #fff;
+  color: #0d3d32;
+  font-size: 28rpx;
+}
+
+.summary-text {
+  display: block;
+  margin-top: 12rpx;
+  white-space: pre-wrap;
+  font-size: 26rpx;
+  line-height: 1.55;
+  color: #1a1f26;
+}
+
+.segment-list {
+  margin-top: 16rpx;
+  border-top: 2rpx solid #e5ebe9;
+  padding-top: 12rpx;
+}
+
+.segment-item {
+  display: flex;
+  gap: 12rpx;
+  font-size: 24rpx;
+  color: #415360;
+  padding: 8rpx 0;
+}
+
+.seg-idx {
+  color: #0d3d32;
+  font-weight: 600;
+  min-width: 48rpx;
+}
+
+.result-video {
+  width: 100%;
+  margin-top: 20rpx;
+  border-radius: 16rpx;
+  background: #000;
+  min-height: 360rpx;
+}
+
+.action-row {
+  margin-top: 20rpx;
+}
