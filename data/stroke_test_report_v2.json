@@ -30,7 +30,6 @@
     "audio_segment_count": 3,
     "motion_spike_count": 32,
     "audio_spike_count": 38,
-    "spike_segment_total": 70,
-    "output_path": "/mnt/c/Users/baozi/Pictures/IMG_2834_strokes_only_v2.mp4"
+    "spike_segment_total": 70
   }
 }

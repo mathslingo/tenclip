@@ -59,6 +59,11 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--motion-percentile", type=float, default=72.0)
     p.add_argument("--audio-percentile", type=float, default=82.0)
     p.add_argument("--merge-gap", type=float, default=2.8)
+    p.add_argument(
+        "--no-spike-detect",
+        action="store_true",
+        help="关闭尖峰锚定（默认开启，用于补短暂击球如侧身正手）",
+    )
     p.add_argument("--copy", action="store_true", help="切片 -c copy（快，关键帧处可能不精确）")
     return p.parse_args()
 
@@ -78,6 +83,7 @@ def main() -> int:
         motion_percentile=float(args.motion_percentile),
         audio_percentile=float(args.audio_percentile),
         merge_gap_sec=float(args.merge_gap),
+        enable_spike_detect=not args.no_spike_detect,
     )
 
     print(f"分析: {args.video}  ({args.video.stat().st_size / (1024*1024):.1f} MB)  mode={args.mode}")

@@ -45,6 +45,14 @@ class StrokeDetectConfig:
     audio_sample_rate: int = 16000
     audio_hop_sec: float = 0.04
 
+    # 尖峰锚定：短暂击球（如侧身正手）运动/声音持续不足 min_segment_sec 时，靠局部峰值补段
+    enable_spike_detect: bool = True
+    spike_motion_percentile: float = 58.0
+    spike_audio_percentile: float = 68.0
+    spike_pad_before_sec: float = 1.2
+    spike_pad_after_sec: float = 2.8
+    spike_min_interval_sec: float = 1.0
+
 
 @dataclass
 class StrokeSegment:
@@ -294,6 +302,55 @@ def _scores_to_segments(
     return out
 
 
+def _spike_segments_from_signal(
+    times: np.ndarray,
+    scores: np.ndarray,
+    cfg: StrokeDetectConfig,
+    *,
+    percentile: float,
+    source: str,
+    neighborhood_sec: float,
+) -> list[StrokeSegment]:
+    """在 RMS/运动曲线上找局部峰值，为短暂击球强制补一段（解决 28s 类漏检）。"""
+    if len(scores) < 3:
+        return []
+    thr = float(np.percentile(scores, percentile))
+    med = float(np.median(scores))
+    if neighborhood_sec <= 0.05:
+        neighborhood_sec = 0.25
+    # 邻域半宽（样本点数）
+    dt = float(np.median(np.diff(times))) if len(times) > 1 else 0.25
+    radius = max(1, int(neighborhood_sec / max(dt, 1e-6)))
+
+    candidates: list[tuple[float, float]] = []
+    for i in range(1, len(scores) - 1):
+        sc = float(scores[i])
+        if sc < thr or sc < med * 1.35:
+            continue
+        lo, hi = max(0, i - radius), min(len(scores), i + radius + 1)
+        if sc >= float(np.max(scores[lo:hi])) * 0.97:
+            candidates.append((float(times[i]), sc))
+
+    # 按强度 NMS，避免同一拍重复
+    candidates.sort(key=lambda x: -x[1])
+    picked: list[tuple[float, float]] = []
+    for t, sc in candidates:
+        if all(abs(t - pt) >= cfg.spike_min_interval_sec for pt, _ in picked):
+            picked.append((t, sc))
+
+    out: list[StrokeSegment] = []
+    for t, sc in picked:
+        out.append(
+            StrokeSegment(
+                start=t - cfg.spike_pad_before_sec,
+                end=t + cfg.spike_pad_after_sec,
+                score=sc,
+                source=f"{source}_spike",
+            )
+        )
+    return out
+
+
 def _merge_segments(segments: list[StrokeSegment], gap: float) -> list[StrokeSegment]:
     if not segments:
         return []
@@ -351,6 +408,10 @@ def detect_stroke_segments(
 
     segments: list[StrokeSegment] = []
     debug: dict[str, Any] = {"duration_sec": duration, "mode": mode}
+    mt: np.ndarray | None = None
+    ms: np.ndarray | None = None
+    at: np.ndarray | None = None
+    asc: np.ndarray | None = None
 
     if mode in ("motion", "combined"):
         _emit(progress, "分析画面运动（流式抽帧，适合长视频）…", 0.05)
@@ -375,6 +436,36 @@ def detect_stroke_segments(
             segments.extend(audio_segs)
             debug["audio_available"] = True
             debug["audio_segment_count"] = len(audio_segs)
+
+    if cfg.enable_spike_detect:
+        spike_count = 0
+        if mt is not None and ms is not None and len(ms) > 0:
+            m_spikes = _spike_segments_from_signal(
+                mt,
+                ms,
+                cfg,
+                percentile=cfg.spike_motion_percentile,
+                source="motion",
+                neighborhood_sec=0.45,
+            )
+            segments.extend(m_spikes)
+            spike_count += len(m_spikes)
+            debug["motion_spike_count"] = len(m_spikes)
+        if at is not None and asc is not None and len(asc) > 0:
+            a_spikes = _spike_segments_from_signal(
+                at,
+                asc,
+                cfg,
+                percentile=cfg.spike_audio_percentile,
+                source="audio",
+                neighborhood_sec=0.12,
+            )
+            segments.extend(a_spikes)
+            spike_count += len(a_spikes)
+            debug["audio_spike_count"] = len(a_spikes)
+        debug["spike_segment_total"] = spike_count
+        if spike_count:
+            _emit(progress, f"尖峰锚定补段 {spike_count} 处", 0.58)
 
     merged = _merge_segments(segments, cfg.merge_gap_sec)
     final = _pad_and_clip(merged, duration, cfg)
