@@ -1,4 +1,9 @@
-const { uploadAnalyzeSubmit, getAnalyzeTask } = require("../../utils/api");
+const {
+  uploadAnalyzeSubmit,
+  getAnalyzeTask,
+  chooseTennisVideo,
+  showChooseFail,
+} = require("../../utils/api");
 const { formatGuidance } = require("../../utils/guidance");
 const { startTaskPoll } = require("../../utils/poll");
 
@@ -60,17 +65,13 @@ Page({
 
   onChooseVideo() {
     if (this.data.busy) return;
-    wx.chooseMedia({
-      count: 1,
-      mediaType: ["video"],
-      sourceType: ["album", "camera"],
-      maxDuration: 300,
-      success: (res) => {
-        const file = (res.tempFiles && res.tempFiles[0]) || {};
+    wx.showLoading({ title: "打开相册…", mask: true });
+    chooseTennisVideo()
+      .then((file) => {
         const sizeMb = file.size ? (file.size / (1024 * 1024)).toFixed(1) : "";
         this.setData({
-          videoPath: file.tempFilePath || "",
-          videoName: file.tempFilePath ? file.tempFilePath.split("/").pop() : "已选视频",
+          videoPath: file.tempFilePath,
+          videoName: file.tempFilePath.split("/").pop() || "已选视频",
           videoSizeText: sizeMb ? `${sizeMb} MB` : "",
           guidanceBody: "",
           guidanceMeta: "",
@@ -78,12 +79,9 @@ Page({
           errorText: "",
           status: "",
         });
-      },
-      fail: (err) => {
-        if (err.errMsg && err.errMsg.indexOf("cancel") !== -1) return;
-        wx.showToast({ title: "选择视频失败", icon: "none" });
-      },
-    });
+      })
+      .catch((err) => showChooseFail(err))
+      .finally(() => wx.hideLoading());
   },
 
   onPerfTap(e) {

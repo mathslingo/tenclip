@@ -12,8 +12,10 @@
 from __future__ import annotations
 
 import json
+import os
 import shutil
 import subprocess
+import sys
 import tempfile
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -94,21 +96,50 @@ class StrokeDetectResult:
         }
 
 
-def _require_ffmpeg() -> None:
-    if shutil.which("ffmpeg") is None:
-        raise RuntimeError("未找到 ffmpeg，请安装：conda install -c conda-forge ffmpeg 或 sudo apt install ffmpeg")
+def _resolve_tool(name: str, env_key: str) -> str | None:
+    """PATH → 环境变量 → 与当前 python 同目录的 conda bin（systemd 常无 conda PATH）。"""
+    env = os.environ.get(env_key)
+    if env and Path(env).is_file():
+        return env
+    found = shutil.which(name)
+    if found:
+        return found
+    py_bin = Path(sys.executable).resolve().parent
+    candidate = py_bin / name
+    if candidate.is_file():
+        return str(candidate)
+    return None
+
+
+def ffmpeg_path() -> str:
+    path = _resolve_tool("ffmpeg", "FFMPEG_BINARY")
+    if path:
+        return path
+    raise RuntimeError(
+        "未找到 ffmpeg。conda 环境内请执行：conda install -c conda-forge ffmpeg；"
+        "若用 systemd 启动，请确保 PATH 含 conda env/bin 或设置 FFMPEG_BINARY。"
+    )
+
+
+def ffprobe_path() -> str | None:
+    return _resolve_tool("ffprobe", "FFPROBE_BINARY")
+
+
+def _require_ffmpeg() -> str:
+    return ffmpeg_path()
 
 
 def probe_duration(video_path: str | Path) -> float:
     video_path = str(video_path)
-    if shutil.which("ffprobe") is None:
+    ffprobe = ffprobe_path()
+    if ffprobe is None:
         from moviepy.video.io.VideoFileClip import VideoFileClip
 
         with VideoFileClip(video_path) as clip:
             return float(clip.duration)
     out = subprocess.run(
         [
-            "ffprobe",
+            ffprobe,
             "-v",
             "error",
             "-show_entries",
@@ -158,7 +189,7 @@ def _motion_scores(
 ) -> tuple[np.ndarray, np.ndarray]:
     w, h = cfg.frame_width, cfg.frame_height
     vf = f"fps={cfg.sample_fps},scale={w}:{h},format=gray"
-    cmd = ["ffmpeg", "-hide_banner", "-loglevel", "error"]
+    cmd = [ffmpeg_path(), "-hide_banner", "-loglevel", "error"]
     if cfg.max_analyze_sec and cfg.max_analyze_sec > 0:
         cmd += ["-t", str(cfg.max_analyze_sec)]
     cmd += ["-i", video_path, "-vf", vf, "-f", "rawvideo", "-pix_fmt", "gray", "-"]
@@ -195,11 +226,12 @@ def _motion_scores(
 
 def probe_has_audio(video_path: str | Path) -> bool:
     video_path = str(video_path)
-    if shutil.which("ffprobe") is None:
+    ffprobe = ffprobe_path()
+    if ffprobe is None:
         return True
     out = subprocess.run(
         [
-            "ffprobe",
+            ffprobe,
             "-v",
             "error",
             "-select_streams",
@@ -235,7 +267,7 @@ def _audio_rms_scores(
     bytes_per_sample = 2
     win_bytes = win * bytes_per_sample
 
-    cmd = ["ffmpeg", "-hide_banner", "-loglevel", "error"]
+    cmd = [ffmpeg_path(), "-hide_banner", "-loglevel", "error"]
     if cfg.max_analyze_sec and cfg.max_analyze_sec > 0:
         cmd += ["-t", str(cfg.max_analyze_sec)]
     cmd += ["-i", video_path, "-vn", "-ac", "1", "-ar", str(sr), "-f", "s16le", "-"]
@@ -505,11 +537,12 @@ def verify_exported_video(path: str | Path, *, min_duration_sec: float = 0.2) ->
     path = Path(path)
     if not path.is_file() or path.stat().st_size < 1024:
         raise RuntimeError(f"导出文件不存在或过小（{path}，{path.stat().st_size if path.is_file() else 0} B）")
-    if shutil.which("ffprobe") is None:
+    ffprobe = ffprobe_path()
+    if ffprobe is None:
         return
     out = subprocess.run(
         [
-            "ffprobe",
+            ffprobe,
             "-v",
             "error",
             "-select_streams",
@@ -544,11 +577,12 @@ def _source_needs_reencode(path: Path) -> bool:
     """iPhone MOV / HEVC 等不宜 filter_complex 直拼，走分段重编码更稳。"""
     if path.suffix.lower() in (".mov", ".m4v", ".hevc"):
         return True
-    if not shutil.which("ffprobe"):
+    ffprobe = ffprobe_path()
+    if not ffprobe:
         return True
     out = subprocess.run(
         [
-            "ffprobe",
+            ffprobe,
             "-v",
             "error",
             "-select_streams",
@@ -579,7 +613,7 @@ def _ffmpeg_cut_one(
     dur = max(0.05, end - start)
     if copy:
         cmd = [
-            "ffmpeg",
+            ffmpeg_path(),
             "-y",
             "-ss",
             f"{start:.3f}",
@@ -593,7 +627,7 @@ def _ffmpeg_cut_one(
         ]
     else:
         cmd = [
-            "ffmpeg",
+            ffmpeg_path(),
             "-y",
             "-i",
             src,
@@ -619,7 +653,7 @@ def _ffmpeg_concat_parts(parts: list[Path], output_path: Path, *, has_audio: boo
             encoding="utf-8",
         )
         cmd = [
-            "ffmpeg",
+            ffmpeg_path(),
             "-y",
             "-f",
             "concat",
@@ -662,7 +696,7 @@ def _export_filter_complex_batch(
         maps = ["-map", "[outv]"]
     fc = ";".join(filters)
     cmd = [
-        "ffmpeg",
+        ffmpeg_path(),
         "-y",
         "-hide_banner",
         "-loglevel",

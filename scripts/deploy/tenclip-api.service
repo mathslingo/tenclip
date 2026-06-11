@@ -16,6 +16,8 @@ WorkingDirectory=/home/hayden/code/tenclip
 Environment=GRADIO_SERVER_NAME=127.0.0.1
 Environment=GRADIO_SERVER_PORT=7861
 Environment=TENCLIP_VLM_MODEL=/home/hayden/code/tenclip/model/Qwen2-VL-2B-Instruct
+# systemd 默认 PATH 不含 conda bin；代码会从 python 同目录找 ffmpeg，此处仍建议带上
+Environment=PATH=/home/hayden/miniconda3/envs/tenclip/bin:/usr/local/bin:/usr/bin:/bin
 ExecStart=/home/hayden/miniconda3/envs/tenclip/bin/python app.py
 Restart=always
 RestartSec=5

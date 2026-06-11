@@ -130,7 +130,7 @@ H5 对照页（同一后端）：`http://127.0.0.1:7861/web`（动作分析）�
 | 报错 | 处理 |
 |------|------|
 | `url not in domain list` / `your-domain.example.com` | 改 `config.js` 的 `LOCAL_API_HOST`；勾选「不校验合法域名」；勿保留占位域名 |
-| `Error: timeout` | 上传超时已改为 10 分钟；大视频看上传百分比 |
+| `Error: timeout` / 上传卡住 | 小程序端 10 分钟；**Nginx 须设 `client_body_timeout 600s`**（默认 60s 会断大文件）；ECS 带宽 3Mbps 时 100MB+ 需数分钟，看上传百分比 |
 | WSL 连不上 | `GRADIO_SERVER_NAME=0.0.0.0` 启动；`LOCAL_API_HOST` 用 `hostname -I` 的 IP（模拟器可试 `127.0.0.1`） |
 | 轮询偶发超时 | 会自动重试 |
 
@@ -168,6 +168,89 @@ Windows 侧可先测通：`curl http://<WSL_IP>:7861/api/mobile/events`
 **审核备注建议**：在「版本说明 / 测试说明」写明体验账号（若需要）、API 已 7×24 常驻、仅支持网球视频上传等。
 
 配置与 Nginx/systemd 示例见 `scripts/deploy/`。
+
+### 云服务器运维（小程序 API / `app.py`）
+
+以下以阿里云 ECS 项目路径 **`/root/code/tenclip`** 为例；若你的路径不同，把命令里的目录改成实际 `git clone` 位置即可。
+
+**一次性安装 systemd 单元**
+
+```bash
+conda activate tenclip
+cd /root/code/tenclip
+which python   # 记下路径，须与 service 里 ExecStart 一致
+
+cp /root/code/tenclip/scripts/deploy/tenclip-api.service /etc/systemd/system/
+sed -i 's|/home/hayden/code/tenclip|/root/code/tenclip|g' /etc/systemd/system/tenclip-api.service
+sed -i 's|User=hayden|User=root|g' /etc/systemd/system/tenclip-api.service
+sed -i 's|/home/hayden/miniconda3/envs/tenclip/bin/python|'"$(which python)"'|g' /etc/systemd/system/tenclip-api.service
+# 仅跑击球剪辑、无 VLM 时可删：sed -i '/TENCLIP_VLM_MODEL/d' /etc/systemd/system/tenclip-api.service
+
+systemctl daemon-reload
+systemctl enable --now tenclip-api
+```
+
+**常用运维命令**
+
+| 操作 | 命令 |
+|------|------|
+| 查看状态 | `systemctl status tenclip-api` |
+| 启动 | `systemctl start tenclip-api` |
+| 停止 | `systemctl stop tenclip-api` |
+| 重启（改代码/配置后） | `systemctl restart tenclip-api` |
+| 开机自启已开 | `systemctl enable tenclip-api` |
+| 实时日志 | `journalctl -u tenclip-api -f` |
+| 最近 200 行日志 | `journalctl -u tenclip-api -n 200 --no-pager` |
+
+**健康检查与小程序 API 自检**
+
+```bash
+# 本机探活
+curl -s http://127.0.0.1:7861/api/mobile/health
+
+# 上传提交 + 任务查询通路（冒烟测试，非真实视频）
+bash /root/code/tenclip/scripts/verify_miniprogram_api.sh http://127.0.0.1:7861
+```
+
+HTTPS 域名配置完成后，外网再测：
+
+```bash
+curl -s https://api.你的域名/api/mobile/health
+```
+
+**任务失败「未找到 ffmpeg」**
+
+`conda list` 有 ffmpeg 但 systemd 里找不到：交互式 shell 会 `conda activate` 把 `env/bin` 加入 PATH，**systemd 不会**。代码已会从 `python` 同目录找 `ffmpeg`；更新代码后 `git pull` 并 `systemctl restart tenclip-api`。也可在 service 里加 `Environment=PATH=.../envs/tenclip/bin:...`（见 `scripts/deploy/tenclip-api.service`）。
+
+ECS 上自检：
+
+```bash
+/root/miniconda3/envs/tenclip/bin/ffmpeg -version   # 路径按实际 conda 位置
+systemctl show tenclip-api -p Environment
+```
+
+**上传超时（体验版传视频失败）**
+
+Nginx 默认 **`client_body_timeout` 仅 60 秒**，大于约 15–20MB 的视频在 3Mbps 带宽下常超过 60 秒即被断开。在 ECS 上编辑 `/etc/nginx/conf.d/tenclip-api.conf`（或 certbot 生成的站点配置），在 `server { ... }` 内加入：
+
+```nginx
+client_max_body_size 512m;
+client_body_timeout 600s;
+client_header_timeout 600s;
+send_timeout 600s;
+proxy_read_timeout 600s;
+proxy_send_timeout 600s;
+```
+
+然后 `nginx -t && systemctl reload nginx`。完整示例见 `scripts/deploy/nginx-tenclip-api.conf.example`。
+
+上传时同时看：`journalctl -u tenclip-api -f`（是否收到请求）、`tail -f /var/log/nginx/error.log`。先用 **30 秒内、<20MB** 短视频验证通路，再试长片。
+
+**注意**
+
+- 手动 `python app.py` 与 systemd **不要同时占 7861**；切到 systemd 前先停掉前台进程。
+- `git pull` 更新代码后执行：`systemctl restart tenclip-api`。
+- 运行时上传目录 `data/uploads/`、`data/stroke_outputs/` 已在 `.gitignore`，勿提交大视频。
 
 ---
 

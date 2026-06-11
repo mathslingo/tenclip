@@ -1,22 +1,27 @@
-# Nginx 反代示例：对外 HTTPS，转发到本机 app.py:7861
-# 小程序须在公众平台配置与此相同的域名（request / uploadFile / downloadFile）
-#
-# 使用前：
-#   1. 将 api.example.com 换成你的子域名，DNS A 记录指到云服务器
-#   2. certbot --nginx -d api.example.com
-#   3. sudo ln -s $(pwd)/scripts/deploy/nginx-tenclip-api.conf.example /etc/nginx/sites-enabled/tenclip-api
-#   4. sudo nginx -t && sudo systemctl reload nginx
+# api.uchance.tech → 127.0.0.1:7861
+# certbot 之后请确认本文件仍含 client_body_timeout / client_max_body_size
+
+server {
+    listen 80;
+    server_name api.uchance.tech;
+    return 301 https://$host$request_uri;
+}
 
 server {
     listen 443 ssl http2;
-    server_name api.example.com;
+    server_name api.uchance.tech;
 
-    # ssl_certificate /etc/letsencrypt/live/api.example.com/fullchain.pem;
-    # ssl_certificate_key /etc/letsencrypt/live/api.example.com/privkey.pem;
+    # certbot 会自动写入下面两行路径，勿删
+    # ssl_certificate /etc/letsencrypt/live/api.uchance.tech/fullchain.pem;
+    # ssl_certificate_key /etc/letsencrypt/live/api.uchance.tech/privkey.pem;
 
-    client_max_body_size 512m;   # 大视频上传
+    client_max_body_size 512m;
+    client_body_timeout 600s;
+    client_header_timeout 600s;
+    send_timeout 600s;
     proxy_read_timeout 600s;
     proxy_send_timeout 600s;
+    proxy_connect_timeout 60s;
 
     location / {
         proxy_pass http://127.0.0.1:7861;
@@ -25,11 +30,6 @@ server {
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_request_buffering off;
     }
-}
-
-server {
-    listen 80;
-    server_name api.example.com;
-    return 301 https://$host$request_uri;
 }

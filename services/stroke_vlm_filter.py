@@ -9,7 +9,7 @@ from typing import Any, Callable
 
 from PIL import Image
 
-from services.stroke_detect import StrokeSegment
+from services.stroke_detect import StrokeSegment, ffmpeg_path
 
 logger = logging.getLogger(__name__)
 
@@ -22,7 +22,7 @@ _RALLY_PROMPT = (
 
 def _extract_frame_jpeg(video_path: str, t_sec: float, max_side: int = 384) -> Image.Image | None:
     cmd = [
-        "ffmpeg",
+        ffmpeg_path(),
         "-hide_banner",
         "-loglevel",
         "error",

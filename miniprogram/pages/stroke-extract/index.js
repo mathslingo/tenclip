@@ -1,4 +1,11 @@
-const { uploadStrokeExtract, getStrokeTask, downloadStrokeResult } = require("../../utils/api");
+const { UPLOAD_WARN_SIZE_MB } = require("../../utils/config");
+const {
+  uploadStrokeExtract,
+  getStrokeTask,
+  downloadStrokeResult,
+  chooseTennisVideo,
+  showChooseFail,
+} = require("../../utils/api");
 const { startTaskPoll } = require("../../utils/poll");
 
 const STATUS_LABEL = {
@@ -52,17 +59,24 @@ Page({
 
   onChooseVideo() {
     if (this.data.busy) return;
-    wx.chooseMedia({
-      count: 1,
-      mediaType: ["video"],
-      sourceType: ["album", "camera"],
-      maxDuration: 600,
-      success: (res) => {
-        const file = (res.tempFiles && res.tempFiles[0]) || {};
-        const sizeMb = file.size ? (file.size / (1024 * 1024)).toFixed(1) : "";
+    wx.showLoading({ title: "打开相册…", mask: true });
+    chooseTennisVideo()
+      .then((file) => {
+        const sizeMbNum = file.size ? file.size / (1024 * 1024) : 0;
+        const sizeMb = sizeMbNum ? sizeMbNum.toFixed(1) : "";
+        if (sizeMbNum > UPLOAD_WARN_SIZE_MB) {
+          wx.showModal({
+            title: "视频较大",
+            content:
+              "约 " +
+              sizeMb +
+              " MB，上传可能需数分钟，请用 WiFi 并耐心等待进度到 100%。服务器带宽有限时更易超时。",
+            showCancel: false,
+          });
+        }
         this.setData({
-          videoPath: file.tempFilePath || "",
-          videoName: file.tempFilePath ? file.tempFilePath.split("/").pop() : "已选视频",
+          videoPath: file.tempFilePath,
+          videoName: file.tempFilePath.split("/").pop() || "已选视频",
           videoSizeText: sizeMb ? `${sizeMb} MB` : "",
           summary: "",
           segments: [],
@@ -70,12 +84,9 @@ Page({
           errorText: "",
           status: "",
         });
-      },
-      fail: (err) => {
-        if (err.errMsg && err.errMsg.indexOf("cancel") !== -1) return;
-        wx.showToast({ title: "选择视频失败", icon: "none" });
-      },
-    });
+      })
+      .catch((err) => showChooseFail(err))
+      .finally(() => wx.hideLoading());
   },
 
   onModeTap(e) {
