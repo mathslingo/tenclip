@@ -427,6 +427,30 @@ def _upload_suffix(filename: str | None, content_type: str | None) -> str:
     return ".mp4"
 
 
+async def _save_upload_file_chunked(
+    upload: UploadFile,
+    dest: Path,
+    *,
+    log_label: str = "",
+) -> int:
+    """分块异步写入，避免在 async 路由里 sync copyfileobj 阻塞导致上传连接 reset。"""
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    size = 0
+    chunk_size = 1024 * 1024
+    if log_label:
+        logging.info("upload begin %s -> %s", log_label, dest)
+    with dest.open("wb") as out_file:
+        while True:
+            chunk = await upload.read(chunk_size)
+            if not chunk:
+                break
+            out_file.write(chunk)
+            size += len(chunk)
+    if log_label:
+        logging.info("upload done %s bytes=%s", log_label, size)
+    return size
+
+
 def _extract_video_path(video_file):
     """Support Gradio file values across versions."""
     if video_file is None:
@@ -730,8 +754,7 @@ def create_app() -> FastAPI:
         suffix = Path(video.filename or "upload.mp4").suffix or ".mp4"
         temp_path = Path(tempfile.NamedTemporaryFile(suffix=suffix, delete=False).name)
         try:
-            with temp_path.open("wb") as out_file:
-                shutil.copyfileobj(video.file, out_file)
+            await _save_upload_file_chunked(video, temp_path, log_label="analyze-sync")
             pp = prompt_profile.strip() or None
             guidance = run_mobile_api_analysis(
                 str(temp_path), perf_mode=perf_mode, prompt_profile=pp
@@ -762,8 +785,9 @@ def create_app() -> FastAPI:
         suffix = Path(video.filename or "upload.mp4").suffix or ".mp4"
         upload_path = UPLOAD_DIR / f"{task_id}{suffix}"
         try:
-            with upload_path.open("wb") as out_file:
-                shutil.copyfileobj(video.file, out_file)
+            await _save_upload_file_chunked(
+                video, upload_path, log_label=f"analyze-submit:{task_id}"
+            )
 
             pp = prompt_profile.strip() or None
             task = _new_task(task_id, perf_mode=perf_mode, prompt_profile=pp)
@@ -844,8 +868,9 @@ def create_app() -> FastAPI:
         )
         upload_path.parent.mkdir(parents=True, exist_ok=True)
         try:
-            with upload_path.open("wb") as out_file:
-                shutil.copyfileobj(video.file, out_file)
+            await _save_upload_file_chunked(
+                video, upload_path, log_label=f"stroke-submit:{task_id}"
+            )
             result = submit_stroke_task(
                 upload_path=upload_path,
                 original_filename=video.filename or "",

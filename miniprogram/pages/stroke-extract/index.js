@@ -5,6 +5,9 @@ const {
   downloadStrokeResult,
   chooseTennisVideo,
   showChooseFail,
+  prepareVideoForUpload,
+  formatUploadProgress,
+  setKeepScreenOn,
 } = require("../../utils/api");
 const { startTaskPoll } = require("../../utils/poll");
 
@@ -24,6 +27,7 @@ const MODE_OPTIONS = [
 Page({
   data: {
     videoPath: "",
+    videoSizeBytes: 0,
     videoName: "",
     videoSizeText: "",
     detectMode: "combined",
@@ -48,6 +52,13 @@ Page({
 
   onUnload() {
     this._stopPoll();
+    setKeepScreenOn(false);
+  },
+
+  onShow() {
+    if (this.data.busy && this._stopPollFn && this._stopPollFn.resume) {
+      this._stopPollFn.resume();
+    }
   },
 
   _stopPoll() {
@@ -76,6 +87,7 @@ Page({
         }
         this.setData({
           videoPath: file.tempFilePath,
+          videoSizeBytes: file.size || 0,
           videoName: file.tempFilePath.split("/").pop() || "已选视频",
           videoSizeText: sizeMb ? `${sizeMb} MB` : "",
           summary: "",
@@ -99,11 +111,6 @@ Page({
     this.setData({ motionPercentile: Number(e.detail.value) });
   },
 
-  onVlmChange(e) {
-    if (this.data.busy) return;
-    this.setData({ vlmFilter: !!e.detail.value });
-  },
-
   async onSubmit() {
     if (!this.data.videoPath || this.data.busy) return;
     this._stopPoll();
@@ -122,32 +129,68 @@ Page({
     });
 
     try {
+      const prepared = await prepareVideoForUpload(
+        this.data.videoPath,
+        this.data.videoSizeBytes,
+        () => {
+          this.setData({
+            progressText: "压缩中…",
+            progressMessage: "压缩视频中（缩短上传时间）",
+            progressPercent: 1,
+          });
+        }
+      );
+      const uploadMb = prepared.size
+        ? (prepared.size / (1024 * 1024)).toFixed(1)
+        : "";
+      this.setData({
+        progressText: "上传中…",
+        progressMessage: uploadMb
+          ? `压缩完成（约 ${uploadMb} MB），正在上传到服务器…`
+          : "正在上传到服务器…",
+        progressPercent: 2,
+      });
+      this._uploadStart = Date.now();
       const submit = await uploadStrokeExtract({
-        filePath: this.data.videoPath,
+        filePath: prepared.filePath,
         detectMode: this.data.detectMode,
         motionPercentile: this.data.motionPercentile,
         vlmFilter: this.data.vlmFilter,
-        onProgress: ({ progress }) => {
-          const pct = Math.round(progress || 0);
+        onProgress: (ev) => {
+          const { pct, message } = formatUploadProgress(ev, this._uploadStart);
           this.setData({
             progressText: `上传中 ${pct}%`,
-            progressMessage: `正在上传视频（${pct}%）`,
+            progressMessage: message,
             progressPercent: Math.min(28, Math.max(2, Math.round(pct * 0.28))),
           });
         },
+        onRetry: ({ attempt, maxAttempts }) => {
+          this._uploadStart = Date.now();
+          this.setData({
+            progressText: "重试上传…",
+            progressMessage: `连接中断，正在第 ${attempt}/${maxAttempts} 次重试上传…`,
+          });
+        },
       });
+      setKeepScreenOn(true);
       this.setData({
         taskId: submit.task_id,
         queueSize: submit.queue_size || 0,
         progressText: "分析中…",
+        progressMessage: "分析中（可息屏，亮屏后自动继续）",
       });
       this._startPoll(submit.task_id);
     } catch (err) {
+      setKeepScreenOn(false);
+      const msg = err.message || "提交失败";
+      const isUpload =
+        /uploadfile|connection_reset|上传|err_connection/i.test(msg);
       this.setData({
         busy: false,
         status: "failed",
         statusLabel: STATUS_LABEL.failed,
-        errorText: err.message || "提交失败",
+        progressMessage: isUpload ? "失败阶段：上传到服务器" : "失败阶段：提交/分析",
+        errorText: msg,
       });
     }
   },
@@ -158,11 +201,13 @@ Page({
       onUpdate: (task) => this._applyTask(task),
       onDone: (task, err) => {
         this._stopPollFn = null;
+        setKeepScreenOn(false);
         if (err) {
           this.setData({
             busy: false,
             status: "failed",
             statusLabel: STATUS_LABEL.failed,
+            progressMessage: "失败阶段：查询分析进度",
             errorText: err.message || "查询失败",
           });
           return;
@@ -187,8 +232,14 @@ Page({
       statusLabel: STATUS_LABEL[task.status] || task.status,
       queueSize: task.queue_size || 0,
       progressPercent: Math.max(frac, task.status === "running" ? 5 : frac),
-      progressMessage: task.progress_message || "",
-      errorText: task.status === "failed" ? task.error || "提取失败" : "",
+      progressMessage:
+        task.status === "failed"
+          ? task.progress_message || "失败阶段：服务器分析"
+          : task.progress_message || "",
+      errorText:
+        task.status === "failed"
+          ? task.error || "服务器分析失败"
+          : "",
       summary: task.summary || "",
       segments,
     });

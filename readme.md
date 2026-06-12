@@ -131,6 +131,7 @@ H5 对照页（同一后端）：`http://127.0.0.1:7861/web`（动作分析）�
 |------|------|
 | `url not in domain list` / `your-domain.example.com` | 改 `config.js` 的 `LOCAL_API_HOST`；勾选「不校验合法域名」；勿保留占位域名 |
 | `Error: timeout` / 上传卡住 | 小程序端 10 分钟；**Nginx 须设 `client_body_timeout 600s`**（默认 60s 会断大文件）；ECS 带宽 3Mbps 时 100MB+ 需数分钟，看上传百分比 |
+| `uploadFile:fail ERR_CONNECTION_RESET` | 多为 Nginx **`proxy_request_buffering off`** 或 `tenclip-api` 重启；见 `nginx-tenclip-api.conf.example`（应为 `on`）；小程序会自动重试 3 次 |
 | WSL 连不上 | `GRADIO_SERVER_NAME=0.0.0.0` 启动；`LOCAL_API_HOST` 用 `hostname -I` 的 IP（模拟器可试 `127.0.0.1`） |
 | 轮询偶发超时 | 会自动重试 |
 

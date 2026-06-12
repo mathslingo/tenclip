@@ -51,13 +51,18 @@ App({
         if (LOCAL_DEV) {
           return;
         }
-        var extra = isDomainListError(err)
-          ? domainWhitelistHint()
-          : "请检查 PROD_API_BASE_URL 与服务器 HTTPS。";
-        wx.showModal({
-          title: "后端未连通",
-          content: msg + "\n\n" + extra,
-          showCancel: false,
+        if (isDomainListError(err)) {
+          wx.showModal({
+            title: "域名未配置",
+            content: msg + "\n\n" + domainWhitelistHint(),
+            showCancel: false,
+          });
+          return;
+        }
+        wx.showToast({
+          title: "API 探活失败，可直接试上传",
+          icon: "none",
+          duration: 3500,
         });
       });
   },

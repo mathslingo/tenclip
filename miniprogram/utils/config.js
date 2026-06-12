@@ -26,11 +26,18 @@ const UPLOAD_TIMEOUT_MS = 600000;
 /** 超过此大小（MB）提示用户压缩或换 WiFi */
 const UPLOAD_WARN_SIZE_MB = 80;
 
+/** 上传前用 wx.compressVideo 压缩的阈值（MB）；击球检测不需原画质 */
+const UPLOAD_COMPRESS_ABOVE_MB = 1;
+
+/** compressVideo 档位：low | medium | high（上传优先用 low 减小体积） */
+const UPLOAD_COMPRESS_QUALITY = "low";
+
 /** wx.request 轮询超时（毫秒） */
 const REQUEST_TIMEOUT_MS = 30000;
 
 /** 启动探活超时（毫秒）；本机无后端时会较快失败 */
-const HEALTH_TIMEOUT_MS = 5000;
+/** 启动探活单次超时（毫秒）；弱网适当加长 */
+const HEALTH_TIMEOUT_MS = 12000;
 
 /** 下载集锦 MP4 超时（毫秒） */
 const DOWNLOAD_TIMEOUT_MS = 600000;
@@ -99,6 +106,8 @@ module.exports = {
   DOWNLOAD_TIMEOUT_MS,
   HEALTH_TIMEOUT_MS,
   UPLOAD_WARN_SIZE_MB,
+  UPLOAD_COMPRESS_ABOVE_MB,
+  UPLOAD_COMPRESS_QUALITY,
   isApiConfigValid,
   apiConfigHint,
   apiHostForWhitelist,

@@ -3,6 +3,9 @@ const {
   getAnalyzeTask,
   chooseTennisVideo,
   showChooseFail,
+  prepareVideoForUpload,
+  formatUploadProgress,
+  setKeepScreenOn,
 } = require("../../utils/api");
 const { formatGuidance } = require("../../utils/guidance");
 const { startTaskPoll } = require("../../utils/poll");
@@ -31,6 +34,7 @@ const PROMPT_OPTIONS = [
 Page({
   data: {
     videoPath: "",
+    videoSizeBytes: 0,
     videoName: "",
     videoSizeText: "",
     perfMode: "eco",
@@ -54,6 +58,13 @@ Page({
 
   onUnload() {
     this._stopPoll();
+    setKeepScreenOn(false);
+  },
+
+  onShow() {
+    if (this.data.busy && this._stopPollFn && this._stopPollFn.resume) {
+      this._stopPollFn.resume();
+    }
   },
 
   _stopPoll() {
@@ -71,6 +82,7 @@ Page({
         const sizeMb = file.size ? (file.size / (1024 * 1024)).toFixed(1) : "";
         this.setData({
           videoPath: file.tempFilePath,
+          videoSizeBytes: file.size || 0,
           videoName: file.tempFilePath.split("/").pop() || "已选视频",
           videoSizeText: sizeMb ? `${sizeMb} MB` : "",
           guidanceBody: "",
@@ -115,26 +127,39 @@ Page({
     });
 
     try {
+      const prepared = await prepareVideoForUpload(
+        this.data.videoPath,
+        this.data.videoSizeBytes,
+        () => {
+          this.setData({
+            progressText: "压缩中…",
+            progressMessage: "压缩视频中（缩短上传时间）",
+          });
+        }
+      );
+      this._uploadStart = Date.now();
       const submit = await uploadAnalyzeSubmit({
-        filePath: this.data.videoPath,
+        filePath: prepared.filePath,
         perfMode: this.data.perfMode,
         promptProfile: this.data.promptProfile,
-        onProgress: ({ progress }) => {
-          const pct = Math.round(progress || 0);
+        onProgress: (ev) => {
+          const { pct, message } = formatUploadProgress(ev, this._uploadStart);
           this.setData({
             progressText: `上传中 ${pct}%`,
-            progressMessage: `正在上传视频（${pct}%）`,
+            progressMessage: message,
           });
         },
       });
+      setKeepScreenOn(true);
       this.setData({
         taskId: submit.task_id,
         queueSize: submit.queue_size || 0,
         progressText: "分析中…",
-        progressMessage: "已提交，等待模型推理",
+        progressMessage: "分析中（可息屏，亮屏后自动继续）",
       });
       this._startPoll(submit.task_id);
     } catch (err) {
+      setKeepScreenOn(false);
       this.setData({
         busy: false,
         status: "failed",
@@ -150,6 +175,7 @@ Page({
       onUpdate: (task) => this._applyTask(task),
       onDone: (task, err) => {
         this._stopPollFn = null;
+        setKeepScreenOn(false);
         if (err) {
           this.setData({
             busy: false,

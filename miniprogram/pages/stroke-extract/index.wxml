@@ -1,6 +1,6 @@
 <view class="page">
   <view class="hero">
-    <text class="hero-title">击球片段提取</text>
+    <text class="hero-title">UChance击球片段提取</text>
     <text class="hero-sub">上传网球视频，自动剪掉换边与等待，保留击球/回合画面（与 TenClip 服务端同一套检测逻辑）。</text>
   </view>
 
@@ -43,11 +43,6 @@
       bindchange="onMotionChange"
       disabled="{{busy}}"
     />
-
-    <view class="switch-row">
-      <text>VLM 二次过滤（较慢）</text>
-      <switch checked="{{vlmFilter}}" color="#13d8a8" bindchange="onVlmChange" disabled="{{busy}}" />
-    </view>
 
     <button class="primary-btn" bindtap="onSubmit" loading="{{busy}}" disabled="{{busy || !videoPath}}">
       {{busy ? progressText : '开始提取'}}

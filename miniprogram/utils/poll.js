@@ -5,7 +5,7 @@ function startTaskPoll(opts) {
   var onUpdate = opts.onUpdate;
   var onDone = opts.onDone;
   var intervalMs = opts.intervalMs || 2000;
-  var maxErrors = opts.maxErrors || 8;
+  var maxTransientErrors = opts.maxTransientErrors || 120;
   var timer = null;
   var errorStreak = 0;
   var stopped = false;
@@ -30,11 +30,17 @@ function startTaskPoll(opts) {
         }
       })
       .catch(function (err) {
-        errorStreak += 1;
-        if (api.isTimeoutError(err) && errorStreak < maxErrors) {
+        var msg = String((err && err.message) || "");
+        if (msg.indexOf("任务不存在") !== -1) {
+          stop();
+          onDone(null, err);
+          return;
+        }
+        if (api.isTransientNetworkError(err) && errorStreak < maxTransientErrors) {
+          errorStreak += 1;
           onUpdate({
             _pollRetry: true,
-            progress_message: "网络波动，继续等待…（" + errorStreak + "/" + maxErrors + "）",
+            progress_message: api.pollRetryMessage(err, errorStreak),
           });
           return;
         }
@@ -45,6 +51,10 @@ function startTaskPoll(opts) {
 
   tick();
   timer = setInterval(tick, intervalMs);
+
+  stop.resume = function () {
+    if (!stopped) tick();
+  };
   return stop;
 }
 

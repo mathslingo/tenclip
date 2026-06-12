@@ -8,11 +8,65 @@ const {
   apiConfigHint,
   domainWhitelistHint,
   isDomainListError,
+  UPLOAD_COMPRESS_ABOVE_MB,
+  UPLOAD_COMPRESS_QUALITY,
 } = require("./config");
 
+function _errText(err) {
+  return String((err && err.message) || (err && err.errMsg) || err || "").toLowerCase();
+}
+
 function isTimeoutError(err) {
-  const msg = String((err && err.message) || (err && err.errMsg) || err || "").toLowerCase();
+  const msg = _errText(err);
   return msg.includes("timeout") || msg.includes("timed out");
+}
+
+/** 息屏、切后台、弱网导致的可恢复错误（轮询应继续而非判失败） */
+function isTransientNetworkError(err) {
+  const msg = _errText(err);
+  return (
+    isTimeoutError(err) ||
+    msg.includes("interrupted") ||
+    msg.includes("abort") ||
+    msg.includes("cancel") ||
+    msg.includes("network") ||
+    msg.includes("连接") ||
+    msg.includes("断开") ||
+    msg.includes("connection_reset") ||
+    msg.includes("connection reset") ||
+    msg.includes("err_connection")
+  );
+}
+
+function isConnectionResetError(err) {
+  const msg = _errText(err);
+  return (
+    msg.includes("connection_reset") ||
+    msg.includes("connection reset") ||
+    msg.includes("err_connection_reset")
+  );
+}
+
+function isUploadRetryableError(err) {
+  if (isDomainListError(err)) return false;
+  return isTransientNetworkError(err);
+}
+
+function isInterruptedError(err) {
+  return _errText(err).includes("interrupted");
+}
+
+function pollRetryMessage(err, streak) {
+  if (isInterruptedError(err)) {
+    return "分析仍在服务器进行，可暂时息屏；亮屏后会自动继续…";
+  }
+  return "网络波动，继续等待…（" + streak + "）";
+}
+
+function setKeepScreenOn(keepOn) {
+  if (typeof wx.setKeepScreenOn === "function") {
+    wx.setKeepScreenOn({ keepScreenOn: !!keepOn });
+  }
 }
 
 function parseApiDetail(body, fallback) {
@@ -29,7 +83,7 @@ function parseApiDetail(body, fallback) {
   return fallback;
 }
 
-function pingHealth() {
+function pingHealthOnce() {
   return new Promise(function (resolve, reject) {
     wx.request({
       url: API_BASE_URL + "/api/mobile/health",
@@ -49,14 +103,44 @@ function pingHealth() {
   });
 }
 
+function pingHealth(maxAttempts) {
+  var limit = maxAttempts != null ? maxAttempts : 5;
+  var attempt = 0;
+  function run() {
+    attempt += 1;
+    return pingHealthOnce().catch(function (err) {
+      if (isTransientNetworkError(err) && attempt < limit) {
+        return new Promise(function (resolve) {
+          setTimeout(resolve, 500 * attempt);
+        }).then(run);
+      }
+      return Promise.reject(err);
+    });
+  }
+  return run();
+}
+
 function normalizeError(err, fallback) {
   if (isTimeoutError(err)) {
     return new Error(
       "上传超时：请用 WiFi、换较短视频（<1 分钟试跑），或联系检查服务器 Nginx client_body_timeout"
     );
   }
-  if (err && err.message) return err;
-  if (err && err.errMsg) return new Error(err.errMsg);
+  if (isConnectionResetError(err)) {
+    return new Error(
+      "连接被中断（ERR_CONNECTION_RESET）。请换 WiFi 重试；若反复出现，在 ECS 检查 systemctl status tenclip-api 与 Nginx。"
+    );
+  }
+  var raw = (err && err.errMsg) || (err && err.message) || "";
+  if (/^request:fail\s*$/i.test(raw.trim())) {
+    return new Error(
+      "无法连接 API（request:fail）\n当前地址：" +
+        API_BASE_URL +
+        "\n请检查手机网络、HTTPS 证书、微信公众平台 request 合法域名，以及 ECS 上 tenclip-api 是否在运行。"
+    );
+  }
+  if (err && err.message && err.message !== "request:fail") return err;
+  if (raw) return new Error(raw);
   return new Error(fallback || "网络错误");
 }
 
@@ -163,8 +247,28 @@ function downloadToTemp(url, onProgress) {
   });
 }
 
+function uploadMultipartRetry(opts) {
+  var maxAttempts = opts.maxAttempts != null ? opts.maxAttempts : 5;
+  var attempt = 0;
+  function tryOnce() {
+    attempt += 1;
+    return uploadMultipart(opts).catch(function (err) {
+      if (!isUploadRetryableError(err) || attempt >= maxAttempts) {
+        return Promise.reject(normalizeError(err, "上传失败"));
+      }
+      if (opts.onRetry) {
+        opts.onRetry({ attempt: attempt, maxAttempts: maxAttempts });
+      }
+      return new Promise(function (resolve) {
+        setTimeout(resolve, 1500 * attempt);
+      }).then(tryOnce);
+    });
+  }
+  return tryOnce();
+}
+
 function uploadStrokeExtract(opts) {
-  return uploadMultipart({
+  return uploadMultipartRetry({
     url: API_BASE_URL + "/api/mobile/stroke-extract/submit",
     filePath: opts.filePath,
     name: "video",
@@ -174,6 +278,7 @@ function uploadStrokeExtract(opts) {
       vlm_filter: opts.vlmFilter ? "1" : "0",
     },
     onProgress: opts.onProgress,
+    onRetry: opts.onRetry,
   });
 }
 
@@ -190,7 +295,7 @@ function downloadStrokeResult(taskId, onProgress) {
 }
 
 function uploadAnalyzeSubmit(opts) {
-  return uploadMultipart({
+  return uploadMultipartRetry({
     url: API_BASE_URL + "/api/mobile/analyze-video/submit",
     filePath: opts.filePath,
     name: "video",
@@ -199,6 +304,7 @@ function uploadAnalyzeSubmit(opts) {
       prompt_profile: opts.promptProfile || "default",
     },
     onProgress: opts.onProgress,
+    onRetry: opts.onRetry,
   });
 }
 
@@ -241,11 +347,12 @@ function pickChooseMedia(opts) {
   });
 }
 
-function pickChooseVideoLegacy() {
+function pickChooseVideo(opts) {
+  opts = opts || {};
   return new Promise(function (resolve, reject) {
     wx.chooseVideo({
-      sourceType: ["album", "camera"],
-      compressed: true,
+      sourceType: opts.sourceType || ["album"],
+      compressed: opts.compressed !== false,
       maxDuration: CHOOSE_VIDEO_MAX_SEC,
       success: function (res) {
         if (!res.tempFilePath) {
@@ -259,6 +366,72 @@ function pickChooseVideoLegacy() {
       },
     });
   });
+}
+
+function statFileSize(filePath) {
+  return new Promise(function (resolve) {
+    try {
+      wx.getFileSystemManager().stat({
+        path: filePath,
+        success: function (res) {
+          resolve((res.stats && res.stats.size) || 0);
+        },
+        fail: function () {
+          resolve(0);
+        },
+      });
+    } catch (e) {
+      resolve(0);
+    }
+  });
+}
+
+function prepareVideoForUpload(filePath, sizeBytes, onStatus) {
+  var threshold = UPLOAD_COMPRESS_ABOVE_MB * 1024 * 1024;
+  if (!sizeBytes || sizeBytes < threshold || typeof wx.compressVideo !== "function") {
+    return Promise.resolve({ filePath: filePath, size: sizeBytes || 0 });
+  }
+  if (onStatus) onStatus("compressing");
+  return new Promise(function (resolve) {
+    wx.compressVideo({
+      src: filePath,
+      quality: UPLOAD_COMPRESS_QUALITY,
+      success: function (res) {
+        statFileSize(res.tempFilePath).then(function (newSize) {
+          resolve({
+            filePath: res.tempFilePath,
+            size: newSize || sizeBytes,
+            compressed: true,
+          });
+        });
+      },
+      fail: function () {
+        resolve({ filePath: filePath, size: sizeBytes, compressed: false });
+      },
+    });
+  });
+}
+
+function formatUploadProgress(ev, startMs) {
+  var pct = Math.round(ev.progress || 0);
+  var sent = ev.sent || 0;
+  var total = ev.total || 0;
+  var msg = "正在上传视频（" + pct + "%）";
+  if (total > 0) {
+    msg +=
+      " · " +
+      (sent / (1024 * 1024)).toFixed(1) +
+      "/" +
+      (total / (1024 * 1024)).toFixed(1) +
+      " MB";
+  }
+  if (startMs && sent > 0) {
+    var sec = (Date.now() - startMs) / 1000;
+    if (sec >= 1) {
+      msg += " · " + (sent / (1024 * 1024) / sec).toFixed(1) + " MB/s";
+    }
+  }
+  return { pct: pct, message: msg };
 }
 
 function isPrivacyError(err) {
@@ -312,14 +485,18 @@ function showChooseFail(err) {
 }
 
 function chooseTennisVideo() {
-  return pickChooseMedia({ sourceType: ["album"] })
+  return pickChooseVideo({ sourceType: ["album"], compressed: true })
     .catch(function (err) {
       if (isUserCancelPick(err)) throw err;
       if (isPrivacyError(err)) {
         return requirePrivacyIfNeeded().then(function () {
-          return pickChooseMedia({ sourceType: ["album"] });
+          return pickChooseVideo({ sourceType: ["album"], compressed: true });
         });
       }
+      return pickChooseMedia({ sourceType: ["album"] });
+    })
+    .catch(function (err) {
+      if (isUserCancelPick(err)) throw err;
       return pickChooseMedia({
         sourceType: ["album", "camera"],
         maxDuration: CHOOSE_VIDEO_MAX_SEC,
@@ -328,14 +505,20 @@ function chooseTennisVideo() {
     .catch(function (err) {
       if (isUserCancelPick(err)) throw err;
       if (isPrivacyError(err)) {
-        return requirePrivacyIfNeeded().then(pickChooseVideoLegacy);
+        return requirePrivacyIfNeeded().then(function () {
+          return pickChooseVideo({ sourceType: ["album", "camera"], compressed: true });
+        });
       }
-      return pickChooseVideoLegacy();
+      return pickChooseVideo({ sourceType: ["album", "camera"], compressed: true });
     });
 }
 
 module.exports = {
   isTimeoutError,
+  isTransientNetworkError,
+  isInterruptedError,
+  pollRetryMessage,
+  setKeepScreenOn,
   pingHealth,
   uploadStrokeExtract,
   getStrokeTask,
@@ -345,4 +528,6 @@ module.exports = {
   getAnalyzeTask,
   chooseTennisVideo,
   showChooseFail,
+  prepareVideoForUpload,
+  formatUploadProgress,
 };
