@@ -70,6 +70,15 @@ function setKeepScreenOn(keepOn) {
   }
 }
 
+/** 微信聊天内浏览器能通、小程序 Cronet reset 时：禁用 http2/quic/httpdns（走 HTTP/1.1） */
+function wxCronetCompatOpts() {
+  return {
+    enableHttp2: false,
+    enableQuic: false,
+    enableHttpDNS: false,
+  };
+}
+
 function parseApiDetail(body, fallback) {
   if (!body) return fallback;
   var detail = body.detail;
@@ -94,22 +103,27 @@ function diagnoseApiConnection() {
       body: "",
       errMsg: "",
     };
-    wx.request({
-      url: API_BASE_URL + "/api/mobile/health",
-      method: "GET",
-      timeout: HEALTH_TIMEOUT_MS,
-      success: function (res) {
-        result.httpStatus = res.statusCode;
-        result.body =
-          typeof res.data === "object" ? JSON.stringify(res.data) : String(res.data || "");
-        result.requestOk = res.statusCode === 200 && res.data && res.data.ok;
-        resolve(result);
-      },
-      fail: function (err) {
-        result.errMsg = (err && err.errMsg) || String(err);
-        resolve(result);
-      },
-    });
+    wx.request(
+      Object.assign(
+        {
+          url: API_BASE_URL + "/api/mobile/health",
+          method: "GET",
+          timeout: HEALTH_TIMEOUT_MS,
+          success: function (res) {
+            result.httpStatus = res.statusCode;
+            result.body =
+              typeof res.data === "object" ? JSON.stringify(res.data) : String(res.data || "");
+            result.requestOk = res.statusCode === 200 && res.data && res.data.ok;
+            resolve(result);
+          },
+          fail: function (err) {
+            result.errMsg = (err && err.errMsg) || String(err);
+            resolve(result);
+          },
+        },
+        wxCronetCompatOpts()
+      )
+    );
   });
 }
 
@@ -130,10 +144,9 @@ function formatDiagnoseReport(diag) {
       lines.push(domainWhitelistHint());
     } else {
       lines.push(
-        "1. 手机浏览器打开 " + diag.apiBase + "/api/mobile/health\n" +
-          "2. 公众平台 request + uploadFile + downloadFile 均填 " + diag.apiBase + "\n" +
-          "3. 保存域名后删除小程序再进体验版\n" +
-          "4. ECS: tail -f /var/log/nginx/access.log（应出现手机 IP 的 GET/POST）"
+        "微信内打开链接正常、仅小程序失败时：\n" +
+          "已关闭 HTTP/2（enableHttp2:false）。请更新体验版并重试。\n" +
+          "ECS 同时执行: bash scripts/deploy/patch-nginx-wechat-upload.sh"
       );
     }
   } else {
@@ -144,21 +157,26 @@ function formatDiagnoseReport(diag) {
 
 function pingHealthOnce() {
   return new Promise(function (resolve, reject) {
-    wx.request({
-      url: API_BASE_URL + "/api/mobile/health",
-      method: "GET",
-      timeout: HEALTH_TIMEOUT_MS,
-      success: function (res) {
-        if (res.statusCode === 200 && res.data && res.data.ok) {
-          resolve(res.data);
-          return;
-        }
-        reject(new Error("后端未就绪 (HTTP " + res.statusCode + ")"));
-      },
-      fail: function (err) {
-        reject(normalizeError(err, "无法连接后端，请确认已启动 app.py 且 LOCAL_API_HOST 正确"));
-      },
-    });
+    wx.request(
+      Object.assign(
+        {
+          url: API_BASE_URL + "/api/mobile/health",
+          method: "GET",
+          timeout: HEALTH_TIMEOUT_MS,
+          success: function (res) {
+            if (res.statusCode === 200 && res.data && res.data.ok) {
+              resolve(res.data);
+              return;
+            }
+            reject(new Error("后端未就绪 (HTTP " + res.statusCode + ")"));
+          },
+          fail: function (err) {
+            reject(normalizeError(err, "无法连接后端，请确认已启动 app.py 且 LOCAL_API_HOST 正确"));
+          },
+        },
+        wxCronetCompatOpts()
+      )
+    );
   });
 }
 
@@ -206,29 +224,34 @@ function normalizeError(err, fallback) {
 function requestJson(url, method) {
   const m = method || "GET";
   return new Promise(function (resolve, reject) {
-    wx.request({
-      url: url,
-      method: m,
-      timeout: REQUEST_TIMEOUT_MS,
-      success: function (res) {
-        if (res.statusCode === 404) {
-          reject(new Error("任务不存在"));
-          return;
-        }
-        if (res.statusCode < 200 || res.statusCode >= 300) {
-          var body = res.data;
-          var detail =
-            (typeof body === "object" && parseApiDetail(body, "")) ||
-            "请求失败 (" + res.statusCode + ")";
-          reject(new Error(detail));
-          return;
-        }
-        resolve(res.data);
-      },
-      fail: function (err) {
-        reject(normalizeError(err, "网络错误"));
-      },
-    });
+    wx.request(
+      Object.assign(
+        {
+          url: url,
+          method: m,
+          timeout: REQUEST_TIMEOUT_MS,
+          success: function (res) {
+            if (res.statusCode === 404) {
+              reject(new Error("任务不存在"));
+              return;
+            }
+            if (res.statusCode < 200 || res.statusCode >= 300) {
+              var body = res.data;
+              var detail =
+                (typeof body === "object" && parseApiDetail(body, "")) ||
+                "请求失败 (" + res.statusCode + ")";
+              reject(new Error(detail));
+              return;
+            }
+            resolve(res.data);
+          },
+          fail: function (err) {
+            reject(normalizeError(err, "网络错误"));
+          },
+        },
+        wxCronetCompatOpts()
+      )
+    );
   });
 }
 
@@ -238,38 +261,43 @@ function uploadMultipart(opts) {
   }
   var onProgress = opts.onProgress;
   return new Promise(function (resolve, reject) {
-    var task = wx.uploadFile({
-      url: opts.url,
-      filePath: opts.filePath,
-      name: opts.name,
-      formData: opts.formData,
-      timeout: UPLOAD_TIMEOUT_MS,
-      success: function (res) {
-        if (res.statusCode < 200 || res.statusCode >= 300) {
-          var detail = "上传失败 (" + res.statusCode + ")";
-          try {
-            var body = JSON.parse(res.data || "{}");
-            detail = parseApiDetail(body, detail);
-          } catch (e) {
-            /* ignore */
-          }
-          reject(new Error(detail));
-          return;
-        }
-        try {
-          resolve(JSON.parse(res.data));
-        } catch (e2) {
-          reject(new Error("响应解析失败"));
-        }
-      },
-      fail: function (err) {
-        if (isDomainListError(err)) {
-          reject(new Error("域名未在白名单\n\n" + domainWhitelistHint()));
-          return;
-        }
-        reject(normalizeError(err, "上传失败"));
-      },
-    });
+    var task = wx.uploadFile(
+      Object.assign(
+        {
+          url: opts.url,
+          filePath: opts.filePath,
+          name: opts.name,
+          formData: opts.formData,
+          timeout: UPLOAD_TIMEOUT_MS,
+          success: function (res) {
+            if (res.statusCode < 200 || res.statusCode >= 300) {
+              var detail = "上传失败 (" + res.statusCode + ")";
+              try {
+                var body = JSON.parse(res.data || "{}");
+                detail = parseApiDetail(body, detail);
+              } catch (e) {
+                /* ignore */
+              }
+              reject(new Error(detail));
+              return;
+            }
+            try {
+              resolve(JSON.parse(res.data));
+            } catch (e2) {
+              reject(new Error("响应解析失败"));
+            }
+          },
+          fail: function (err) {
+            if (isDomainListError(err)) {
+              reject(new Error("域名未在白名单\n\n" + domainWhitelistHint()));
+              return;
+            }
+            reject(normalizeError(err, "上传失败"));
+          },
+        },
+        wxCronetCompatOpts()
+      )
+    );
     if (onProgress && task && typeof task.onProgressUpdate === "function") {
       task.onProgressUpdate(function (ev) {
         onProgress({
@@ -284,20 +312,25 @@ function uploadMultipart(opts) {
 
 function downloadToTemp(url, onProgress) {
   return new Promise(function (resolve, reject) {
-    var task = wx.downloadFile({
-      url: url,
-      timeout: DOWNLOAD_TIMEOUT_MS,
-      success: function (res) {
-        if (res.statusCode !== 200) {
-          reject(new Error("下载失败 (" + res.statusCode + ")"));
-          return;
-        }
-        resolve(res.tempFilePath);
-      },
-      fail: function (err) {
-        reject(normalizeError(err, "下载失败"));
-      },
-    });
+    var task = wx.downloadFile(
+      Object.assign(
+        {
+          url: url,
+          timeout: DOWNLOAD_TIMEOUT_MS,
+          success: function (res) {
+            if (res.statusCode !== 200) {
+              reject(new Error("下载失败 (" + res.statusCode + ")"));
+              return;
+            }
+            resolve(res.tempFilePath);
+          },
+          fail: function (err) {
+            reject(normalizeError(err, "下载失败"));
+          },
+        },
+        wxCronetCompatOpts()
+      )
+    );
     if (onProgress && task && typeof task.onProgressUpdate === "function") {
       task.onProgressUpdate(function (ev) {
         onProgress({ progress: ev.progress });
