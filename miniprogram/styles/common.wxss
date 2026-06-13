@@ -177,3 +177,21 @@
   color: #b42318;
   font-size: 26rpx;
 }
+
+.diag-link {
+  display: block;
+  margin-top: 20rpx;
+  text-align: center;
+  font-size: 24rpx;
+  color: #6e7582;
+  text-decoration: underline;
+}
+
+.api-hint {
+  display: block;
+  margin-top: 12rpx;
+  text-align: center;
+  font-size: 20rpx;
+  color: #9aa3ad;
+  word-break: break-all;
+}

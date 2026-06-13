@@ -1,5 +1,6 @@
 const {
   API_BASE_URL,
+  LOCAL_DEV,
   UPLOAD_TIMEOUT_MS,
   REQUEST_TIMEOUT_MS,
   DOWNLOAD_TIMEOUT_MS,
@@ -81,6 +82,64 @@ function parseApiDetail(body, fallback) {
       .join("; ");
   }
   return fallback;
+}
+
+function diagnoseApiConnection() {
+  return new Promise(function (resolve) {
+    var result = {
+      apiBase: API_BASE_URL,
+      localDev: LOCAL_DEV,
+      requestOk: false,
+      httpStatus: 0,
+      body: "",
+      errMsg: "",
+    };
+    wx.request({
+      url: API_BASE_URL + "/api/mobile/health",
+      method: "GET",
+      timeout: HEALTH_TIMEOUT_MS,
+      success: function (res) {
+        result.httpStatus = res.statusCode;
+        result.body =
+          typeof res.data === "object" ? JSON.stringify(res.data) : String(res.data || "");
+        result.requestOk = res.statusCode === 200 && res.data && res.data.ok;
+        resolve(result);
+      },
+      fail: function (err) {
+        result.errMsg = (err && err.errMsg) || String(err);
+        resolve(result);
+      },
+    });
+  });
+}
+
+function formatDiagnoseReport(diag) {
+  var lines = [
+    "API 地址：" + diag.apiBase,
+    "LOCAL_DEV：" + diag.localDev,
+  ];
+  if (diag.requestOk) {
+    lines.push("request 探活：成功 " + diag.body);
+    lines.push("");
+    lines.push("若上传仍无 POST，请重点检查公众平台 uploadFile 合法域名（与 request 分开配置）。");
+  } else if (diag.errMsg) {
+    lines.push("request 探活：失败");
+    lines.push("errMsg：" + diag.errMsg);
+    lines.push("");
+    if (isDomainListError({ errMsg: diag.errMsg })) {
+      lines.push(domainWhitelistHint());
+    } else {
+      lines.push(
+        "1. 手机浏览器打开 " + diag.apiBase + "/api/mobile/health\n" +
+          "2. 公众平台 request + uploadFile + downloadFile 均填 " + diag.apiBase + "\n" +
+          "3. 保存域名后删除小程序再进体验版\n" +
+          "4. ECS: tail -f /var/log/nginx/access.log（应出现手机 IP 的 GET/POST）"
+      );
+    }
+  } else {
+    lines.push("HTTP " + diag.httpStatus + " " + diag.body);
+  }
+  return lines.join("\n");
 }
 
 function pingHealthOnce() {
@@ -530,4 +589,6 @@ module.exports = {
   showChooseFail,
   prepareVideoForUpload,
   formatUploadProgress,
+  diagnoseApiConnection,
+  formatDiagnoseReport,
 };

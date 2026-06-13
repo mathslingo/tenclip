@@ -1,4 +1,4 @@
-const { UPLOAD_WARN_SIZE_MB } = require("../../utils/config");
+const { UPLOAD_WARN_SIZE_MB, API_BASE_URL } = require("../../utils/config");
 const {
   uploadStrokeExtract,
   getStrokeTask,
@@ -8,6 +8,8 @@ const {
   prepareVideoForUpload,
   formatUploadProgress,
   setKeepScreenOn,
+  diagnoseApiConnection,
+  formatDiagnoseReport,
 } = require("../../utils/api");
 const { startTaskPoll } = require("../../utils/poll");
 
@@ -46,9 +48,14 @@ Page({
     summary: "",
     segments: [],
     previewUrl: "",
+    apiBase: API_BASE_URL,
   },
 
   _stopPollFn: null,
+
+  onLoad() {
+    this.setData({ apiBase: API_BASE_URL });
+  },
 
   onUnload() {
     this._stopPoll();
@@ -66,6 +73,20 @@ Page({
       this._stopPollFn();
       this._stopPollFn = null;
     }
+  },
+
+  onTestApi() {
+    if (this.data.busy) return;
+    wx.showLoading({ title: "测试中…", mask: true });
+    diagnoseApiConnection()
+      .then((diag) => {
+        wx.showModal({
+          title: diag.requestOk ? "API 可连通" : "API 不可达",
+          content: formatDiagnoseReport(diag),
+          showCancel: false,
+        });
+      })
+      .finally(() => wx.hideLoading());
   },
 
   onChooseVideo() {
