@@ -12,9 +12,7 @@ server {
     listen 443 ssl;
     server_name api.uchance.tech;
 
-    # certbot 会自动写入下面两行路径，勿删
-    # ssl_certificate /etc/letsencrypt/live/api.uchance.tech/fullchain.pem;
-    # ssl_certificate_key /etc/letsencrypt/live/api.uchance.tech/privkey.pem;
+    # certbot 会自动写入证书路径，并 include options-ssl-nginx.conf（勿再写 ssl_protocols 避免重复）
 
     client_max_body_size 512m;
     client_body_buffer_size 16m;

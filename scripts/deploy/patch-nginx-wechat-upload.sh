@@ -18,13 +18,9 @@ sed -i 's/listen \[::\]:443 ssl http2;/listen [::]:443 ssl;/g' "$CONF"
 # 仅监听 IPv4，避免 [::]:443 吸引 IPv6 流量到未配置的栈
 sed -i 's/listen \[::\]:443 ssl;//g' "$CONF"
 
-# 微信 Cronet 兼容 TLS（certbot 的 options 可能过严，在 server 块内显式覆盖）
-if ! grep -q 'ssl_protocols TLSv1.2' "$CONF"; then
-  sed -i '/listen 443 ssl;/a\
-    ssl_protocols TLSv1.2 TLSv1.3;\
-    ssl_prefer_server_ciphers off;
-' "$CONF"
-fi
+# certbot 已通过 include options-ssl-nginx.conf 提供 ssl_protocols 等，勿在 server 块重复
+sed -i '/^[[:space:]]*ssl_protocols TLSv1.2 TLSv1.3;$/d' "$CONF"
+sed -i '/^[[:space:]]*ssl_prefer_server_ciphers off;$/d' "$CONF"
 
 # 确保证书用 fullchain（certbot 通常已配置，缺则提示）
 if grep -q 'ssl_certificate ' "$CONF" && ! grep -q 'fullchain.pem' "$CONF"; then
