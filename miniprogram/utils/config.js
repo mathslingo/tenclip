@@ -18,6 +18,9 @@ const LOCAL_API_HOST = "http://127.0.0.1:7861";
 /** 上线时填写（须与微信公众平台 uploadFile/request 合法域名一致） */
 const PROD_API_BASE_URL = "https://api.uchance.tech";
 
+/** 每次上传体验版前改一下，用于确认手机跑的是新包 */
+const APP_BUILD_TAG = "2026-06-13-cronet";
+
 const API_BASE_URL = LOCAL_DEV ? LOCAL_API_HOST : PROD_API_BASE_URL;
 
 /** wx.uploadFile / wx.downloadFile 超时（毫秒，约 10 分钟；大视频 + 3Mbps 带宽可能仍较慢） */
@@ -108,6 +111,7 @@ module.exports = {
   UPLOAD_WARN_SIZE_MB,
   UPLOAD_COMPRESS_ABOVE_MB,
   UPLOAD_COMPRESS_QUALITY,
+  APP_BUILD_TAG,
   isApiConfigValid,
   apiConfigHint,
   apiHostForWhitelist,

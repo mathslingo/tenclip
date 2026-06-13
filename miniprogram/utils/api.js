@@ -11,6 +11,7 @@ const {
   isDomainListError,
   UPLOAD_COMPRESS_ABOVE_MB,
   UPLOAD_COMPRESS_QUALITY,
+  APP_BUILD_TAG,
 } = require("./config");
 
 function _errText(err) {
@@ -129,6 +130,7 @@ function diagnoseApiConnection() {
 
 function formatDiagnoseReport(diag) {
   var lines = [
+    "构建版本：" + APP_BUILD_TAG,
     "API 地址：" + diag.apiBase,
     "LOCAL_DEV：" + diag.localDev,
   ];
