@@ -1,0 +1,20 @@
+@import "../../styles/common.wxss";
+
+.secondary-btn {
+  margin-top: 20rpx;
+  border: 2rpx solid #13d8a8;
+  border-radius: 20rpx;
+  background: #fff;
+  color: #0d3d32;
+  font-size: 30rpx;
+  font-weight: 600;
+}
+
+.ghost-btn {
+  margin-top: 16rpx;
+  border: 2rpx solid #e5e9f0;
+  border-radius: 20rpx;
+  background: #fbfcfe;
+  color: #415360;
+  font-size: 28rpx;
+}

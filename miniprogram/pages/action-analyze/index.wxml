@@ -45,6 +45,7 @@
     <button class="primary-btn" bindtap="onSubmit" loading="{{busy}}" disabled="{{busy || !videoPath}}">
       {{busy ? progressText : '开始分析'}}
     </button>
+    <text class="diag-link" bindtap="onOpenH5">API 异常？使用网页版</text>
   </view>
 
   <view class="card" wx:if="{{status}}">

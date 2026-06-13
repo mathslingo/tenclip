@@ -34,12 +34,12 @@ echo "   https://${HOST}/api/mobile/health"
 echo "   若微信内浏览器也失败 → TLS/证书/IPv6 问题"
 echo "   若微信内浏览器成功、仅小程序失败 → 再查体验版与 uploadFile 域名"
 echo ""
-# 仅抓「新建立的 443 连接」，过滤阿里云内网 100.100.x 噪音
+# 仅抓「新建立的 443 连接」，过滤阿里云元数据 100.100.x（勿排除 172.16/12，ECS 内网 IP 在此段）
 # 用法：运行后 10 秒内手机点「测试 API 连接」，Ctrl+C 结束
 timeout 25 tcpdump -i any \
-  'tcp port 443 and tcp[tcpflags] & tcp-syn != 0 and not net 100.100.0.0/16 and not net 172.16.0.0/12' \
+  'tcp port 443 and tcp[tcpflags] & tcp-syn != 0 and not net 100.100.0.0/16' \
   -n 2>&1 | tee /tmp/tcpdump-wechat.log
-echo "--- 若上面完全没有新行，说明微信小程序未向 ECS 发起 TCP 连接 ---"
+echo "--- 若仍无新行，说明微信小程序未向 ECS 发起 TCP；若有 172.21.x:443 的 SYN 则包已到达 ---"
 
 echo "3. 应用微信兼容 Nginx 补丁："
 echo "   sudo bash scripts/deploy/patch-nginx-wechat-upload.sh"

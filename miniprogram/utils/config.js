@@ -19,9 +19,13 @@ const LOCAL_API_HOST = "http://127.0.0.1:7861";
 const PROD_API_BASE_URL = "https://api.uchance.tech";
 
 /** 每次上传体验版前改一下，用于确认手机跑的是新包 */
-const APP_BUILD_TAG = "2026-06-13-cronet";
+const APP_BUILD_TAG = "2026-06-13-webview";
 
 const API_BASE_URL = LOCAL_DEV ? LOCAL_API_HOST : PROD_API_BASE_URL;
+
+/** web-view 打开的 H5（走微信内置浏览器，绕过 Cronet） */
+const WEB_STROKE_URL = PROD_API_BASE_URL + "/web/stroke";
+const WEB_ANALYZE_URL = PROD_API_BASE_URL + "/web";
 
 /** wx.uploadFile / wx.downloadFile 超时（毫秒，约 10 分钟；大视频 + 3Mbps 带宽可能仍较慢） */
 const UPLOAD_TIMEOUT_MS = 600000;
@@ -112,6 +116,8 @@ module.exports = {
   UPLOAD_COMPRESS_ABOVE_MB,
   UPLOAD_COMPRESS_QUALITY,
   APP_BUILD_TAG,
+  WEB_STROKE_URL,
+  WEB_ANALYZE_URL,
   isApiConfigValid,
   apiConfigHint,
   apiHostForWhitelist,

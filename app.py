@@ -963,6 +963,19 @@ def create_app() -> FastAPI:
         def mobile_home():
             return FileResponse(front_page_dir / "index.html")
 
+    stroke_web_dir = _REPO_ROOT / "pages" / "stroke_web"
+    if stroke_web_dir.exists():
+        api.mount(
+            "/web-stroke-assets",
+            StaticFiles(directory=str(stroke_web_dir)),
+            name="web-stroke-assets",
+        )
+
+        @api.get("/web/stroke")
+        @api.get("/web/stroke/")
+        def web_stroke_home():
+            return FileResponse(stroke_web_dir / "index.html")
+
     news_page_dir = _REPO_ROOT / "pages" / "news_page"
     if news_page_dir.exists():
         api.mount("/news-assets", StaticFiles(directory=str(news_page_dir)), name="news-assets")

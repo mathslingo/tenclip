@@ -75,6 +75,10 @@ Page({
     }
   },
 
+  onOpenH5() {
+    wx.navigateTo({ url: "/pages/h5-stroke/index" });
+  },
+
   onTestApi() {
     if (this.data.busy) return;
     wx.showLoading({ title: "测试中…", mask: true });

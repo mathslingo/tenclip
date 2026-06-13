@@ -47,7 +47,8 @@
     <button class="primary-btn" bindtap="onSubmit" loading="{{busy}}" disabled="{{busy || !videoPath}}">
       {{busy ? progressText : '开始提取'}}
     </button>
-    <text class="diag-link" bindtap="onTestApi">测试 API 连接</text>
+    <text class="diag-link" bindtap="onOpenH5">API 异常？使用网页版</text>
+    <text class="diag-link secondary" bindtap="onTestApi">测试 API 连接</text>
     <text class="api-hint">当前 API：{{apiBase}}</text>
   </view>
 

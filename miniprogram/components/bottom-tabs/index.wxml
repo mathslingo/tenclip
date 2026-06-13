@@ -1,4 +1,5 @@
 <view class="tabbar">
   <view class="tab {{active === 'stroke' ? 'active' : ''}}" bindtap="onStroke">击球剪辑</view>
   <view class="tab {{active === 'analyze' ? 'active' : ''}}" bindtap="onAnalyze">动作分析</view>
+  <view class="tab {{active === 'web' ? 'active' : ''}}" bindtap="onWeb">网页版</view>
 </view>

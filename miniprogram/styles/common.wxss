@@ -187,11 +187,15 @@
   text-decoration: underline;
 }
 
+.diag-link.secondary {
+  margin-top: 8rpx;
+}
+
 .api-hint {
   display: block;
   margin-top: 12rpx;
   text-align: center;
-  font-size: 20rpx;
-  color: #9aa3ad;
+  font-size: 22rpx;
+  color: #9aa3af;
   word-break: break-all;
 }

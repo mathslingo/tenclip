@@ -1,7 +1,10 @@
 {
   "pages": [
     "pages/stroke-extract/index",
-    "pages/action-analyze/index"
+    "pages/action-analyze/index",
+    "pages/h5-hub/index",
+    "pages/h5-stroke/index",
+    "pages/h5-analyze/index"
   ],
   "window": {
     "navigationBarTitleText": "TenniTi",

@@ -110,6 +110,10 @@ Page({
     this.setData({ showMeta: !this.data.showMeta });
   },
 
+  onOpenH5() {
+    wx.navigateTo({ url: "/pages/h5-analyze/index" });
+  },
+
   async onSubmit() {
     if (!this.data.videoPath || this.data.busy) return;
     this._stopPoll();
