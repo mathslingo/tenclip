@@ -141,6 +141,8 @@ def _new_task(task_id: str, perf_mode: str, prompt_profile: str | None) -> dict:
         "prompt_profile_effective": "",
         "guidance": "",
         "error": "",
+        "progress_message": "",
+        "progress_frac": 0.0,
         "created_at": time.time(),
         "started_at": None,
         "finished_at": None,
@@ -376,13 +378,24 @@ def _analysis_worker_loop() -> None:
     logging.info("analysis worker started")
     while True:
         task_id, video_path, perf_mode, prompt_profile = ANALYSIS_QUEUE.get()
-        _set_task_fields(task_id, status="running", started_at=time.time())
+        _set_task_fields(
+            task_id,
+            status="running",
+            started_at=time.time(),
+            progress_message="准备分析…",
+            progress_frac=0.05,
+        )
         _db_update_video_status(task_id, "running")
+
+        def _prog(msg: str, frac: float) -> None:
+            _set_task_fields(task_id, progress_message=msg, progress_frac=frac)
+
         try:
             guidance = run_mobile_api_analysis(
                 video_path=video_path,
                 perf_mode=perf_mode,
                 prompt_profile=prompt_profile,
+                on_progress=_prog,
             )
             _set_task_fields(
                 task_id,
@@ -390,6 +403,8 @@ def _analysis_worker_loop() -> None:
                 guidance=guidance,
                 prompt_profile_effective=resolve_prompt_profile(prompt_profile),
                 finished_at=time.time(),
+                progress_message="分析完成",
+                progress_frac=1.0,
             )
             _db_update_video_status(task_id, "analyzed")
         except Exception as exc:
@@ -521,12 +536,19 @@ def run_tennis_analysis(video_file, perf_label, prompt_profile, progress=gr.Prog
     return format_guidance_markdown(out)
 
 
-def run_mobile_api_analysis(video_path: str, perf_mode: str, prompt_profile: str | None = None) -> str:
+def run_mobile_api_analysis(
+    video_path: str,
+    perf_mode: str,
+    prompt_profile: str | None = None,
+    on_progress=None,
+) -> str:
     hint = vlm_dependency_message()
     if hint:
         raise ValueError(hint)
     pp = (prompt_profile or "").strip() or None
-    return analyze_tennis_video(video_path, perf_mode, prompt_profile=pp)
+    return analyze_tennis_video(
+        video_path, perf_mode, prompt_profile=pp, on_progress=on_progress
+    )
 
 
 def run_stroke_extract(
@@ -739,7 +761,13 @@ def create_app() -> FastAPI:
 
     @api.get("/api/mobile/health")
     def mobile_health():
-        return {"ok": True, "service": "tenclip", "stroke_worker": True}
+        return {
+            "ok": True,
+            "service": "tenclip",
+            "stroke_worker": True,
+            "analysis_worker": ANALYSIS_WORKER_STARTED,
+            "analysis_queue_size": ANALYSIS_QUEUE.qsize(),
+        }
 
     @api.get("/api/mobile/events")
     def mobile_events():

@@ -6,6 +6,7 @@
 |------|------|------|
 | **主应用** | `app.py`、`run-wsl.sh` | Gradio：剪辑 / 动作分析；RSS 网坛新闻 H5（`/news`） |
 | **Core API** | `subprojects/core_api/` | FastAPI：新闻、球员、比赛、视频 CRUD、JWT；小红书工具路由 |
+| **VLM API** | `subprojects/vlm_api/` | 本地 Qwen2-VL HTTP 推理（默认 **7862**）；接口见 **[`vlm-api.md`](vlm-api.md)** |
 | **用户站** | `web/` | React + Ant Design（Vite，开发端口 **5174**） |
 | **管理后台** | `admin/` | React + Ant Design（Vite，开发端口 **5173**） |
 | **小红书抓取** | `subprojects/xhs_note/` | 按 24 位笔记 ID + Cookie 拉取标题/封面等（独立于旧 `xhs_preview`） |

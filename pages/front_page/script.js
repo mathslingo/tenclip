@@ -120,6 +120,29 @@ async function fetchEvents() {
   }
 }
 
+async function pollAnalyzeTask(taskId) {
+  const deadline = Date.now() + 20 * 60 * 1000;
+  while (Date.now() < deadline) {
+    const response = await fetch(
+      `${API_BASE_URL}/api/mobile/analyze-video/tasks/${encodeURIComponent(taskId)}`,
+      { headers: { Accept: "application/json" } }
+    );
+    const payload = await response.json();
+    if (!response.ok) {
+      throw new Error(payload.detail || `查询失败 (${response.status})`);
+    }
+    if (payload.progress_message) {
+      setGuidancePlain(payload.progress_message);
+    }
+    if (payload.status === "succeeded") return payload;
+    if (payload.status === "failed") {
+      throw new Error(payload.error || "分析失败");
+    }
+    await new Promise((r) => setTimeout(r, 2000));
+  }
+  throw new Error("分析超时（超过 20 分钟），请稍后重试或换更短视频。");
+}
+
 async function analyzeVideo() {
   const file = videoInput.files?.[0];
   if (!file) {
@@ -129,8 +152,8 @@ async function analyzeVideo() {
 
   clearError();
   analyzeBtn.disabled = true;
-  analyzeBtn.textContent = "分析中...";
-  setGuidancePlain("正在上传并分析，请稍候...");
+  analyzeBtn.textContent = "上传中...";
+  setGuidancePlain("正在上传视频…");
 
   const formData = new FormData();
   formData.append("video", file);
@@ -138,17 +161,20 @@ async function analyzeVideo() {
   formData.append("prompt_profile", getSelectedPromptProfile());
 
   try {
-    const response = await fetch(`${API_BASE_URL}/api/mobile/analyze-video`, {
+    const response = await fetch(`${API_BASE_URL}/api/mobile/analyze-video/submit`, {
       method: "POST",
       body: formData,
     });
     const payload = await response.json();
     if (!response.ok) {
-      throw new Error(payload.detail || `分析失败 (${response.status})`);
+      throw new Error(payload.detail || `提交失败 (${response.status})`);
     }
-    let text = payload.guidance || "分析完成，但没有返回文本。";
-    if (payload.prompt_profile) {
-      text += `\n\n*本次提示词档位：\`${payload.prompt_profile}\`。*`;
+    analyzeBtn.textContent = "分析中...";
+    setGuidancePlain("已上传，等待 GPU 分析…");
+    const result = await pollAnalyzeTask(payload.task_id);
+    let text = result.guidance || "分析完成，但没有返回文本。";
+    if (result.prompt_profile_effective) {
+      text += `\n\n*本次提示词档位：\`${result.prompt_profile_effective}\`。*`;
     }
     renderGuidance(text);
   } catch (error) {

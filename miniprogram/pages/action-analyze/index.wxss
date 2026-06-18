@@ -1,5 +1,19 @@
 @import "../../styles/common.wxss";
 
+.guidance-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16rpx;
+}
+
+.copy-link {
+  font-size: 24rpx;
+  color: #0d6b52;
+  text-decoration: underline;
+  flex-shrink: 0;
+}
+
 .guidance-panel {
   margin-top: 16rpx;
   max-height: 55vh;

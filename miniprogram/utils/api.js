@@ -128,6 +128,91 @@ function diagnoseApiConnection() {
   });
 }
 
+/** 多路探针：对比 Cronet 选项、路径、对照域名（开发者工具需勾选不校验合法域名） */
+function requestProbe(label, url, extraOpts) {
+  return new Promise(function (resolve) {
+    var started = Date.now();
+    wx.request(
+      Object.assign(
+        {
+          url: url,
+          method: "GET",
+          timeout: HEALTH_TIMEOUT_MS,
+          success: function (res) {
+            resolve({
+              label: label,
+              ok: res.statusCode >= 200 && res.statusCode < 500,
+              ms: Date.now() - started,
+              status: res.statusCode,
+              errMsg: "",
+            });
+          },
+          fail: function (err) {
+            resolve({
+              label: label,
+              ok: false,
+              ms: Date.now() - started,
+              status: 0,
+              errMsg: (err && err.errMsg) || String(err),
+            });
+          },
+        },
+        extraOpts || {}
+      )
+    );
+  });
+}
+
+function runNetworkExperiments() {
+  var health = API_BASE_URL + "/api/mobile/health";
+  var probes = [
+    requestProbe("① health + Cronet兼容", health, wxCronetCompatOpts()),
+    requestProbe("② health + 默认Cronet", health, {}),
+    requestProbe("③ 站点根路径 /", API_BASE_URL + "/", wxCronetCompatOpts()),
+    requestProbe("④ qq.com对照", "https://www.qq.com/favicon.ico", wxCronetCompatOpts()),
+  ];
+  return Promise.all(probes);
+}
+
+function formatNetworkExperimentReport(results) {
+  var lines = ["构建：" + APP_BUILD_TAG, "API：" + API_BASE_URL, ""];
+  results.forEach(function (r) {
+    var head = r.label + ": ";
+    if (r.ok) {
+      lines.push(head + "成功 HTTP " + r.status + " · " + r.ms + "ms");
+    } else {
+      lines.push(head + "失败 · " + r.ms + "ms");
+      lines.push("    " + r.errMsg);
+    }
+  });
+  lines.push("");
+  lines.push("【如何解读】");
+  lines.push("• ①成功②失败 → 保持 enableHttp2:false");
+  lines.push("• ①②都 reset → 问题在小程序 Cronet↔你的域名");
+  lines.push("• ④成功①失败 → 仅 api.uchance.tech 被拦（备案/TLS/SNI）");
+  lines.push("• ④也失败 → 整机网络或开发者工具环境问题");
+  lines.push("");
+  lines.push("真机实验：同时 ECS 执行");
+  lines.push("sudo tail -f /var/log/nginx/access.log");
+  lines.push("若小程序请求时 access.log 无新行 → 包未到 Nginx（客户端中断）");
+  return lines.join("\n");
+}
+
+function diagnoseWithExperiments() {
+  return diagnoseApiConnection().then(function (diag) {
+    return runNetworkExperiments().then(function (probes) {
+      return {
+        diag: diag,
+        probes: probes,
+        report:
+          formatDiagnoseReport(diag) +
+          "\n\n—— 对照实验 ——\n" +
+          formatNetworkExperimentReport(probes),
+      };
+    });
+  });
+}
+
 function formatDiagnoseReport(diag) {
   var lines = [
     "构建版本：" + APP_BUILD_TAG,
@@ -626,4 +711,7 @@ module.exports = {
   formatUploadProgress,
   diagnoseApiConnection,
   formatDiagnoseReport,
+  runNetworkExperiments,
+  formatNetworkExperimentReport,
+  diagnoseWithExperiments,
 };

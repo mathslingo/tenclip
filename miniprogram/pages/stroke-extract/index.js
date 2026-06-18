@@ -1,4 +1,9 @@
-const { UPLOAD_WARN_SIZE_MB, API_BASE_URL } = require("../../utils/config");
+const {
+  UPLOAD_WARN_SIZE_MB,
+  API_BASE_URL,
+  WEB_STROKE_URL,
+  WEB_ANALYZE_URL,
+} = require("../../utils/config");
 const {
   uploadStrokeExtract,
   getStrokeTask,
@@ -10,6 +15,7 @@ const {
   setKeepScreenOn,
   diagnoseApiConnection,
   formatDiagnoseReport,
+  diagnoseWithExperiments,
 } = require("../../utils/api");
 const { startTaskPoll } = require("../../utils/poll");
 
@@ -25,6 +31,22 @@ const MODE_OPTIONS = [
   { value: "motion", label: "仅画面运动" },
   { value: "audio", label: "仅击球声" },
 ];
+
+function copyWebLinkHint(url, name) {
+  wx.setClipboardData({
+    data: url,
+    success: function () {
+      wx.showModal({
+        title: "链接已复制",
+        content:
+          name +
+          " 地址已复制。\n\n请：\n1. 打开任意微信聊天\n2. 粘贴并发送\n3. 点击链接打开（与之前测试 health 相同方式）",
+        showCancel: false,
+        confirmText: "知道了",
+      });
+    },
+  });
+}
 
 Page({
   data: {
@@ -49,12 +71,16 @@ Page({
     segments: [],
     previewUrl: "",
     apiBase: API_BASE_URL,
+    showWebHub: false,
   },
 
   _stopPollFn: null,
 
-  onLoad() {
-    this.setData({ apiBase: API_BASE_URL });
+  onLoad(options) {
+    this.setData({
+      apiBase: API_BASE_URL,
+      showWebHub: options && options.hub === "1",
+    });
   },
 
   onUnload() {
@@ -76,17 +102,25 @@ Page({
   },
 
   onOpenH5() {
-    wx.navigateTo({ url: "/pages/h5-stroke/index" });
+    copyWebLinkHint(WEB_STROKE_URL, "击球片段提取");
+  },
+
+  copyStrokeLink() {
+    copyWebLinkHint(WEB_STROKE_URL, "击球片段提取");
+  },
+
+  copyAnalyzeLink() {
+    copyWebLinkHint(WEB_ANALYZE_URL, "动作分析");
   },
 
   onTestApi() {
     if (this.data.busy) return;
-    wx.showLoading({ title: "测试中…", mask: true });
-    diagnoseApiConnection()
-      .then((diag) => {
+    wx.showLoading({ title: "对照实验中…", mask: true });
+    diagnoseWithExperiments()
+      .then((result) => {
         wx.showModal({
-          title: diag.requestOk ? "API 可连通" : "API 不可达",
-          content: formatDiagnoseReport(diag),
+          title: result.diag.requestOk ? "API 可连通" : "API 不可达",
+          content: result.report,
           showCancel: false,
         });
       })

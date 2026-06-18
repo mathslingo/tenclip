@@ -19,7 +19,7 @@ const LOCAL_API_HOST = "http://127.0.0.1:7861";
 const PROD_API_BASE_URL = "https://api.uchance.tech";
 
 /** 每次上传体验版前改一下，用于确认手机跑的是新包 */
-const APP_BUILD_TAG = "2026-06-13-webview";
+const APP_BUILD_TAG = "2026-06-14-analyze";
 
 const API_BASE_URL = LOCAL_DEV ? LOCAL_API_HOST : PROD_API_BASE_URL;
 

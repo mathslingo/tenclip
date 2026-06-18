@@ -11,7 +11,7 @@ from __future__ import annotations
 import importlib.util
 import logging
 import os
-from typing import Any, Dict, List, Literal, Tuple
+from typing import Any, Callable, Dict, List, Literal, Tuple
 
 from moviepy.video.io.VideoFileClip import VideoFileClip
 
@@ -530,7 +530,16 @@ def _analyze_transformers(
     return header + reply.strip()
 
 
-def analyze_tennis_video(video_path: str, mode: Mode = "eco", prompt_profile: str | None = None) -> str:
+def analyze_tennis_video(
+    video_path: str,
+    mode: Mode = "eco",
+    prompt_profile: str | None = None,
+    on_progress: Callable[[str, float], None] | None = None,
+) -> str:
+    def prog(msg: str, frac: float) -> None:
+        if on_progress:
+            on_progress(msg, frac)
+
     if not video_path or not os.path.isfile(video_path):
         return "请先上传有效的视频文件。"
 
@@ -543,6 +552,7 @@ def analyze_tennis_video(video_path: str, mode: Mode = "eco", prompt_profile: st
     max_side = preset["max_side"]
     max_new_tokens = effective_max_new_tokens(mode)
 
+    prog("读取视频信息…", 0.08)
     probe = VideoFileClip(video_path)
     try:
         total_dur = float(probe.duration)
@@ -555,6 +565,7 @@ def analyze_tennis_video(video_path: str, mode: Mode = "eco", prompt_profile: st
             "请先使用「视频剪辑」标签截取后再分析。"
         )
 
+    prog(f"从视频抽帧（约 {min(total_dur, MAX_VIDEO_DURATION_SEC):.0f}s）…", 0.18)
     try:
         images, analyzed_duration = sample_frames(
             video_path,
@@ -565,11 +576,13 @@ def analyze_tennis_video(video_path: str, mode: Mode = "eco", prompt_profile: st
     except Exception as e:
         return f"抽帧失败：{e}"
 
+    prog("加载模型权重（首次较慢）…", 0.35)
     try:
         local_dir = get_local_model_dir()
     except Exception as e:
         return f"模型准备失败（下载或路径解析）：{e}\n若 ModelScope 不可用，可设置 TENCLIP_MODEL_DOWNLOAD_SOURCE=huggingface 重试。"
 
+    prog("VLM 推理生成指导意见…", 0.55)
     if backend == "llamafactory":
         try:
             return _analyze_llamafactory(
@@ -604,6 +617,73 @@ def analyze_tennis_video(video_path: str, mode: Mode = "eco", prompt_profile: st
         max_side,
         prompt_profile_override=prompt_profile,
     )
+
+
+def infer_vision_chat(
+    images: List[Any],
+    prompt: str,
+    *,
+    mode: Mode = "eco",
+    max_new_tokens: int | None = None,
+    system_prompt: str | None = None,
+) -> str:
+    """
+    通用多图 + 文本 VLM 推理，供 HTTP API 与其它模块调用（不附加网球教练元信息头）。
+    """
+    if not images:
+        raise ValueError("至少需要一张图片")
+    if not (prompt or "").strip():
+        raise ValueError("prompt 不能为空")
+
+    ok, backend, err = infer_backend_choice()
+    if not ok:
+        raise RuntimeError(err)
+
+    preset = PRESETS.get(mode, PRESETS["eco"])
+    max_new = max_new_tokens if max_new_tokens is not None else effective_max_new_tokens(mode)
+    local_dir = get_local_model_dir()
+
+    if backend == "llamafactory":
+        chat = _get_lf_chat(local_dir, mode)
+        messages: List[Dict[str, str]] = []
+        if system_prompt and system_prompt.strip():
+            messages.append({"role": "system", "content": system_prompt.strip()})
+        messages.append({"role": "user", "content": prompt.strip()})
+        responses = chat.chat(messages, images=images, max_new_tokens=max_new)
+        return responses[0].response_text.strip()
+
+    model, processor = _load_transformers_model(local_dir)
+    from qwen_vl_utils import process_vision_info
+    import torch
+
+    content: List[Dict[str, Any]] = []
+    for im in images:
+        content.append({"type": "image", "image": im})
+    content.append({"type": "text", "text": prompt.strip()})
+    mm_messages: List[Dict[str, Any]] = []
+    if system_prompt and system_prompt.strip():
+        mm_messages.append({"role": "system", "content": system_prompt.strip()})
+    mm_messages.append({"role": "user", "content": content})
+
+    text = processor.apply_chat_template(mm_messages, tokenize=False, add_generation_prompt=True)
+    image_inputs, video_inputs = process_vision_info(mm_messages)
+    inputs = processor(
+        text=[text],
+        images=image_inputs,
+        videos=video_inputs,
+        padding=True,
+        return_tensors="pt",
+    )
+    device = next(model.parameters()).device
+    inputs = inputs.to(device)
+
+    with torch.inference_mode():
+        out_ids = model.generate(**inputs, max_new_tokens=max_new)
+    trimmed = [o[len(i) :] for i, o in zip(inputs.input_ids, out_ids)]
+    reply = processor.batch_decode(trimmed, skip_special_tokens=True, clean_up_tokenization_spaces=False)[0]
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
+    return reply.strip()
 
 
 _GUIDANCE_META_SEP = "\n\n---\n\n"

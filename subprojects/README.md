@@ -2,7 +2,30 @@
 
 本目录存放与主仓库 **Gradio 视频 Demo** 解耦的独立工程，拥有单独的依赖与运行方式，默认不并入根目录 `requirements.txt`。
 
-包含 **Core API**（`core_api/`）、**小红书抓取模块**（`xhs_note/`，与 `core_api` 内旧版 `xhs_preview` 路由并存）。配套前端在仓库根目录 **`web/`**、**`admin/`**。
+包含 **Core API**（`core_api/`）、**VLM API**（`vlm_api/`，本地大模型 HTTP 服务）、**小红书抓取模块**（`xhs_note/`，与 `core_api` 内旧版 `xhs_preview` 路由并存）。配套前端在仓库根目录 **`web/`**、**`admin/`**。
+
+---
+
+## VLM API（本地大模型 HTTP 服务）
+
+独立 FastAPI，复用 `services/vlm_tennis.py` 的 Qwen2-VL 推理，供动作分析、击球 VLM 过滤等模块通过 HTTP 调用（默认 **7862**，与主 `app.py` **7861** 错开）。
+
+```bash
+cd ~/code/tenclip
+# 需已安装 requirements-llm-lf.txt 或 requirements-llm.txt
+pip install -r requirements-vlm-api.txt   # 首次
+bash scripts/start_vlm_api.sh
+```
+
+- 文档：`http://127.0.0.1:7862/docs`
+- 健康检查：`GET /v1/health`
+- 网球视频分析：`POST /v1/analyze/video`（multipart 上传）
+- 服务器已有视频：`POST /v1/analyze/video/path`（路径须在 `data/` 下）
+- 多图对话：`POST /v1/chat`（JSON + `images_base64`）
+
+可选环境变量：`TENCLIP_VLM_API_KEY`（设置后请求须带 `X-API-Key`）、`TENCLIP_VLM_API_WORKERS`（GPU 建议 `1`）。
+
+Python 调用示例：`python -m subprojects.vlm_api.client_example /path/to/video.mp4`
 
 ---
 

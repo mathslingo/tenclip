@@ -16,7 +16,7 @@ Component({
     },
     onWeb() {
       if (this.data.active === "web") return;
-      wx.redirectTo({ url: "/pages/h5-hub/index" });
+      wx.redirectTo({ url: "/pages/stroke-extract/index?hub=1" });
     },
   },
 });

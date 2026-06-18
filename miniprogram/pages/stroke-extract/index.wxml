@@ -1,92 +1,110 @@
-<view class="page">
-  <view class="hero">
-    <text class="hero-title">UChance击球片段提取</text>
-    <text class="hero-sub">上传网球视频，自动剪掉换边与等待，保留击球/回合画面（与 TenClip 服务端同一套检测逻辑）。</text>
-  </view>
-
-  <view class="card">
-    <text class="card-title">选择视频</text>
-    <text class="card-sub">支持相册或拍摄；长视频请耐心等待分析完成。</text>
-
-    <view class="video-pick" bindtap="onChooseVideo">
-      <block wx:if="{{!videoName}}">
-        <text class="pick-icon">＋</text>
-        <text class="pick-text">点击选择视频</text>
-      </block>
-      <block wx:else>
-        <text class="pick-name">{{videoName}}</text>
-        <text class="pick-meta" wx:if="{{videoSizeText}}">{{videoSizeText}}</text>
-        <text class="pick-change">重新选择</text>
-      </block>
+<block wx:if="{{showWebHub}}">
+  <view class="page">
+    <view class="hero">
+      <text class="hero-title">网页版（备用）</text>
+      <text class="hero-sub">原生 API 连不上时，用微信内置浏览器打开 H5（与聊天里打开 health 相同方式）。</text>
     </view>
 
-    <text class="field-label">检测模式</text>
-    <view class="chip-row">
-      <view
-        wx:for="{{modeOptions}}"
-        wx:key="value"
-        class="chip {{detectMode === item.value ? 'active' : ''}}"
-        data-value="{{item.value}}"
-        bindtap="onModeTap"
-      >{{item.label}}</view>
+    <view class="card">
+      <text class="card-title">复制链接到聊天打开</text>
+      <text class="card-sub">无需「业务域名」，你已验证聊天里打开 api.uchance.tech 可用。</text>
+      <button class="primary-btn" bindtap="copyStrokeLink">复制链接 · 击球片段提取</button>
+      <button class="web-secondary-btn" bindtap="copyAnalyzeLink">复制链接 · 动作分析</button>
+    </view>
+  </view>
+</block>
+
+<block wx:else>
+  <view class="page">
+    <view class="hero">
+      <text class="hero-title">UChance击球片段提取</text>
+      <text class="hero-sub">上传网球视频，自动剪掉换边与等待，保留击球/回合画面（与 TenClip 服务端同一套检测逻辑）。</text>
     </view>
 
-    <text class="field-label">运动灵敏度 {{motionPercentile}}（越低保留越多）</text>
-    <slider
-      min="55"
-      max="90"
-      step="1"
-      value="{{motionPercentile}}"
-      activeColor="#13d8a8"
-      backgroundColor="#e5e9f0"
-      block-size="20"
-      bindchange="onMotionChange"
-      disabled="{{busy}}"
-    />
+    <view class="card">
+      <text class="card-title">选择视频</text>
+      <text class="card-sub">支持相册或拍摄；长视频请耐心等待分析完成。</text>
 
-    <button class="primary-btn" bindtap="onSubmit" loading="{{busy}}" disabled="{{busy || !videoPath}}">
-      {{busy ? progressText : '开始提取'}}
-    </button>
-    <text class="diag-link" bindtap="onOpenH5">API 异常？使用网页版</text>
-    <text class="diag-link secondary" bindtap="onTestApi">测试 API 连接</text>
-    <text class="api-hint">当前 API：{{apiBase}}</text>
-  </view>
+      <view class="video-pick" bindtap="onChooseVideo">
+        <block wx:if="{{!videoName}}">
+          <text class="pick-icon">＋</text>
+          <text class="pick-text">点击选择视频</text>
+        </block>
+        <block wx:else>
+          <text class="pick-name">{{videoName}}</text>
+          <text class="pick-meta" wx:if="{{videoSizeText}}">{{videoSizeText}}</text>
+          <text class="pick-change">重新选择</text>
+        </block>
+      </view>
 
-  <view class="card" wx:if="{{status}}">
-    <text class="card-title">处理状态</text>
-    <view class="status-row">
-      <text class="status-badge status-{{status}}">{{statusLabel}}</text>
-      <text class="status-queue" wx:if="{{queueSize > 0}}">排队 {{queueSize}}</text>
+      <text class="field-label">检测模式</text>
+      <view class="chip-row">
+        <view
+          wx:for="{{modeOptions}}"
+          wx:key="value"
+          class="chip {{detectMode === item.value ? 'active' : ''}}"
+          data-value="{{item.value}}"
+          bindtap="onModeTap"
+        >{{item.label}}</view>
+      </view>
+
+      <text class="field-label">运动灵敏度 {{motionPercentile}}（越低保留越多）</text>
+      <slider
+        min="55"
+        max="90"
+        step="1"
+        value="{{motionPercentile}}"
+        activeColor="#13d8a8"
+        backgroundColor="#e5e9f0"
+        block-size="20"
+        bindchange="onMotionChange"
+        disabled="{{busy}}"
+      />
+
+      <button class="primary-btn" bindtap="onSubmit" loading="{{busy}}" disabled="{{busy || !videoPath}}">
+        {{busy ? progressText : '开始提取'}}
+      </button>
+      <text class="diag-link" bindtap="onOpenH5">API 异常？使用网页版</text>
+      <text class="diag-link secondary" bindtap="onTestApi">测试 API 连接</text>
+      <text class="api-hint">当前 API：{{apiBase}}</text>
     </view>
-    <progress wx:if="{{busy}}" percent="{{progressPercent}}" active stroke-width="6" activeColor="#13d8a8" backgroundColor="#e5e9f0" />
-    <text class="progress-msg" wx:if="{{progressMessage}}">{{progressMessage}}</text>
-    <text class="error-text" wx:if="{{errorText}}">{{errorText}}</text>
-  </view>
 
-  <view class="card" wx:if="{{summary}}">
-    <text class="card-title">提取结果</text>
-    <text class="summary-text">{{summary}}</text>
+    <view class="card" wx:if="{{status}}">
+      <text class="card-title">处理状态</text>
+      <view class="status-row">
+        <text class="status-badge status-{{status}}">{{statusLabel}}</text>
+        <text class="status-queue" wx:if="{{queueSize > 0}}">排队 {{queueSize}}</text>
+      </view>
+      <progress wx:if="{{busy}}" percent="{{progressPercent}}" active stroke-width="6" activeColor="#13d8a8" backgroundColor="#e5e9f0" />
+      <text class="progress-msg" wx:if="{{progressMessage}}">{{progressMessage}}</text>
+      <text class="error-text" wx:if="{{errorText}}">{{errorText}}</text>
+    </view>
 
-    <view class="segment-list" wx:if="{{segments.length}}">
-      <view class="segment-item" wx:for="{{segments}}" wx:key="index">
-        <text class="seg-idx">#{{index + 1}}</text>
-        <text>{{item.start}}s – {{item.end}}s（{{item.duration}}s）</text>
+    <view class="card" wx:if="{{summary}}">
+      <text class="card-title">提取结果</text>
+      <text class="summary-text">{{summary}}</text>
+
+      <view class="segment-list" wx:if="{{segments.length}}">
+        <view class="segment-item" wx:for="{{segments}}" wx:key="index">
+          <text class="seg-idx">#{{index + 1}}</text>
+          <text>{{item.start}}s – {{item.end}}s（{{item.duration}}s）</text>
+        </view>
+      </view>
+
+      <video
+        wx:if="{{previewUrl}}"
+        class="result-video"
+        src="{{previewUrl}}"
+        controls
+        show-center-play-btn
+        object-fit="contain"
+      />
+
+      <view class="action-row" wx:if="{{previewUrl}}">
+        <button class="secondary-btn" bindtap="onSaveVideo">保存到相册</button>
       </view>
     </view>
-
-    <video
-      wx:if="{{previewUrl}}"
-      class="result-video"
-      src="{{previewUrl}}"
-      controls
-      show-center-play-btn
-      object-fit="contain"
-    />
-
-    <view class="action-row" wx:if="{{previewUrl}}">
-      <button class="secondary-btn" bindtap="onSaveVideo">保存到相册</button>
-    </view>
   </view>
-</view>
+</block>
 
-<bottom-tabs active="stroke" />
+<bottom-tabs active="{{showWebHub ? 'web' : 'stroke'}}" />

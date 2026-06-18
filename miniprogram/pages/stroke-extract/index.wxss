@@ -53,6 +53,12 @@
   min-height: 360rpx;
 }
 
-.action-row {
+.web-secondary-btn {
   margin-top: 20rpx;
+  border: 2rpx solid #13d8a8;
+  border-radius: 20rpx;
+  background: #fff;
+  color: #0d3d32;
+  font-size: 30rpx;
+  font-weight: 600;
 }

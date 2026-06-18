@@ -1,12 +1,12 @@
 <view class="page">
   <view class="hero">
-    <text class="hero-title">TenniTi · 动作分析</text>
-    <text class="hero-sub">上传网球视频，由 Qwen2-VL 生成简要动作指导（与 /video_input、/web 同一套接口）。默认分析前约 5 分钟。</text>
+    <text class="hero-title">UChance · 动作分析</text>
+    <text class="hero-sub">上传网球视频，由 Qwen2-VL 生成中文动作指导。默认分析前约 5 分钟画面，长视频请先剪辑。</text>
   </view>
 
   <view class="card">
     <text class="card-title">选择视频</text>
-    <text class="card-sub">支持相册或拍摄；分析需 GPU 与模型权重，首次可能较慢。</text>
+    <text class="card-sub">支持相册或拍摄；需 GPU 与模型权重，首次加载较慢。</text>
 
     <view class="video-pick" bindtap="onChooseVideo">
       <block wx:if="{{!videoName}}">
@@ -45,7 +45,9 @@
     <button class="primary-btn" bindtap="onSubmit" loading="{{busy}}" disabled="{{busy || !videoPath}}">
       {{busy ? progressText : '开始分析'}}
     </button>
-    <text class="diag-link" bindtap="onOpenH5">API 异常？使用网页版</text>
+    <text class="diag-link" bindtap="onOpenH5">API 异常？复制网页版链接</text>
+    <text class="diag-link secondary" bindtap="onTestApi">测试 API 连接</text>
+    <text class="api-hint">当前 API：{{apiBase}}</text>
   </view>
 
   <view class="card" wx:if="{{status}}">
@@ -54,12 +56,23 @@
       <text class="status-badge status-{{status}}">{{statusLabel}}</text>
       <text class="status-queue" wx:if="{{queueSize > 0}}">排队 {{queueSize}}</text>
     </view>
+    <progress
+      wx:if="{{busy}}"
+      percent="{{progressPercent}}"
+      active
+      stroke-width="6"
+      activeColor="#13d8a8"
+      backgroundColor="#e5e9f0"
+    />
     <text class="progress-msg" wx:if="{{progressMessage}}">{{progressMessage}}</text>
     <text class="error-text" wx:if="{{errorText}}">{{errorText}}</text>
   </view>
 
   <view class="card" wx:if="{{guidanceBody}}">
-    <text class="card-title">指导意见</text>
+    <view class="guidance-head">
+      <text class="card-title">指导意见</text>
+      <text class="copy-link" bindtap="onCopyGuidance">复制全文</text>
+    </view>
     <scroll-view class="guidance-panel" scroll-y>
       <text class="guidance-body" selectable>{{guidanceBody}}</text>
     </scroll-view>

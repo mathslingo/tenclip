@@ -1,7 +1,0 @@
-<view class="wrap">
-  <web-view wx:if="{{url && !loadError}}" src="{{url}}" binderror="onWebError" />
-  <view wx:else class="fallback">
-    <text class="fallback-title">网页版暂不可用</text>
-    <text class="fallback-hint">请配置业务域名 api.uchance.tech 后重试</text>
-  </view>
-</view>
