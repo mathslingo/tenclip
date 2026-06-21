@@ -216,7 +216,11 @@ def _import_transformers_stack() -> bool:
 
 
 def _spec_available(name: str) -> bool:
-    return importlib.util.find_spec(name) is not None
+    # Python 3.11+：子模块名在父包未安装时会 raise ModuleNotFoundError，不能当作「未安装」以上抛。
+    try:
+        return importlib.util.find_spec(name) is not None
+    except (ModuleNotFoundError, ValueError, ImportError):
+        return False
 
 
 def infer_backend_choice_specs_only() -> Tuple[bool, str, str]:
