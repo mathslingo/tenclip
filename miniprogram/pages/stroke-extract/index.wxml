@@ -7,7 +7,7 @@
 
     <view class="card">
       <text class="card-title">复制链接到聊天打开</text>
-      <text class="card-sub">无需「业务域名」，你已验证聊天里打开 api.uchance.tech 可用。</text>
+      <text class="card-sub">复制链接到微信聊天打开 H5（https://tenclip.qiongjingtiyu.com/web/stroke）。</text>
       <button class="primary-btn" bindtap="copyStrokeLink">复制链接 · 击球片段提取</button>
       <button class="web-secondary-btn" bindtap="copyAnalyzeLink">复制链接 · 动作分析</button>
     </view>

@@ -1,0 +1,38 @@
+# Gradio / WebSocket 反代（clip.uchanceai.com）
+# 复制到：/www/server/panel/vhost/nginx/extension/clip.uchanceai.com/gradio-websocket.conf
+#
+# 前置：在 /www/server/nginx/conf/nginx.conf 的 http { } 内已有：
+#   map $http_upgrade $connection_upgrade {
+#       default upgrade;
+#       ''      '';
+#   }
+#
+# 然后 nginx -t && nginx -s reload
+
+location ^~ /gradio/ {
+    proxy_pass http://127.0.0.1:7862;
+    proxy_http_version 1.1;
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_set_header Upgrade $http_upgrade;
+    proxy_set_header Connection $connection_upgrade;
+    proxy_read_timeout 86400s;
+    proxy_send_timeout 86400s;
+    proxy_buffering off;
+}
+
+location ^~ /video_input/ {
+    proxy_pass http://127.0.0.1:7862;
+    proxy_http_version 1.1;
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_set_header Upgrade $http_upgrade;
+    proxy_set_header Connection $connection_upgrade;
+    proxy_read_timeout 86400s;
+    proxy_send_timeout 86400s;
+    proxy_buffering off;
+}

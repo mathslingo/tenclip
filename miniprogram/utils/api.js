@@ -292,7 +292,7 @@ function normalizeError(err, fallback) {
   }
   if (isConnectionResetError(err)) {
     return new Error(
-      "连接被中断（ERR_CONNECTION_RESET）。请换 WiFi 重试；若反复出现，在 ECS 检查 systemctl status tenclip-api 与 Nginx。"
+      "连接被中断（ERR_CONNECTION_RESET）。请换 WiFi 重试；大视频请先压缩或选较短片段。服务器检查：systemctl status tenclip-uchanceai、Nginx 反代需 proxy_request_buffering on、443 勿开 http2/quic。"
     );
   }
   var raw = (err && err.errMsg) || (err && err.message) || "";

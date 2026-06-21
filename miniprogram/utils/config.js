@@ -12,22 +12,23 @@
  *
  * 【上线】LOCAL_DEV = false，填已在公众平台配置的 HTTPS 域名（须 ICP 备案）
  *
- * 【临时上线 tennisGo / 已备案】见 scripts/deploy/DEPLOY_TENNISGO.md
- *   子域名方案（推荐）：PROD_API_BASE_URL = "https://clip.uchanceai.com"
- *   公众平台 request/uploadFile 合法域名填 clip.uchanceai.com
- *   （uchanceai.com 根域已给现有 9098 后端，勿占用）
+ * 【上线 tennisGo / 已备案】见 scripts/deploy/DEPLOY_QIONGJING.md
+ *   PROD_API_BASE_URL = "https://tenclip.qiongjingtiyu.com"
+ *   公众平台 request/uploadFile 合法域名填 tenclip.qiongjingtiyu.com
+ *
+ * 【勿用】clip.uchanceai.com — uchanceai.com 未备案，手机 4G 会被拦
  */
 
-const LOCAL_DEV = true;
+const LOCAL_DEV = false;
 
 /** 本地后端；WSL 里 hostname -I 取 IP，例如 http://172.22.123.45:7861 */
 const LOCAL_API_HOST = "http://127.0.0.1:7861";
 
 /** 上线时填写（须与微信公众平台 uploadFile/request 合法域名一致） */
-const PROD_API_BASE_URL = "https://api.uchance.tech";
+const PROD_API_BASE_URL = "https://tenclip.qiongjingtiyu.com";
 
 /** 每次上传体验版前改一下，用于确认手机跑的是新包 */
-const APP_BUILD_TAG = "2026-06-14-local";
+const APP_BUILD_TAG = "2026-06-22-qiongjing";
 
 const API_BASE_URL = LOCAL_DEV ? LOCAL_API_HOST : PROD_API_BASE_URL;
 
