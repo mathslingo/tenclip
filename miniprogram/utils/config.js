@@ -13,8 +13,9 @@
  * 【上线】LOCAL_DEV = false，填已在公众平台配置的 HTTPS 域名（须 ICP 备案）
  *
  * 【临时上线 tennisGo / 已备案】见 scripts/deploy/DEPLOY_TENNISGO.md
- *   PROD_API_BASE_URL = "https://uchanceai.com"
- *   公众平台 request/uploadFile 合法域名填 uchanceai.com
+ *   子域名方案（推荐）：PROD_API_BASE_URL = "https://clip.uchanceai.com"
+ *   公众平台 request/uploadFile 合法域名填 clip.uchanceai.com
+ *   （uchanceai.com 根域已给现有 9098 后端，勿占用）
  */
 
 const LOCAL_DEV = true;

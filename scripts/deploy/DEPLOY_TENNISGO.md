@@ -1,188 +1,155 @@
 # TenClip 部署到 tennisGo（与现有微信小程序后端隔离）
 
-目标：在已有 **tennisGo 微信小程序后端** 的腾讯云轻量服务器上，用 **已备案域名 `uchanceai.com`** 提供 TenClip API，**不改动、不抢占** 现有 Nginx 站点与端口。
+目标：在已有 **tennisGo 微信小程序后端**（`uchanceai.com` → `localhost:9098`）的腾讯云轻量服务器上，用 **子域名 `clip.uchanceai.com`** 提供 TenClip API，**不改动** 现有 Nginx 与 9098 服务。
 
 | 项 | TenClip（新） | 现有 tennisGo 后端（勿动） |
 |----|---------------|---------------------------|
-| 域名 | `uchanceai.com` / `www.uchanceai.com` | 原有域名（各自 `server_name`） |
-| Nginx 配置 | **新增** `conf.d/tenclip-uchanceai.conf` | 保持原 conf 不变 |
-| 应用端口 | **127.0.0.1:7862** | 原端口（常见 8000/3000/7861 等） |
+| 域名 | **`clip.uchanceai.com`** | `uchanceai.com` → `:9098` |
+| Nginx | **新建** `clip.uchanceai.com.conf` | **`uchanceai.com.conf` 不改** |
+| 应用端口 | `127.0.0.1:7862` | `127.0.0.1:9098` |
 | systemd | `tenclip-uchanceai.service` | 原有 unit 不动 |
-| 代码目录 | 建议 `/root/code/tenclip` | 原项目目录不动 |
+| 代码目录 | `/root/code/tenclip` | 原项目目录不动 |
 
-Nginx 按 **Host** 分流：用户访问 `uchanceai.com` 才进 TenClip；访问原域名仍走原 upstream。**互不影响**。
+Nginx 按 **Host** 分流：`clip.uchanceai.com` → TenClip；`uchanceai.com` 仍走原小程序后端。**互不影响**。
+
+> 本机为 **宝塔面板** Nginx：`--prefix=/www/server/nginx`，vhost 在 `/www/server/panel/vhost/nginx/`。
 
 ---
 
-## 0. 服务器信息（你的 tennisGo）
+## 0. 服务器信息
 
 - 公网 IP：`1.15.27.3`
-- 域名解析：`uchanceai.com`、`www.uchanceai.com` → 该 IP（轻量控制台已配置）
-- 系统：CentOS（轻量应用服务器）
+- 主域已备案：`uchanceai.com`（子域 `clip.uchanceai.com` 一般随主域可用）
+- 系统：CentOS 7 + 宝塔
 
 ---
 
-## 1. 部署前预检（SSH 登录 tennisGo）
+## 1. DNS（先做）
+
+在域名解析（腾讯云轻量 / DNSPod / 注册商）添加：
+
+| 主机记录 | 类型 | 记录值 |
+|----------|------|--------|
+| `clip` | A | `1.15.27.3` |
+
+生效后本机可测：
 
 ```bash
-ssh root@1.15.27.3
+ping -c 2 clip.uchanceai.com
+```
+
+---
+
+## 2. 应用与 systemd（7862）
+
+```bash
 bash /root/code/tenclip/scripts/deploy/preflight-tennisgo.sh
-```
 
-确认 **7862 未被占用**。若占用，改 `tenclip-uchanceai.service` 里 `GRADIO_SERVER_PORT` 与 nginx 里 `proxy_pass` 端口一致。
-
----
-
-## 2. 拉代码与依赖（独立目录）
-
-```bash
-cd /root
-git clone <你的 tenclip 仓库> code/tenclip
-# 或已有目录则 git pull
-
-cd /root/code/tenclip
-# conda 环境（与现有项目环境分开命名更安全）
-conda create -n tenclip python=3.11 -y
-conda activate tenclip
-pip install -r requirements.txt
-# 需要动作分析 GPU 时再装：
-# pip install -r requirements-llm-lf.txt
-conda install -c conda-forge ffmpeg -y
-
-# 权重（按需）
-# python scripts/download_vlm_weights.py
-# bash scripts/copy_vlm_to_model.sh
-```
-
-**不要**在现有后端的 conda 环境里覆盖依赖，除非确认无冲突。
-
----
-
-## 3. systemd（仅本机 7862，不暴露公网）
-
-```bash
-cd /root/code/tenclip
-sudo cp scripts/deploy/tenclip-uchanceai.service /etc/systemd/system/
-
-# 按实际路径修改 User、WorkingDirectory、ExecStart、PATH
-sudo nano /etc/systemd/system/tenclip-uchanceai.service
-
+sudo cp /root/code/tenclip/scripts/deploy/tenclip-uchanceai.service /etc/systemd/system/
 sudo systemctl daemon-reload
 sudo systemctl enable --now tenclip-uchanceai
-sudo systemctl status tenclip-uchanceai
 
 curl -s http://127.0.0.1:7862/api/mobile/health
 # 期望: {"ok":true,...}
 ```
 
-查看日志：`journalctl -u tenclip-uchanceai -f`
+日志：`journalctl -u tenclip-uchanceai -f`
 
-**注意**：不要同时手动 `python app.py` 和 systemd，否则会抢 7862 端口。
+**不要**同时前台 `python app.py` 与 systemd，会抢 7862。
 
----
-
-## 4. Nginx（新增配置文件，不改旧站）
-
-```bash
-cd /root/code/tenclip
-sudo cp scripts/deploy/nginx-tenclip-uchanceai.conf.example /etc/nginx/conf.d/tenclip-uchanceai.conf
-
-sudo nginx -t
-sudo systemctl reload nginx
-```
-
-此时 HTTP 应能反代（若尚未配证书，可先临时只 listen 80 测试，再 certbot）。
-
-### HTTPS（推荐 certbot）
-
-```bash
-sudo certbot --nginx -d uchanceai.com -d www.uchanceai.com
-sudo nginx -t && sudo systemctl reload nginx
-```
-
-轻量控制台「HTTPS 未设置」也可用上述方式，或控制台一键证书（选 **仅 uchanceai.com**，不要覆盖现有站点证书配置）。
-
-### 微信上传注意
-
-- `listen 443 ssl` **不要**加 `http2`（小程序 uploadFile 易 reset）
-- 保持 `proxy_request_buffering on;`
-- 大视频超时见 conf 内 `client_body_timeout 600s`
-
-公网自测：
-
-```bash
-curl -s https://uchanceai.com/api/mobile/health
-```
+CentOS 7 依赖安装见上文对话：`numpy==1.26.4`、`pandas==2.2.3` pin，勿装 `requirements-llm.txt`。
 
 ---
 
-## 5. 防火墙
+## 3. Nginx / 宝塔（方案 1：子域名）
 
-轻量默认开放 80/443。TenClip **只需** 80/443 对公网；**7862 不要**对公网开放（仅 127.0.0.1）。
+### 方式 A：宝塔网页（推荐）
+
+1. 宝塔 → **网站** → **添加站点**
+2. 域名：`clip.uchanceai.com`（不要 PHP/数据库）
+3. **反向代理** → 目标 URL：`http://127.0.0.1:7862`
+4. 在反向代理或配置文件中加大上传/超时：
+   - `client_max_body_size 512m;`
+   - `client_body_timeout 600s;`
+   - `proxy_read_timeout 600s;`
+   - `proxy_request_buffering on;`
+5. **SSL** → Let's Encrypt 申请 `clip.uchanceai.com`
+6. 若 443 配置含 **`http2`**，请去掉（微信 uploadFile 易 reset）
+
+### 方式 B：手写 conf
 
 ```bash
-ss -tlnp | grep 7862
-# 应显示 127.0.0.1:7862 或 0.0.0.0:7862 仅由本机 nginx 访问即可
+cp /root/code/tenclip/scripts/deploy/nginx-tenclip-clip-uchanceai.conf.example \
+   /www/server/panel/vhost/nginx/clip.uchanceai.com.conf
+
+/www/server/nginx/sbin/nginx -t
+/www/server/nginx/sbin/nginx -s reload
+```
+
+再在宝塔为该站点申请 SSL。
+
+### 验证
+
+```bash
+curl -s http://clip.uchanceai.com/api/mobile/health
+curl -s https://clip.uchanceai.com/api/mobile/health
+
+# 原后端应不受影响
+curl -sI https://uchanceai.com/api/
 ```
 
 ---
 
-## 6. 微信小程序配置
+## 4. 微信小程序
 
 ### 公众平台
 
 开发管理 → 开发设置 → **服务器域名**：
 
-- request / uploadFile / downloadFile：`https://uchanceai.com`
+- request / uploadFile / downloadFile：`https://clip.uchanceai.com`
 
-（根域名已备案即可；无需再单独备 `api.` 子域，除非你想用 `https://api.uchanceai.com`。）
+（填子域全名，不要只填 `uchanceai.com`。）
 
-### 本地 `miniprogram/utils/config.js`
+### `miniprogram/utils/config.js`
 
 ```javascript
 const LOCAL_DEV = false;
-const PROD_API_BASE_URL = "https://uchanceai.com";
+const PROD_API_BASE_URL = "https://clip.uchanceai.com";
 ```
 
-重新上传体验版；build tag 改一下便于确认版本。
+改 `APP_BUILD_TAG` 后上传体验版。
 
-### H5 网页版
-
-复制链接会变为 `https://uchanceai.com/web`、`/web/stroke`（若已部署对应路由）。
+H5 链接变为：`https://clip.uchanceai.com/web`、`/web/stroke`。
 
 ---
 
-## 7. 验证清单
+## 5. 验证清单
 
 | 检查 | 命令/操作 |
 |------|-----------|
-| 现有后端仍正常 | 用**原域名**打开原小程序/接口 |
 | TenClip 本机 | `curl http://127.0.0.1:7862/api/mobile/health` |
-| TenClip 公网 | `curl https://uchanceai.com/api/mobile/health` |
-| 备案提示 | 微信聊天打开 health URL，应无「未备案」 |
+| TenClip 公网 | `curl https://clip.uchanceai.com/api/mobile/health` |
+| 原 9098 后端 | 原小程序 / `uchanceai.com` 接口正常 |
+| 备案 | 微信内打开 health URL 无「未备案」 |
 | 上传 | 体验版上传短视频 |
 
 ---
 
-## 8. 回滚（不影响现有服务）
+## 6. 回滚（不影响 9098）
 
 ```bash
 sudo systemctl stop tenclip-uchanceai
 sudo systemctl disable tenclip-uchanceai
-sudo rm /etc/nginx/conf.d/tenclip-uchanceai.conf
-sudo nginx -t && sudo systemctl reload nginx
+rm -f /www/server/panel/vhost/nginx/clip.uchanceai.com.conf
+/www/server/nginx/sbin/nginx -t && /www/server/nginx/sbin/nginx -s reload
 ```
 
-现有站点 conf 与 unit **从未修改** 则无需其它操作。
+`uchanceai.com.conf` **从未修改** 则原后端无需其它操作。
 
 ---
 
-## 9. 可选：API 子域
+## 7. 其它说明
 
-若希望 API 与官网分离，可增加 DNS `api.uchanceai.com` → `1.15.27.3`，复制一份 server 块改 `server_name api.uchanceai.com`，小程序填 `https://api.uchanceai.com`。
-
----
-
-## 10. 与阿里云 ECS 的关系
-
-备案下来后，可将 `api.uchance.tech` 迁回阿里云，或长期用 `uchanceai.com`。两套可并行一段时间，小程序改 `PROD_API_BASE_URL` 即可切换。
+- 旧示例 `nginx-tenclip-uchanceai.conf.example` 面向根域 + `/etc/nginx`；tennisGo 请用 **`nginx-tenclip-clip-uchanceai.conf.example`**。
+- 备案完成后若迁回阿里云，改 `PROD_API_BASE_URL` 即可切换。
+- VLM 动作分析在 CentOS 7 上通常不可用；击球检测 API 不依赖 LLM。
