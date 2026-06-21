@@ -11,6 +11,10 @@
  * 4. 微信开发者工具 → 详情 → 本地设置 → 勾选「不校验合法域名、web-view、TLS…」
  *
  * 【上线】LOCAL_DEV = false，填已在公众平台配置的 HTTPS 域名（须 ICP 备案）
+ *
+ * 【临时上线 tennisGo / 已备案】见 scripts/deploy/DEPLOY_TENNISGO.md
+ *   PROD_API_BASE_URL = "https://uchanceai.com"
+ *   公众平台 request/uploadFile 合法域名填 uchanceai.com
  */
 
 const LOCAL_DEV = true;

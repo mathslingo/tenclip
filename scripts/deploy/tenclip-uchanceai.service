@@ -1,0 +1,27 @@
+# TenClip @ tennisGo — 独立端口 7862，与现有小程序后端隔离
+#
+# 安装前请修改 User / WorkingDirectory / ExecStart 中的路径与 conda 环境名
+#
+#   sudo cp scripts/deploy/tenclip-uchanceai.service /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now tenclip-uchanceai
+#   curl -s http://127.0.0.1:7862/api/mobile/health
+
+[Unit]
+Description=TenClip (uchanceai.com) app.py on port 7862
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/root/code/tenclip
+Environment=GRADIO_SERVER_NAME=127.0.0.1
+Environment=GRADIO_SERVER_PORT=7862
+Environment=TENCLIP_VLM_MODEL=/root/code/tenclip/model/Qwen2-VL-2B-Instruct
+Environment=PATH=/root/miniconda3/envs/tenclip/bin:/usr/local/bin:/usr/bin:/bin
+ExecStart=/root/miniconda3/envs/tenclip/bin/python app.py
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
