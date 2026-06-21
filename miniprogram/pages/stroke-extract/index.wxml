@@ -48,10 +48,11 @@
         >{{item.label}}</view>
       </view>
 
-      <text class="field-label">运动灵敏度 {{motionPercentile}}（越低保留越多）</text>
-      <slider
-        min="55"
-        max="90"
+    <text class="field-label" wx:if="{{detectMode === 'spike'}}">尖峰灵敏度 {{motionPercentile}}（越低检出越多击球，每段约 2～4 秒）</text>
+    <text class="field-label" wx:else>剪辑强度 {{motionPercentile}}（越低保留越多；推荐 70～78，约 30% 有效击球）</text>
+    <slider
+      min="60"
+      max="92"
         step="1"
         value="{{motionPercentile}}"
         activeColor="#13d8a8"

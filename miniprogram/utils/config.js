@@ -1,31 +1,34 @@
 /**
  * API 地址配置
  *
+ * 【备案完成前】保持 LOCAL_DEV = true，勿请求 api.uchance.tech（会 ERR_CONNECTION_RESET）
+ *
  * 【本地调试】
  * 1. LOCAL_DEV = true
  * 2. LOCAL_API_HOST 填 WSL IP（WSL 里执行 hostname -I）
+ *    Windows 开发者工具模拟器可先试 http://127.0.0.1:7861，不通再改 WSL IP
  * 3. 后端：GRADIO_SERVER_NAME=0.0.0.0 bash run-wsl.sh
  * 4. 微信开发者工具 → 详情 → 本地设置 → 勾选「不校验合法域名、web-view、TLS…」
  *
- * 【上线】LOCAL_DEV = false，填已在公众平台配置的 HTTPS 域名
+ * 【上线】LOCAL_DEV = false，填已在公众平台配置的 HTTPS 域名（须 ICP 备案）
  */
 
-const LOCAL_DEV = false;
+const LOCAL_DEV = true;
 
-/** 改成你的 WSL/服务器地址，例如 http://172.22.123.45:7861 */
+/** 本地后端；WSL 里 hostname -I 取 IP，例如 http://172.22.123.45:7861 */
 const LOCAL_API_HOST = "http://127.0.0.1:7861";
 
 /** 上线时填写（须与微信公众平台 uploadFile/request 合法域名一致） */
 const PROD_API_BASE_URL = "https://api.uchance.tech";
 
 /** 每次上传体验版前改一下，用于确认手机跑的是新包 */
-const APP_BUILD_TAG = "2026-06-14-analyze";
+const APP_BUILD_TAG = "2026-06-14-local";
 
 const API_BASE_URL = LOCAL_DEV ? LOCAL_API_HOST : PROD_API_BASE_URL;
 
-/** web-view 打开的 H5（走微信内置浏览器，绕过 Cronet） */
-const WEB_STROKE_URL = PROD_API_BASE_URL + "/web/stroke";
-const WEB_ANALYZE_URL = PROD_API_BASE_URL + "/web";
+/** web-view / 复制链接（本地调试时同样走 LOCAL_API_HOST） */
+const WEB_STROKE_URL = API_BASE_URL + "/web/stroke";
+const WEB_ANALYZE_URL = API_BASE_URL + "/web";
 
 /** wx.uploadFile / wx.downloadFile 超时（毫秒，约 10 分钟；大视频 + 3Mbps 带宽可能仍较慢） */
 const UPLOAD_TIMEOUT_MS = 600000;

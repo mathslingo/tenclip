@@ -49,7 +49,7 @@ def parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(description="检测并保留网球视频中的击球/回合片段（支持长视频）")
     p.add_argument("video", type=Path, help="输入视频路径")
     p.add_argument("--out", type=Path, default="", help="输出视频（拼接后的击球集锦）")
-    p.add_argument("--mode", choices=["motion", "audio", "combined"], default="combined")
+    p.add_argument("--mode", choices=["motion", "audio", "combined", "spike"], default="combined")
     p.add_argument("--analyze-only", action="store_true", help="只检测时间段，不写输出视频")
     p.add_argument("--vlm-filter", action="store_true", help="VLM 二次过滤（较慢，需 GPU/模型）")
     p.add_argument("--vlm-mode", choices=["eco", "balanced", "quality"], default="eco")

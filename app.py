@@ -717,17 +717,22 @@ with gr.Blocks(title="TenClip", css=TENNIS_GUIDANCE_CSS) as demo:
             with gr.Row():
                 stroke_file = gr.File(label="上传视频", file_types=[".mp4", ".mov", ".avi"])
                 stroke_mode = gr.Radio(
-                    ["combined", "motion", "audio"],
+                    [
+                        ("运动+击球声", "combined"),
+                        ("单次击球尖峰", "spike"),
+                        ("仅画面运动", "motion"),
+                        ("仅击球声", "audio"),
+                    ],
                     value="combined",
                     label="检测模式",
-                    info="combined=运动+击球声；无音轨时用 motion",
+                    info="combined=去等待保留回合；spike=每次击球一小段（约2～4秒）",
                 )
             motion_p = gr.Slider(
-                55,
-                90,
-                value=72,
+                60,
+                92,
+                value=74,
                 step=1,
-                label="运动灵敏度（数值越低保留越多）",
+                label="剪辑强度（越低保留越多；推荐 70～78）",
             )
             stroke_vlm = gr.Checkbox(label="VLM 二次过滤（较慢，减少误保留的等待/捡球）", value=False)
             stroke_btn = gr.Button("提取击球片段", variant="primary")
@@ -883,11 +888,11 @@ def create_app() -> FastAPI:
     async def mobile_stroke_extract_submit(
         video: UploadFile = File(...),
         detect_mode: str = Form("combined"),
-        motion_percentile: float = Form(72.0),
+        motion_percentile: float = Form(74.0),
         vlm_filter: str = Form("0"),
     ):
-        mode = detect_mode if detect_mode in ("combined", "motion", "audio") else "combined"
-        mp = max(55.0, min(90.0, float(motion_percentile)))
+        mode = detect_mode if detect_mode in ("combined", "motion", "audio", "spike") else "combined"
+        mp = max(60.0, min(92.0, float(motion_percentile)))
         use_vlm = vlm_filter.strip().lower() in ("1", "true", "yes", "on")
         task_id = uuid.uuid4().hex
         suffix = _upload_suffix(video.filename, video.content_type)

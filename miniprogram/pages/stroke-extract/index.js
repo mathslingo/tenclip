@@ -28,6 +28,7 @@ const STATUS_LABEL = {
 
 const MODE_OPTIONS = [
   { value: "combined", label: "运动+击球声" },
+  { value: "spike", label: "单次击球尖峰" },
   { value: "motion", label: "仅画面运动" },
   { value: "audio", label: "仅击球声" },
 ];
@@ -56,7 +57,7 @@ Page({
     videoSizeText: "",
     detectMode: "combined",
     modeOptions: MODE_OPTIONS,
-    motionPercentile: 72,
+    motionPercentile: 74,
     vlmFilter: false,
     busy: false,
     taskId: "",

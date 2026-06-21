@@ -453,7 +453,7 @@ function uploadStrokeExtract(opts) {
     name: "video",
     formData: {
       detect_mode: opts.detectMode || "combined",
-      motion_percentile: String(opts.motionPercentile != null ? opts.motionPercentile : 72),
+      motion_percentile: String(opts.motionPercentile != null ? opts.motionPercentile : 74),
       vlm_filter: opts.vlmFilter ? "1" : "0",
     },
     onProgress: opts.onProgress,

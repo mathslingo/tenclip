@@ -23,7 +23,7 @@ from typing import Any, Callable, Literal
 
 import numpy as np
 
-SignalMode = Literal["motion", "audio", "combined"]
+SignalMode = Literal["motion", "audio", "combined", "spike"]
 ProgressFn = Callable[[str, float], None] | None
 
 
@@ -34,25 +34,29 @@ class StrokeDetectConfig:
     frame_height: int = 180
     max_analyze_sec: float = 0.0  # 0 = 全片
 
-    motion_percentile: float = 72.0
-    audio_percentile: float = 82.0
+    motion_percentile: float = 74.0
+    audio_percentile: float = 78.0
     smooth_sec: float = 0.45
 
     min_segment_sec: float = 1.0
-    max_segment_sec: float = 50.0
+    max_segment_sec: float = 90.0
     pad_before_sec: float = 0.35
     pad_after_sec: float = 0.75
-    merge_gap_sec: float = 2.8
+    merge_gap_sec: float = 2.6
+    # combined：同一回合内短间隙填桥（秒）；仅 true 长静音才打孔
+    rally_bridge_sec: float = 6.0
+    min_idle_sec_to_cut: float = 7.5
 
     audio_sample_rate: int = 16000
     audio_hop_sec: float = 0.04
 
-    # 尖峰锚定：短暂击球（如侧身正手）运动/声音持续不足 min_segment_sec 时，靠局部峰值补段
+    # 尖峰锚定：补短暂击球漏检；combined 模式不用（会与包络并集导致几乎全片保留）
     enable_spike_detect: bool = True
-    spike_motion_percentile: float = 58.0
-    spike_audio_percentile: float = 68.0
-    spike_pad_before_sec: float = 1.2
-    spike_pad_after_sec: float = 2.8
+    spike_in_combined: bool = False
+    spike_motion_percentile: float = 62.0
+    spike_audio_percentile: float = 72.0
+    spike_pad_before_sec: float = 1.0
+    spike_pad_after_sec: float = 2.2
     spike_min_interval_sec: float = 1.0
 
 
@@ -74,6 +78,72 @@ class StrokeSegment:
             "score": round(self.score, 4),
             "source": self.source,
         }
+
+
+def apply_sensitivity(cfg: StrokeDetectConfig, mode: str = "combined") -> StrokeDetectConfig:
+    """
+    界面「剪辑强度」：combined 等模式数值越低保留越多；
+    spike 模式数值越低 → 尖峰阈值越低 → 检出更多单次击球。
+    """
+    mp = max(60.0, min(92.0, float(cfg.motion_percentile)))
+    cfg.motion_percentile = mp
+
+    if mode == "spike":
+        cfg.spike_motion_percentile = max(48.0, mp - 10.0)
+        cfg.spike_audio_percentile = max(52.0, mp - 6.0)
+        cfg.merge_gap_sec = 0.6
+        cfg.spike_pad_before_sec = 0.85
+        cfg.spike_pad_after_sec = 2.15
+        cfg.spike_min_interval_sec = 0.9
+        cfg.max_segment_sec = 12.0
+        return cfg
+
+    cfg.audio_percentile = min(90.0, mp + 4.0)
+    cfg.merge_gap_sec = 7.0 + (92.0 - mp) * 0.04
+    cfg.min_idle_sec_to_cut = 6.5 + (mp - 60.0) * 0.05
+    cfg.rally_bridge_sec = 5.5 + (92.0 - mp) * 0.03
+    return cfg
+
+
+def _bridge_short_gaps(active: np.ndarray, bridge_sec: float, sample_fps: float) -> np.ndarray:
+    """填平短 inactive 间隙，把同一回合多次击球连成一段。"""
+    if len(active) == 0 or bridge_sec <= 0:
+        return active
+    out = active.copy()
+    max_gap = max(1, int(bridge_sec * sample_fps))
+    inactive = ~active
+    i = 0
+    while i < len(inactive):
+        if not inactive[i]:
+            i += 1
+            continue
+        j = i
+        while j < len(inactive) and inactive[j]:
+            j += 1
+        gap_len = j - i
+        if gap_len <= max_gap and i > 0 and j < len(active):
+            out[i:j] = True
+        i = j
+    return out
+
+
+def _punch_idle_holes(
+    active: np.ndarray,
+    m_smooth: np.ndarray,
+    a_smooth: np.ndarray,
+    cfg: StrokeDetectConfig,
+) -> np.ndarray:
+    """在活跃掩码上打孔：连续多秒运动与声音都偏低 → 视为等待/捡球。"""
+    if len(active) == 0:
+        return active
+    out = active.copy()
+    idle_m = float(np.percentile(m_smooth, 32))
+    idle_a = float(np.percentile(a_smooth, 35))
+    idle = (m_smooth < idle_m) & (a_smooth < idle_a)
+    min_len = max(1, int(cfg.min_idle_sec_to_cut * cfg.sample_fps))
+    for a, b in _runs_above(idle, min_len):
+        out[a:b] = False
+    return out
 
 
 @dataclass
@@ -334,6 +404,132 @@ def _scores_to_segments(
     return out
 
 
+def _segments_from_boolean_mask(
+    times: np.ndarray,
+    mask: np.ndarray,
+    cfg: StrokeDetectConfig,
+    source: str,
+    *,
+    is_audio: bool,
+) -> list[StrokeSegment]:
+    if len(mask) == 0:
+        return []
+    min_len = max(1, int(cfg.min_segment_sec * cfg.sample_fps))
+    if is_audio and len(times) > 1:
+        dt = float(np.median(np.diff(times)))
+        min_len = max(1, int(cfg.min_segment_sec / max(dt, 1e-6)))
+    runs = _runs_above(mask, min_len)
+    out: list[StrokeSegment] = []
+    for a, b in runs:
+        t0 = float(times[a])
+        t1 = float(times[min(b, len(times) - 1)])
+        out.append(StrokeSegment(start=t0, end=t1, score=1.0, source=source))
+    return out
+
+
+def _combined_active_segments(
+    mt: np.ndarray,
+    ms: np.ndarray,
+    at: np.ndarray | None,
+    asc: np.ndarray | None,
+    cfg: StrokeDetectConfig,
+    duration: float,
+) -> tuple[list[StrokeSegment], dict[str, Any]]:
+    """
+    运动+击球声：并集（任一路活跃即候选）+ 长静音打孔。
+    比纯交集保留更多回合，比纯并集更能去掉换边/捡球等待。
+    """
+    grid = np.arange(0.0, max(duration, 0.01), 1.0 / cfg.sample_fps, dtype=np.float64)
+    win = max(1, int(cfg.smooth_sec * cfg.sample_fps))
+    m_on_grid = np.interp(grid, mt, ms) if len(mt) else np.zeros_like(grid)
+    m_smooth = _smooth(m_on_grid, win)
+    thr_m = float(np.percentile(m_smooth, max(55.0, cfg.motion_percentile - 4.0)))
+
+    dbg: dict[str, Any] = {
+        "motion_threshold_percentile": cfg.motion_percentile,
+        "motion_threshold": thr_m,
+    }
+    if at is None or asc is None or len(asc) == 0:
+        active = m_smooth >= thr_m
+        dbg["audio_available"] = False
+        dbg["combined_logic"] = "motion_only"
+        dbg["active_ratio"] = float(np.mean(active)) if len(active) else 0.0
+        segs = _segments_from_boolean_mask(grid, active, cfg, "motion", is_audio=False)
+        dbg["motion_segment_count"] = len(segs)
+        return segs, dbg
+
+    a_on_grid = np.interp(grid, at, asc)
+    a_smooth = _smooth(a_on_grid, win)
+    thr_a = float(np.percentile(a_smooth, max(58.0, cfg.audio_percentile - 4.0)))
+    active_union = (m_smooth >= thr_m) | (a_smooth >= thr_a)
+    active = _bridge_short_gaps(active_union, cfg.rally_bridge_sec, cfg.sample_fps)
+    active = _punch_idle_holes(active, m_smooth, a_smooth, cfg)
+    dbg.update(
+        {
+            "audio_available": True,
+            "audio_threshold_percentile": cfg.audio_percentile,
+            "audio_threshold": thr_a,
+            "combined_logic": "union_bridge_idle_punch",
+            "active_ratio_union": float(np.mean(active_union)) if len(active_union) else 0.0,
+            "active_ratio_after_bridge_punch": float(np.mean(active)) if len(active) else 0.0,
+            "min_idle_sec_to_cut": cfg.min_idle_sec_to_cut,
+            "rally_bridge_sec": cfg.rally_bridge_sec,
+        }
+    )
+    segs = _segments_from_boolean_mask(grid, active, cfg, "combined", is_audio=False)
+    dbg["combined_segment_count"] = len(segs)
+    return segs, dbg
+
+
+def _spike_only_segments(
+    mt: np.ndarray,
+    ms: np.ndarray,
+    at: np.ndarray | None,
+    asc: np.ndarray | None,
+    cfg: StrokeDetectConfig,
+    duration: float,
+) -> tuple[list[StrokeSegment], dict[str, Any]]:
+    """单次击球尖峰：运动+击球声局部峰值各切一小段，适合逐拍集锦。"""
+    segments: list[StrokeSegment] = []
+    dbg: dict[str, Any] = {
+        "combined_logic": "spike_only",
+        "spike_motion_percentile": cfg.spike_motion_percentile,
+        "spike_audio_percentile": cfg.spike_audio_percentile,
+    }
+    if len(ms) > 0:
+        m_spikes = _spike_segments_from_signal(
+            mt,
+            ms,
+            cfg,
+            percentile=cfg.spike_motion_percentile,
+            source="motion",
+            neighborhood_sec=0.45,
+        )
+        segments.extend(m_spikes)
+        dbg["motion_spike_count"] = len(m_spikes)
+    if at is not None and asc is not None and len(asc) > 0:
+        a_spikes = _spike_segments_from_signal(
+            at,
+            asc,
+            cfg,
+            percentile=cfg.spike_audio_percentile,
+            source="audio",
+            neighborhood_sec=0.12,
+        )
+        segments.extend(a_spikes)
+        dbg["audio_spike_count"] = len(a_spikes)
+        dbg["audio_available"] = True
+    else:
+        dbg["audio_available"] = False
+        if not segments:
+            raise RuntimeError("视频无可用音轨且画面无运动尖峰，请换 combined 或 motion 模式。")
+    merged = _merge_segments(segments, cfg.merge_gap_sec)
+    final = _pad_and_clip(merged, duration, cfg)
+    dbg["spike_segment_total"] = len(segments)
+    dbg["segment_count_after_merge"] = len(final)
+    return final, dbg
+
+
 def _spike_segments_from_signal(
     times: np.ndarray,
     scores: np.ndarray,
@@ -433,6 +629,7 @@ def detect_stroke_segments(
         raise FileNotFoundError(str(video_path))
 
     cfg = config or StrokeDetectConfig()
+    cfg = apply_sensitivity(cfg, mode)
     _emit(progress, "读取视频时长…", 0.02)
     duration = probe_duration(video_path)
     if cfg.max_analyze_sec and cfg.max_analyze_sec > 0:
@@ -445,31 +642,65 @@ def detect_stroke_segments(
     at: np.ndarray | None = None
     asc: np.ndarray | None = None
 
-    if mode in ("motion", "combined"):
+    if mode == "combined":
         _emit(progress, "分析画面运动（流式抽帧，适合长视频）…", 0.05)
         mt, ms = _motion_scores(str(video_path), cfg, progress)
-        motion_segs = _scores_to_segments(mt, ms, cfg, cfg.motion_percentile, "motion")
-        segments.extend(motion_segs)
-        debug["motion_segment_count"] = len(motion_segs)
-        debug["motion_threshold_percentile"] = cfg.motion_percentile
-        debug["motion_frames"] = int(len(mt))
-        _emit(progress, f"运动候选 {len(motion_segs)} 段", 0.45)
-
-    if mode in ("audio", "combined"):
-        _emit(progress, "分析击球声（流式 PCM）…", 0.48)
+        _emit(progress, "分析击球声（流式 PCM）…", 0.35)
         audio = _audio_rms_scores(str(video_path), cfg, progress)
-        if audio is None:
-            debug["audio_available"] = False
-            if mode == "audio":
+        at, asc = audio if audio else (None, None)
+        segments, comb_dbg = _combined_active_segments(mt, ms, at, asc, cfg, duration)
+        debug.update(comb_dbg)
+        debug["motion_frames"] = int(len(mt))
+        _emit(progress, f"回合候选 {len(segments)} 段", 0.5)
+    elif mode == "spike":
+        _emit(progress, "分析画面运动尖峰…", 0.05)
+        mt, ms = _motion_scores(str(video_path), cfg, progress)
+        _emit(progress, "分析击球声尖峰…", 0.35)
+        audio = _audio_rms_scores(str(video_path), cfg, progress)
+        at, asc = audio if audio else (None, None)
+        segments, spike_dbg = _spike_only_segments(mt, ms, at, asc, cfg, duration)
+        debug.update(spike_dbg)
+        debug["motion_frames"] = int(len(mt))
+        _emit(progress, f"击球尖峰 {len(segments)} 段", 0.58)
+        merged = segments
+        final = segments
+        kept = sum(s.duration() for s in final)
+        debug["merge_gap_sec"] = cfg.merge_gap_sec
+        debug["segment_count_final"] = len(final)
+        _emit(progress, f"检测完成：保留 {len(final)} 段 / {kept:.0f}s", 0.62)
+        return StrokeDetectResult(
+            segments=final,
+            duration_sec=duration,
+            kept_sec=kept,
+            mode=mode,
+            debug=debug,
+        )
+    else:
+        if mode == "motion":
+            _emit(progress, "分析画面运动（流式抽帧，适合长视频）…", 0.05)
+            mt, ms = _motion_scores(str(video_path), cfg, progress)
+            motion_segs = _scores_to_segments(mt, ms, cfg, cfg.motion_percentile, "motion")
+            segments.extend(motion_segs)
+            debug["motion_segment_count"] = len(motion_segs)
+            debug["motion_threshold_percentile"] = cfg.motion_percentile
+            debug["motion_frames"] = int(len(mt))
+            _emit(progress, f"运动候选 {len(motion_segs)} 段", 0.45)
+
+        if mode == "audio":
+            _emit(progress, "分析击球声（流式 PCM）…", 0.48)
+            audio = _audio_rms_scores(str(video_path), cfg, progress)
+            if audio is None:
+                debug["audio_available"] = False
                 raise RuntimeError("视频无可用音轨，请改用 --mode motion 或 combined（无音轨时仅运动）。")
-        else:
             at, asc = audio
             audio_segs = _scores_to_segments(at, asc, cfg, cfg.audio_percentile, "audio")
             segments.extend(audio_segs)
             debug["audio_available"] = True
             debug["audio_segment_count"] = len(audio_segs)
+            debug["audio_threshold_percentile"] = cfg.audio_percentile
 
-    if cfg.enable_spike_detect:
+    use_spikes = cfg.enable_spike_detect and mode not in ("combined", "spike")
+    if use_spikes:
         spike_count = 0
         if mt is not None and ms is not None and len(ms) > 0:
             m_spikes = _spike_segments_from_signal(
@@ -502,6 +733,9 @@ def detect_stroke_segments(
     merged = _merge_segments(segments, cfg.merge_gap_sec)
     final = _pad_and_clip(merged, duration, cfg)
     kept = sum(s.duration() for s in final)
+    debug["merge_gap_sec"] = cfg.merge_gap_sec
+    debug["max_segment_sec"] = cfg.max_segment_sec
+    debug["segment_count_final"] = len(final)
     _emit(progress, f"检测完成：保留 {len(final)} 段 / {kept:.0f}s", 0.62)
 
     return StrokeDetectResult(

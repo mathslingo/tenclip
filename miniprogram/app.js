@@ -40,15 +40,30 @@ App({
       });
       return;
     }
-    console.log("[TenniTi] API_BASE_URL =", API_BASE_URL);
+    console.log("[TenniTi] API_BASE_URL =", API_BASE_URL, "LOCAL_DEV =", LOCAL_DEV);
     pingHealth()
       .then(function () {
         console.log("[TenniTi] 后端连通正常");
+        if (LOCAL_DEV) {
+          wx.showToast({
+            title: "本地调试 · API 已连通",
+            icon: "none",
+            duration: 2500,
+          });
+        }
       })
       .catch(function (err) {
         var msg = (err && err.message) || "无法连接后端";
         console.warn("[TenniTi] 后端探活失败:", msg);
         if (LOCAL_DEV) {
+          wx.showModal({
+            title: "本地 API 未连通",
+            content:
+              "当前地址：" +
+              API_BASE_URL +
+              "\n\n请确认：\n1. WSL 已执行 GRADIO_SERVER_NAME=0.0.0.0 bash run-wsl.sh\n2. config.js 的 LOCAL_API_HOST 正确（模拟器不通可改 WSL IP:7861）\n3. 开发者工具已勾选「不校验合法域名」",
+            showCancel: false,
+          });
           return;
         }
         if (isDomainListError(err)) {
