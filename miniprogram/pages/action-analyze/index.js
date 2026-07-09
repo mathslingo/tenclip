@@ -8,8 +8,8 @@ const {
   prepareVideoForUpload,
   formatUploadProgress,
   setKeepScreenOn,
+  mapUploadProgressPercent,
 } = require("../../utils/api");
-const { mapUploadProgressPercent } = require("../../utils/upload_progress");
 const { formatGuidance } = require("../../utils/guidance");
 const { startTaskPoll } = require("../../utils/poll");
 

@@ -1,7 +1,6 @@
 {
   "navigationBarTitleText": "UChance动作分析",
   "usingComponents": {
-    "bottom-tabs": "/components/bottom-tabs/index",
-    "upload-overlay": "/components/upload-overlay/index"
+    "bottom-tabs": "/components/bottom-tabs/index"
   }
 }

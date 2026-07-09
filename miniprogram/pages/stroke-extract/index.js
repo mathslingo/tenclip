@@ -9,8 +9,8 @@ const {
   prepareVideoForUpload,
   formatUploadProgress,
   setKeepScreenOn,
+  mapUploadProgressPercent,
 } = require("../../utils/api");
-const { mapUploadProgressPercent } = require("../../utils/upload_progress");
 const { startTaskPoll } = require("../../utils/poll");
 
 const STATUS_LABEL = {

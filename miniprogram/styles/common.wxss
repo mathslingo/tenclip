@@ -201,6 +201,78 @@
   text-decoration: underline;
 }
 
+.upload-overlay {
+  position: fixed;
+  left: 0;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 48rpx;
+  box-sizing: border-box;
+  background: rgba(15, 24, 32, 0.55);
+}
+
+.upload-overlay-panel {
+  width: 100%;
+  max-width: 620rpx;
+  background: #fff;
+  border-radius: 28rpx;
+  padding: 40rpx 36rpx 32rpx;
+  box-shadow: 0 16rpx 48rpx rgba(0, 0, 0, 0.18);
+}
+
+.upload-overlay-title {
+  display: block;
+  font-size: 34rpx;
+  font-weight: 600;
+  color: #0d3d32;
+  text-align: center;
+}
+
+.upload-overlay-progress-row {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+  margin-top: 28rpx;
+}
+
+.upload-overlay-bar {
+  flex: 1;
+}
+
+.upload-overlay-pct {
+  min-width: 72rpx;
+  font-size: 26rpx;
+  font-weight: 600;
+  color: #13d8a8;
+  text-align: right;
+}
+
+.upload-overlay-message {
+  display: block;
+  margin-top: 20rpx;
+  font-size: 26rpx;
+  line-height: 1.55;
+  color: #415360;
+  text-align: center;
+}
+
+.upload-overlay-hint {
+  display: block;
+  margin-top: 24rpx;
+  padding-top: 20rpx;
+  border-top: 2rpx solid #eef2f5;
+  font-size: 22rpx;
+  line-height: 1.5;
+  color: #8a939f;
+  text-align: center;
+}
+
+.diag-link {
   display: block;
   margin-top: 20rpx;
   text-align: center;

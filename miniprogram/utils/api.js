@@ -14,11 +14,29 @@ const {
   UPLOAD_LARGE_ROUTE_MB,
   APP_BUILD_TAG,
 } = require("./config");
-const {
-  compressProgressMessage,
-  compressTickIntervalMs,
-} = require("./upload_progress");
-const { chunkVideoUpload } = require("./chunk_upload");
+
+function mapUploadProgressPercent(wxPct) {
+  return Math.min(58, Math.max(22, 22 + Math.round((wxPct || 0) * 0.36)));
+}
+
+function compressProgressMessage(sizeBytes, simulatedPct) {
+  var mb = sizeBytes ? (sizeBytes / (1024 * 1024)).toFixed(0) : "?";
+  if (simulatedPct < 8) {
+    return "正在读取并压缩视频（约 " + mb + " MB），请稍候…";
+  }
+  if (simulatedPct < 18) {
+    return "压缩进行中（约 " + simulatedPct + "%），长视频可能需要 1～3 分钟…";
+  }
+  return "即将完成压缩（约 " + simulatedPct + "%），随后自动上传…";
+}
+
+function compressTickIntervalMs(sizeBytes) {
+  var mb = sizeBytes / (1024 * 1024);
+  if (mb >= 100) return 2200;
+  if (mb >= 50) return 1800;
+  if (mb >= 20) return 1400;
+  return 1000;
+}
 
 function _errText(err) {
   return String((err && err.message) || (err && err.errMsg) || err || "").toLowerCase();
@@ -58,6 +76,16 @@ function isConnectionResetError(err) {
 function isUploadRetryableError(err) {
   if (isDomainListError(err)) return false;
   return isTransientNetworkError(err);
+}
+
+/** 服务端尚未部署分片上传接口时（404），回退普通 uploadFile */
+function isChunkApiUnavailableError(err) {
+  var msg = _errText(err);
+  return (
+    msg.indexOf("404") !== -1 ||
+    msg.indexOf("not found") !== -1 ||
+    msg.indexOf("upload-sessions") !== -1
+  );
 }
 
 function isInterruptedError(err) {
@@ -452,6 +480,181 @@ function uploadMultipartRetry(opts) {
   return tryOnce();
 }
 
+var CHUNK_SIZE_BYTES = 2 * 1024 * 1024;
+
+function _videoBasename(filePath) {
+  var p = String(filePath || "");
+  var i = Math.max(p.lastIndexOf("/"), p.lastIndexOf("\\"));
+  return i >= 0 ? p.slice(i + 1) : p || "video.mp4";
+}
+
+function _chunkRequestForm(url, data) {
+  return new Promise(function (resolve, reject) {
+    wx.request(
+      Object.assign(
+        {
+          url: url,
+          method: "POST",
+          timeout: UPLOAD_TIMEOUT_MS,
+          header: { "content-type": "application/x-www-form-urlencoded" },
+          data: data,
+          success: function (res) {
+            if (res.statusCode < 200 || res.statusCode >= 300) {
+              var detail = parseApiDetail(res.data, "请求失败 (" + res.statusCode + ")");
+              reject(new Error(detail));
+              return;
+            }
+            resolve(res.data);
+          },
+          fail: function (err) {
+            if (isDomainListError(err)) {
+              reject(new Error("域名未在白名单\n\n" + domainWhitelistHint()));
+              return;
+            }
+            reject(normalizeError(err, "网络错误"));
+          },
+        },
+        wxCronetCompatOpts()
+      )
+    );
+  });
+}
+
+function _chunkRequestBinary(method, url, data) {
+  return new Promise(function (resolve, reject) {
+    wx.request(
+      Object.assign(
+        {
+          url: url,
+          method: method,
+          timeout: UPLOAD_TIMEOUT_MS,
+          header: { "content-type": "application/octet-stream" },
+          data: data,
+          success: function (res) {
+            if (res.statusCode < 200 || res.statusCode >= 300) {
+              var detail = parseApiDetail(res.data, "上传失败 (" + res.statusCode + ")");
+              reject(new Error(detail));
+              return;
+            }
+            resolve(res.data);
+          },
+          fail: function (err) {
+            if (isDomainListError(err)) {
+              reject(new Error("域名未在白名单\n\n" + domainWhitelistHint()));
+              return;
+            }
+            reject(normalizeError(err, "上传失败"));
+          },
+        },
+        wxCronetCompatOpts()
+      )
+    );
+  });
+}
+
+function _readFileChunk(filePath, position, length) {
+  return new Promise(function (resolve, reject) {
+    wx.getFileSystemManager().readFile({
+      filePath: filePath,
+      position: position,
+      length: length,
+      success: function (res) {
+        resolve(res.data);
+      },
+      fail: function (err) {
+        reject(normalizeError(err, "读取视频分片失败"));
+      },
+    });
+  });
+}
+
+function _uploadChunkWithRetry(sessionId, chunkIndex, buffer, onRetry, maxAttempts) {
+  var limit = maxAttempts != null ? maxAttempts : 5;
+  var attempt = 0;
+  var url =
+    API_BASE_URL +
+    "/api/mobile/upload-sessions/" +
+    sessionId +
+    "/chunks/" +
+    chunkIndex;
+
+  function tryOnce() {
+    attempt += 1;
+    return _chunkRequestBinary("PUT", url, buffer).catch(function (err) {
+      if (!isUploadRetryableError(err) || attempt >= limit) {
+        return Promise.reject(err);
+      }
+      if (onRetry) {
+        onRetry({ attempt: attempt, maxAttempts: limit, chunkIndex: chunkIndex });
+      }
+      return new Promise(function (resolve) {
+        setTimeout(resolve, 1500 * attempt);
+      }).then(tryOnce);
+    });
+  }
+  return tryOnce();
+}
+
+function chunkVideoUpload(opts) {
+  if (!isApiConfigValid()) {
+    return Promise.reject(new Error(apiConfigHint()));
+  }
+
+  var filePath = opts.filePath;
+  var fileSize = opts.fileSize;
+  var purpose = opts.purpose;
+  var formData = opts.formData || {};
+  var onProgress = opts.onProgress;
+  var onRetry = opts.onRetry;
+
+  var totalChunks = Math.max(1, Math.ceil(fileSize / CHUNK_SIZE_BYTES));
+  var initData = Object.assign({}, formData, {
+    purpose: purpose,
+    file_size: String(fileSize),
+    filename: _videoBasename(filePath),
+    total_chunks: String(totalChunks),
+    chunk_size: String(CHUNK_SIZE_BYTES),
+  });
+
+  return _chunkRequestForm(API_BASE_URL + "/api/mobile/upload-sessions", initData).then(
+    function (session) {
+      var sessionId = session.session_id;
+      var chunkSize = session.chunk_size || CHUNK_SIZE_BYTES;
+      var chunks = session.total_chunks || totalChunks;
+      var index = 0;
+
+      function next() {
+        if (index >= chunks) {
+          return _chunkRequestForm(
+            API_BASE_URL + "/api/mobile/upload-sessions/" + sessionId + "/complete",
+            {}
+          );
+        }
+        var offset = index * chunkSize;
+        var length = Math.min(chunkSize, fileSize - offset);
+        return _readFileChunk(filePath, offset, length)
+          .then(function (buffer) {
+            return _uploadChunkWithRetry(sessionId, index, buffer, onRetry);
+          })
+          .then(function () {
+            index += 1;
+            if (onProgress) {
+              var pct = Math.min(99, Math.round((index / chunks) * 100));
+              onProgress({
+                progress: pct,
+                sent: Math.min(fileSize, index * chunkSize),
+                total: fileSize,
+              });
+            }
+            return next();
+          });
+      }
+
+      return next();
+    }
+  );
+}
+
 function routeVideoUpload(filePath, fileSize, smallUploadFn, chunkOpts) {
   var getSize =
     fileSize != null && fileSize > 0
@@ -465,7 +668,13 @@ function routeVideoUpload(filePath, fileSize, smallUploadFn, chunkOpts) {
           filePath: filePath,
           fileSize: sizeBytes,
         })
-      );
+      ).catch(function (err) {
+        if (isChunkApiUnavailableError(err)) {
+          console.warn("[TenniTi] chunk upload unavailable, fallback to uploadFile");
+          return smallUploadFn();
+        }
+        return Promise.reject(err);
+      });
     }
     return smallUploadFn();
   });
@@ -893,6 +1102,7 @@ module.exports = {
   showChooseFail,
   prepareVideoForUpload,
   formatUploadProgress,
+  mapUploadProgressPercent,
   diagnoseApiConnection,
   formatDiagnoseReport,
   runNetworkExperiments,

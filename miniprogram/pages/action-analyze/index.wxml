@@ -87,9 +87,21 @@
 
 <bottom-tabs active="analyze" />
 
-<upload-overlay
-  visible="{{busy}}"
-  percent="{{progressPercent}}"
-  title="{{progressText}}"
-  message="{{progressMessage}}"
-/>
+<view class="upload-overlay" wx:if="{{busy}}" catchtouchmove="true">
+  <view class="upload-overlay-panel">
+    <text class="upload-overlay-title">{{progressText || '处理中…'}}</text>
+    <view class="upload-overlay-progress-row">
+      <progress
+        class="upload-overlay-bar"
+        percent="{{progressPercent}}"
+        active
+        stroke-width="8"
+        activeColor="#13d8a8"
+        backgroundColor="#e5e9f0"
+      />
+      <text class="upload-overlay-pct">{{progressPercent}}%</text>
+    </view>
+    <text class="upload-overlay-message" wx:if="{{progressMessage}}">{{progressMessage}}</text>
+    <text class="upload-overlay-hint">视频较大时压缩与上传各需数分钟，请保持在本页等待</text>
+  </view>
+</view>
