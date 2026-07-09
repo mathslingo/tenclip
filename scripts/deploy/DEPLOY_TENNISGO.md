@@ -1,7 +1,8 @@
 # TenClip 部署到 tennisGo（与现有微信小程序后端隔离）
 
-> **生产 API 域名（已备案）**：`tenclip.qiongjingtiyu.com` → 见 **`DEPLOY_QIONGJING.md`**  
-> 下文 `clip.uchanceai.com` 为历史方案（`uchanceai.com` 未备案，不宜给小程序 4G 使用）。
+> **生产 API 域名（二选一，均已备案路径）**  
+> - **`clip.uchanceai.com`**（`uchanceai.com` 主体）→ **`DEPLOY_UCHANCEAI.md`** ← 当前推荐  
+> - **`tenclip.qiongjingtiyu.com`**（`qiongjingtiyu.com` 主体）→ **`DEPLOY_QIONGJING.md`**
 
 目标：在 **tennisGo**（`1.15.27.3`）上运行 TenClip（`127.0.0.1:7862`），与 `uchanceai.com` → `9098` 现有后端隔离。
 

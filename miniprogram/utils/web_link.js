@@ -1,6 +1,7 @@
-/** @deprecated 兼容旧包；新代码请直接用 config.js 或 stroke-extract 内联逻辑 */
-var WEB_STROKE_URL = "https://api.uchance.tech/web/stroke";
-var WEB_ANALYZE_URL = "https://api.uchance.tech/web";
+/** @deprecated 兼容旧包；新代码请用 config.js 的 WEB_STROKE_URL / WEB_ANALYZE_URL */
+var cfg = require("./config.js");
+var WEB_STROKE_URL = cfg.WEB_STROKE_URL;
+var WEB_ANALYZE_URL = cfg.WEB_ANALYZE_URL;
 
 function copyAndHint(url, name) {
   wx.setClipboardData({
