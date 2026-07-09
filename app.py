@@ -24,7 +24,7 @@ if not os.environ.get("TENCLIP_VLM_MODEL", "").strip() and _LOCAL_VLM.is_dir():
 
 import gradio as gr
 import uvicorn
-from fastapi import FastAPI, File, Form, HTTPException, Query, UploadFile
+from fastapi import FastAPI, File, Form, HTTPException, Query, Request, UploadFile
 from fastapi.responses import FileResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from moviepy.video.io.VideoFileClip import VideoFileClip
@@ -39,6 +39,7 @@ from services.stroke_extract_tasks import (
     init_stroke_db,
     submit_stroke_task,
 )
+from services import mobile_chunk_upload as mcu
 from services.vlm_tennis import (
     MAX_VIDEO_DURATION_SEC,
     analyze_tennis_video,
@@ -849,6 +850,104 @@ def create_app() -> FastAPI:
             raise HTTPException(status_code=500, detail=f"提交失败: {exc}") from exc
         finally:
             await video.close()
+
+    @api.post("/api/mobile/upload-sessions")
+    async def mobile_upload_session_create(
+        purpose: str = Form(...),
+        file_size: int = Form(...),
+        filename: str = Form("video.mp4"),
+        total_chunks: int = Form(...),
+        chunk_size: int = Form(mcu.CHUNK_SIZE_BYTES),
+        detect_mode: str = Form("spike"),
+        motion_percentile: float = Form(74.0),
+        vlm_filter: str = Form("0"),
+        perf_mode: str = Form("eco"),
+        prompt_profile: str = Form("default"),
+    ):
+        meta: dict = {
+            "filename": filename,
+            "content_type": "video/mp4",
+            "detect_mode": detect_mode,
+            "motion_percentile": motion_percentile,
+            "vlm_filter": vlm_filter,
+            "perf_mode": perf_mode,
+            "prompt_profile": prompt_profile,
+        }
+        return mcu.create_session(
+            repo_root=_REPO_ROOT,
+            purpose=purpose,
+            file_size=file_size,
+            filename=filename,
+            total_chunks=total_chunks,
+            chunk_size=chunk_size,
+            meta=meta,
+        )
+
+    @api.put("/api/mobile/upload-sessions/{session_id}/chunks/{chunk_index}")
+    async def mobile_upload_session_chunk(
+        session_id: str,
+        chunk_index: int,
+        request: Request,
+    ):
+        data = await request.body()
+        mcu.write_chunk(session_id, chunk_index, data)
+        return {"ok": True, "chunk_index": chunk_index}
+
+    @api.post("/api/mobile/upload-sessions/{session_id}/complete")
+    async def mobile_upload_session_complete(session_id: str):
+        sess = mcu.take_session(session_id)
+        if sess.purpose == "stroke":
+            task_id = uuid.uuid4().hex
+            suffix = sess.dest_path.suffix
+            final_path = (
+                _REPO_ROOT / "data" / "uploads" / "stroke" / f"{task_id}{suffix}"
+            )
+            final_path.parent.mkdir(parents=True, exist_ok=True)
+            sess.dest_path.replace(final_path)
+            mode = sess.meta.get("detect_mode", "spike")
+            if mode not in ("combined", "motion", "audio", "spike"):
+                mode = "combined"
+            mp = max(60.0, min(92.0, float(sess.meta.get("motion_percentile", 74.0))))
+            use_vlm = str(sess.meta.get("vlm_filter", "0")).strip().lower() in (
+                "1",
+                "true",
+                "yes",
+                "on",
+            )
+            return submit_stroke_task(
+                upload_path=final_path,
+                original_filename=sess.meta.get("filename") or final_path.name,
+                content_type=sess.meta.get("content_type") or "video/mp4",
+                detect_mode=mode,
+                motion_percentile=mp,
+                vlm_filter=use_vlm,
+                task_id=task_id,
+            )
+
+        task_id = uuid.uuid4().hex
+        suffix = sess.dest_path.suffix or ".mp4"
+        upload_path = UPLOAD_DIR / f"{task_id}{suffix}"
+        sess.dest_path.replace(upload_path)
+        perf_mode = sess.meta.get("perf_mode", "eco")
+        pp = (sess.meta.get("prompt_profile") or "").strip() or None
+        task = _new_task(task_id, perf_mode=perf_mode, prompt_profile=pp)
+        with ANALYSIS_TASKS_LOCK:
+            ANALYSIS_TASKS[task_id] = task
+        _db_upsert_task(task)
+        _db_insert_video(
+            task_id=task_id,
+            original_filename=sess.meta.get("filename") or upload_path.name,
+            stored_path=str(upload_path),
+            file_size=upload_path.stat().st_size if upload_path.exists() else 0,
+            content_type=sess.meta.get("content_type") or "video/mp4",
+        )
+        ANALYSIS_QUEUE.put((task_id, str(upload_path), perf_mode, pp))
+        return {
+            "task_id": task_id,
+            "status": "queued",
+            "queue_size": ANALYSIS_QUEUE.qsize(),
+            "stored_path": str(upload_path),
+        }
 
     @api.get("/api/mobile/analyze-video/tasks")
     def mobile_analyze_video_tasks_list(limit: int = Query(50, ge=1, le=200)):

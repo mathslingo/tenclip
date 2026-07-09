@@ -68,17 +68,13 @@ App({
         }
         if (isDomainListError(err)) {
           wx.showModal({
-            title: "域名未配置",
-            content: msg + "\n\n" + domainWhitelistHint(),
+            title: "网络配置异常",
+            content: domainWhitelistHint(),
             showCancel: false,
           });
           return;
         }
-        wx.showToast({
-          title: "API 探活失败，可直接试上传",
-          icon: "none",
-          duration: 3500,
-        });
+        // 正式版不在启动时打扰用户；上传失败时页面会提示
       });
   },
 });

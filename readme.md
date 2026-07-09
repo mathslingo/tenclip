@@ -48,6 +48,12 @@ bash scripts/verify_wsl_env.sh
 conda activate tenclip
 pip install -r requirements-subproject-core-api.txt   # 首次
 python3 -m uvicorn subprojects.core_api.app:app --host 127.0.0.1 --port 8000
+
+# 在服务器上 快速重启
+sudo systemctl daemon-reload && sudo systemctl restart tenclip-uchanceai && sleep 2 && curl -s http://127.0.0.1:7862/api/mobile/health
+# 若只改了代码、没动 unit 文件，可简化为：
+sudo systemctl restart tenclip-uchanceai && sleep 2 && curl -s http://127.0.0.1:7862/api/mobile/health
+
 ```
 
 文档：`http://127.0.0.1:8000/docs` · 健康检查：`GET /health`

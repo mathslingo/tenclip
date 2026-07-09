@@ -1,18 +1,15 @@
-const {
-  UPLOAD_WARN_SIZE_MB,
-  API_BASE_URL,
-  WEB_ANALYZE_URL,
-} = require("../../utils/config");
+const { UPLOAD_WARN_SIZE_MB } = require("../../utils/config");
 const {
   uploadAnalyzeSubmit,
   getAnalyzeTask,
   chooseTennisVideo,
   showChooseFail,
+  showChooseVideoHelp,
   prepareVideoForUpload,
   formatUploadProgress,
   setKeepScreenOn,
-  diagnoseWithExperiments,
 } = require("../../utils/api");
+const { mapUploadProgressPercent } = require("../../utils/upload_progress");
 const { formatGuidance } = require("../../utils/guidance");
 const { startTaskPoll } = require("../../utils/poll");
 
@@ -37,22 +34,6 @@ const PROMPT_OPTIONS = [
   { value: "motion_deep", label: "深度" },
 ];
 
-function copyWebLinkHint(url, name) {
-  wx.setClipboardData({
-    data: url,
-    success: function () {
-      wx.showModal({
-        title: "链接已复制",
-        content:
-          name +
-          " 地址已复制。\n\n请：\n1. 打开任意微信聊天\n2. 粘贴并发送\n3. 点击链接打开",
-        showCancel: false,
-        confirmText: "知道了",
-      });
-    },
-  });
-}
-
 Page({
   data: {
     videoPath: "",
@@ -75,14 +56,9 @@ Page({
     guidanceBody: "",
     guidanceMeta: "",
     showMeta: false,
-    apiBase: API_BASE_URL,
   },
 
   _stopPollFn: null,
-
-  onLoad() {
-    this.setData({ apiBase: API_BASE_URL });
-  },
 
   onUnload() {
     this._stopPoll();
@@ -104,18 +80,17 @@ Page({
 
   onChooseVideo() {
     if (this.data.busy) return;
-    wx.showLoading({ title: "打开相册…", mask: true });
     chooseTennisVideo()
       .then((file) => {
         const sizeMbNum = file.size ? file.size / (1024 * 1024) : 0;
         const sizeMb = sizeMbNum ? sizeMbNum.toFixed(1) : "";
         if (sizeMbNum > UPLOAD_WARN_SIZE_MB) {
           wx.showModal({
-            title: "视频较大",
+            title: "视频较长",
             content:
               "约 " +
               sizeMb +
-              " MB，上传可能需数分钟。分析默认只处理前约 5 分钟画面，请用 WiFi 并耐心等待。",
+              " MB，将自动压缩后上传。分析默认只处理前约 5 分钟，请使用 WiFi 并耐心等待。",
             showCancel: false,
           });
         }
@@ -131,8 +106,11 @@ Page({
           status: "",
         });
       })
-      .catch((err) => showChooseFail(err))
-      .finally(() => wx.hideLoading());
+      .catch((err) => showChooseFail(err));
+  },
+
+  onShowChooseHelp() {
+    showChooseVideoHelp();
   },
 
   onPerfTap(e) {
@@ -147,24 +125,6 @@ Page({
 
   onToggleMeta() {
     this.setData({ showMeta: !this.data.showMeta });
-  },
-
-  onOpenH5() {
-    copyWebLinkHint(WEB_ANALYZE_URL, "动作分析");
-  },
-
-  onTestApi() {
-    if (this.data.busy) return;
-    wx.showLoading({ title: "对照实验中…", mask: true });
-    diagnoseWithExperiments()
-      .then((result) => {
-        wx.showModal({
-          title: result.diag.requestOk ? "API 可连通" : "API 不可达",
-          content: result.report,
-          showCancel: false,
-        });
-      })
-      .finally(() => wx.hideLoading());
   },
 
   onCopyGuidance() {
@@ -187,9 +147,9 @@ Page({
       busy: true,
       status: "queued",
       statusLabel: STATUS_LABEL.queued,
-      progressPercent: 2,
-      progressText: "上传中…",
-      progressMessage: "正在上传视频",
+      progressPercent: 0,
+      progressText: "准备中…",
+      progressMessage: "正在处理视频，请勿离开页面",
       errorText: "",
       guidanceBody: "",
       guidanceMeta: "",
@@ -201,12 +161,14 @@ Page({
       const prepared = await prepareVideoForUpload(
         this.data.videoPath,
         this.data.videoSizeBytes,
-        () => {
-          this.setData({
-            progressText: "压缩中…",
-            progressMessage: "压缩视频中（缩短上传时间）",
-            progressPercent: 1,
-          });
+        {
+          onCompressProgress: (pct, msg) => {
+            this.setData({
+              progressText: "压缩中…",
+              progressMessage: msg,
+              progressPercent: pct,
+            });
+          },
         }
       );
       const uploadMb = prepared.size
@@ -215,13 +177,14 @@ Page({
       this.setData({
         progressText: "上传中…",
         progressMessage: uploadMb
-          ? `压缩完成（约 ${uploadMb} MB），正在上传到服务器…`
-          : "正在上传到服务器…",
-        progressPercent: 2,
+          ? `压缩完成（约 ${uploadMb} MB），正在上传…`
+          : "正在上传…",
+        progressPercent: 26,
       });
       this._uploadStart = Date.now();
       const submit = await uploadAnalyzeSubmit({
         filePath: prepared.filePath,
+        fileSize: prepared.size,
         perfMode: this.data.perfMode,
         promptProfile: this.data.promptProfile,
         onProgress: (ev) => {
@@ -229,14 +192,14 @@ Page({
           this.setData({
             progressText: `上传中 ${pct}%`,
             progressMessage: message,
-            progressPercent: Math.min(28, Math.max(2, Math.round(pct * 0.28))),
+            progressPercent: mapUploadProgressPercent(pct),
           });
         },
         onRetry: ({ attempt, maxAttempts }) => {
           this._uploadStart = Date.now();
           this.setData({
             progressText: "重试上传…",
-            progressMessage: `连接中断，正在第 ${attempt}/${maxAttempts} 次重试上传…`,
+            progressMessage: `网络中断，正在第 ${attempt}/${maxAttempts} 次重试…`,
           });
         },
       });
@@ -245,8 +208,8 @@ Page({
         taskId: submit.task_id,
         queueSize: submit.queue_size || 0,
         progressText: "分析中…",
-        progressMessage: "已上传，排队等待 GPU 分析（可息屏）",
-        progressPercent: 30,
+        progressMessage: "上传完成，排队等待分析（可息屏）",
+        progressPercent: 60,
       });
       this._startPoll(submit.task_id);
     } catch (err) {
@@ -258,7 +221,7 @@ Page({
         busy: false,
         status: "failed",
         statusLabel: STATUS_LABEL.failed,
-        progressMessage: isUpload ? "失败阶段：上传到服务器" : "失败阶段：提交/分析",
+        progressMessage: isUpload ? "上传失败，请换 WiFi 或选较短视频" : "提交失败",
         errorText: msg,
       });
     }
@@ -306,9 +269,9 @@ Page({
     }
     const pollPct =
       task.status === "queued"
-        ? 32
+        ? 62
         : task.status === "running"
-          ? Math.max(35, Math.min(95, 30 + frac * 0.65))
+          ? Math.max(65, Math.min(98, 60 + Math.round(frac * 0.38)))
           : task.status === "succeeded"
             ? 100
             : frac;
@@ -319,12 +282,12 @@ Page({
       progressPercent: pollPct,
       progressMessage:
         task.status === "failed"
-          ? task.progress_message || "失败阶段：模型分析"
+          ? task.progress_message || "分析失败"
           : task.progress_message ||
             (task.status === "queued"
               ? "排队等待中…"
               : task.status === "running"
-                ? "模型抽帧推理中…"
+                ? "正在分析…"
                 : ""),
       errorText: task.status === "failed" ? task.error || "分析失败" : "",
       guidanceBody,

@@ -1,6 +1,7 @@
 {
   "navigationBarTitleText": "UChance击球片段提取",
   "usingComponents": {
-    "bottom-tabs": "/components/bottom-tabs/index"
+    "bottom-tabs": "/components/bottom-tabs/index",
+    "upload-overlay": "/components/upload-overlay/index"
   }
 }

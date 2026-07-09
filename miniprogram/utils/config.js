@@ -28,7 +28,10 @@ const LOCAL_API_HOST = "http://127.0.0.1:7861";
 const PROD_API_BASE_URL = "https://clip.uchanceai.com";
 
 /** 每次上传体验版前改一下，用于确认手机跑的是新包 */
-const APP_BUILD_TAG = "2026-07-10-clip-uchanceai";
+const APP_BUILD_TAG = "2026-07-10-chunk-route";
+
+/** 超过此大小（MB）自动走分片上传（用户无感知，入口不变） */
+const UPLOAD_LARGE_ROUTE_MB = 50;
 
 const API_BASE_URL = LOCAL_DEV ? LOCAL_API_HOST : PROD_API_BASE_URL;
 
@@ -39,13 +42,13 @@ const WEB_ANALYZE_URL = API_BASE_URL + "/web";
 /** wx.uploadFile / wx.downloadFile 超时（毫秒，约 10 分钟；大视频 + 3Mbps 带宽可能仍较慢） */
 const UPLOAD_TIMEOUT_MS = 600000;
 
-/** 超过此大小（MB）提示用户压缩或换 WiFi */
-const UPLOAD_WARN_SIZE_MB = 80;
+/** 超过此大小（MB）选视频时提示用户 */
+const UPLOAD_WARN_SIZE_MB = 50;
 
-/** 上传前用 wx.compressVideo 压缩的阈值（MB）；击球检测不需原画质 */
-const UPLOAD_COMPRESS_ABOVE_MB = 1;
+/** 超过此大小（MB）才走 wx.compressVideo（过小文件压缩收益低） */
+const UPLOAD_COMPRESS_ABOVE_MB = 0.5;
 
-/** compressVideo 档位：low | medium | high（上传优先用 low 减小体积） */
+/** compressVideo 默认档位 */
 const UPLOAD_COMPRESS_QUALITY = "low";
 
 /** wx.request 轮询超时（毫秒） */
@@ -122,6 +125,7 @@ module.exports = {
   DOWNLOAD_TIMEOUT_MS,
   HEALTH_TIMEOUT_MS,
   UPLOAD_WARN_SIZE_MB,
+  UPLOAD_LARGE_ROUTE_MB,
   UPLOAD_COMPRESS_ABOVE_MB,
   UPLOAD_COMPRESS_QUALITY,
   APP_BUILD_TAG,

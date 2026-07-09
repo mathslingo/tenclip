@@ -1,12 +1,12 @@
 <view class="page">
   <view class="hero">
     <text class="hero-title">UChance · 动作分析</text>
-    <text class="hero-sub">上传网球视频，由 Qwen2-VL 生成中文动作指导。默认分析前约 5 分钟画面，长视频请先剪辑。</text>
+    <text class="hero-sub">上传网球视频，由 AI 生成中文动作指导。默认分析前约 5 分钟画面，更长视频请先剪辑。</text>
   </view>
 
   <view class="card">
     <text class="card-title">选择视频</text>
-    <text class="card-sub">支持相册或拍摄；需 GPU 与模型权重，首次加载较慢。</text>
+    <text class="card-sub">支持相册或拍摄；较长视频将自动压缩后上传，请保持 WiFi。</text>
 
     <view class="video-pick" bindtap="onChooseVideo">
       <block wx:if="{{!videoName}}">
@@ -18,6 +18,11 @@
         <text class="pick-meta" wx:if="{{videoSizeText}}">{{videoSizeText}}</text>
         <text class="pick-change">重新选择</text>
       </block>
+    </view>
+
+    <view class="choose-notice">
+      <text class="choose-notice-text">点「发送」后若微信显示「正在加载」，是在读入视频（大文件约 1～3 分钟），请耐心等待，并非程序出错。</text>
+      <text class="choose-notice-link" bindtap="onShowChooseHelp">查看说明</text>
     </view>
 
     <text class="field-label">性能模式</text>
@@ -45,9 +50,6 @@
     <button class="primary-btn" bindtap="onSubmit" loading="{{busy}}" disabled="{{busy || !videoPath}}">
       {{busy ? progressText : '开始分析'}}
     </button>
-    <text class="diag-link" bindtap="onOpenH5">API 异常？复制网页版链接</text>
-    <text class="diag-link secondary" bindtap="onTestApi">测试 API 连接</text>
-    <text class="api-hint">当前 API：{{apiBase}}</text>
   </view>
 
   <view class="card" wx:if="{{status}}">
@@ -84,3 +86,10 @@
 </view>
 
 <bottom-tabs active="analyze" />
+
+<upload-overlay
+  visible="{{busy}}"
+  percent="{{progressPercent}}"
+  title="{{progressText}}"
+  message="{{progressMessage}}"
+/>

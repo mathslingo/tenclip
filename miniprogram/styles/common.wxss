@@ -178,7 +178,29 @@
   font-size: 26rpx;
 }
 
-.diag-link {
+.choose-notice {
+  margin-top: 20rpx;
+  padding: 20rpx 22rpx;
+  background: #f4f8fb;
+  border-radius: 16rpx;
+  border: 1rpx solid #e3eaf2;
+}
+
+.choose-notice-text {
+  display: block;
+  font-size: 22rpx;
+  color: #5c6773;
+  line-height: 1.55;
+}
+
+.choose-notice-link {
+  display: inline-block;
+  margin-top: 10rpx;
+  font-size: 22rpx;
+  color: #0d7a62;
+  text-decoration: underline;
+}
+
   display: block;
   margin-top: 20rpx;
   text-align: center;

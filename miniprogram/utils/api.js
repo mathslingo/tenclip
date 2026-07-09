@@ -11,8 +11,14 @@ const {
   isDomainListError,
   UPLOAD_COMPRESS_ABOVE_MB,
   UPLOAD_COMPRESS_QUALITY,
+  UPLOAD_LARGE_ROUTE_MB,
   APP_BUILD_TAG,
 } = require("./config");
+const {
+  compressProgressMessage,
+  compressTickIntervalMs,
+} = require("./upload_progress");
+const { chunkVideoUpload } = require("./chunk_upload");
 
 function _errText(err) {
   return String((err && err.message) || (err && err.errMsg) || err || "").toLowerCase();
@@ -446,8 +452,27 @@ function uploadMultipartRetry(opts) {
   return tryOnce();
 }
 
+function routeVideoUpload(filePath, fileSize, smallUploadFn, chunkOpts) {
+  var getSize =
+    fileSize != null && fileSize > 0
+      ? Promise.resolve(fileSize)
+      : statFileSize(filePath);
+  return getSize.then(function (sizeBytes) {
+    var threshold = UPLOAD_LARGE_ROUTE_MB * 1024 * 1024;
+    if (sizeBytes > threshold) {
+      return chunkVideoUpload(
+        Object.assign({}, chunkOpts, {
+          filePath: filePath,
+          fileSize: sizeBytes,
+        })
+      );
+    }
+    return smallUploadFn();
+  });
+}
+
 function uploadStrokeExtract(opts) {
-  return uploadMultipartRetry({
+  var multipart = {
     url: API_BASE_URL + "/api/mobile/stroke-extract/submit",
     filePath: opts.filePath,
     name: "video",
@@ -458,7 +483,20 @@ function uploadStrokeExtract(opts) {
     },
     onProgress: opts.onProgress,
     onRetry: opts.onRetry,
-  });
+  };
+  return routeVideoUpload(
+    opts.filePath,
+    opts.fileSize,
+    function () {
+      return uploadMultipartRetry(multipart);
+    },
+    {
+      purpose: "stroke",
+      formData: multipart.formData,
+      onProgress: opts.onProgress,
+      onRetry: opts.onRetry,
+    }
+  );
 }
 
 function getStrokeTask(taskId) {
@@ -474,7 +512,7 @@ function downloadStrokeResult(taskId, onProgress) {
 }
 
 function uploadAnalyzeSubmit(opts) {
-  return uploadMultipartRetry({
+  var multipart = {
     url: API_BASE_URL + "/api/mobile/analyze-video/submit",
     filePath: opts.filePath,
     name: "video",
@@ -484,7 +522,20 @@ function uploadAnalyzeSubmit(opts) {
     },
     onProgress: opts.onProgress,
     onRetry: opts.onRetry,
-  });
+  };
+  return routeVideoUpload(
+    opts.filePath,
+    opts.fileSize,
+    function () {
+      return uploadMultipartRetry(multipart);
+    },
+    {
+      purpose: "analyze",
+      formData: multipart.formData,
+      onProgress: opts.onProgress,
+      onRetry: opts.onRetry,
+    }
+  );
 }
 
 function getAnalyzeTask(taskId) {
@@ -497,6 +548,79 @@ function isUserCancelPick(err) {
 }
 
 var CHOOSE_VIDEO_MAX_SEC = 60;
+var CHOOSE_GUIDE_SEEN_KEY = "tenclip_choose_video_guide_seen";
+
+var CHOOSE_VIDEO_HELP_TEXT =
+  "在预览页点绿色「发送」后，微信会显示「正在加载」。这是在读入视频文件，大视频可能需要 1～3 分钟，属于正常现象，并非小程序报错。\n\n请耐心等待，不要重复点击发送或退出。";
+
+function showChooseVideoHelp() {
+  return new Promise(function (resolve) {
+    wx.showModal({
+      title: "为什么发送后很慢？",
+      content: CHOOSE_VIDEO_HELP_TEXT,
+      confirmText: "知道了",
+      showCancel: false,
+      success: function () {
+        resolve();
+      },
+      fail: function () {
+        resolve();
+      },
+    });
+  });
+}
+
+function ensureChooseVideoGuide() {
+  if (wx.getStorageSync(CHOOSE_GUIDE_SEEN_KEY)) {
+    return Promise.resolve();
+  }
+  return new Promise(function (resolve, reject) {
+    wx.showModal({
+      title: "选择视频提示",
+      content: CHOOSE_VIDEO_HELP_TEXT,
+      confirmText: "去选择",
+      cancelText: "取消",
+      success: function (res) {
+        wx.setStorageSync(CHOOSE_GUIDE_SEEN_KEY, "1");
+        if (res.confirm) {
+          resolve();
+        } else {
+          reject({ errMsg: "chooseVideo:fail cancel" });
+        }
+      },
+      fail: function () {
+        resolve();
+      },
+    });
+  });
+}
+
+function pickFromAlbumCompressed() {
+  return pickChooseVideo({ sourceType: ["album"], compressed: true }).catch(function (err) {
+    if (isUserCancelPick(err)) throw err;
+    if (isPrivacyError(err)) {
+      return requirePrivacyIfNeeded().then(function () {
+        return pickChooseVideo({ sourceType: ["album"], compressed: true });
+      });
+    }
+    return pickChooseMedia({ sourceType: ["album"] });
+  });
+}
+
+function pickFromAlbumOrCamera() {
+  return pickChooseMedia({
+    sourceType: ["album", "camera"],
+    maxDuration: CHOOSE_VIDEO_MAX_SEC,
+  }).catch(function (err) {
+    if (isUserCancelPick(err)) throw err;
+    if (isPrivacyError(err)) {
+      return requirePrivacyIfNeeded().then(function () {
+        return pickChooseVideo({ sourceType: ["album", "camera"], compressed: true });
+      });
+    }
+    return pickChooseVideo({ sourceType: ["album", "camera"], compressed: true });
+  });
+}
 
 function pickChooseMedia(opts) {
   opts = opts || {};
@@ -565,29 +689,95 @@ function statFileSize(filePath) {
   });
 }
 
-function prepareVideoForUpload(filePath, sizeBytes, onStatus) {
+function compressionProfile(sizeBytes) {
+  var mb = sizeBytes / (1024 * 1024);
+  if (mb >= 100) {
+    return { quality: UPLOAD_COMPRESS_QUALITY, bitrate: 350, resolution: 0.45, fps: 24 };
+  }
+  if (mb >= 60) {
+    return { quality: UPLOAD_COMPRESS_QUALITY, bitrate: 450, resolution: 0.5, fps: 24 };
+  }
+  if (mb >= 30) {
+    return { quality: UPLOAD_COMPRESS_QUALITY, bitrate: 600, resolution: 0.65, fps: 24 };
+  }
+  if (mb >= 10) {
+    return { quality: UPLOAD_COMPRESS_QUALITY, bitrate: 800, resolution: 0.75, fps: 30 };
+  }
+  return { quality: UPLOAD_COMPRESS_QUALITY };
+}
+
+function prepareVideoForUpload(filePath, sizeBytes, callbacks) {
+  var onStatus;
+  var onCompressProgress;
+  if (typeof callbacks === "function") {
+    onStatus = callbacks;
+  } else if (callbacks) {
+    onStatus = callbacks.onStatus;
+    onCompressProgress = callbacks.onCompressProgress;
+  }
+
   var threshold = UPLOAD_COMPRESS_ABOVE_MB * 1024 * 1024;
   if (!sizeBytes || sizeBytes < threshold || typeof wx.compressVideo !== "function") {
+    if (onCompressProgress) {
+      onCompressProgress(12, "视频较小，跳过压缩，准备上传…");
+    }
     return Promise.resolve({ filePath: filePath, size: sizeBytes || 0 });
   }
   if (onStatus) onStatus("compressing");
+
+  var profile = compressionProfile(sizeBytes);
+  var simTimer = null;
+  var simulated = 2;
+  var maxSim = 22;
+
+  function stopSim() {
+    if (simTimer) {
+      clearInterval(simTimer);
+      simTimer = null;
+    }
+  }
+
+  function startSim() {
+    if (!onCompressProgress) return;
+    onCompressProgress(simulated, compressProgressMessage(sizeBytes, simulated));
+    simTimer = setInterval(function () {
+      if (simulated >= maxSim) return;
+      simulated += 1;
+      onCompressProgress(simulated, compressProgressMessage(sizeBytes, simulated));
+    }, compressTickIntervalMs(sizeBytes));
+  }
+
+  startSim();
+
   return new Promise(function (resolve) {
-    wx.compressVideo({
-      src: filePath,
-      quality: UPLOAD_COMPRESS_QUALITY,
-      success: function (res) {
-        statFileSize(res.tempFilePath).then(function (newSize) {
-          resolve({
-            filePath: res.tempFilePath,
-            size: newSize || sizeBytes,
-            compressed: true,
-          });
-        });
-      },
-      fail: function () {
-        resolve({ filePath: filePath, size: sizeBytes, compressed: false });
-      },
-    });
+    wx.compressVideo(
+      Object.assign(
+        {
+          src: filePath,
+          success: function (res) {
+            stopSim();
+            if (onCompressProgress) {
+              onCompressProgress(24, "压缩完成，正在准备上传…");
+            }
+            statFileSize(res.tempFilePath).then(function (newSize) {
+              resolve({
+                filePath: res.tempFilePath,
+                size: newSize || sizeBytes,
+                compressed: true,
+              });
+            });
+          },
+          fail: function () {
+            stopSim();
+            if (onCompressProgress) {
+              onCompressProgress(20, "压缩跳过，将上传原视频…");
+            }
+            resolve({ filePath: filePath, size: sizeBytes, compressed: false });
+          },
+        },
+        profile
+      )
+    );
   });
 }
 
@@ -664,31 +854,24 @@ function showChooseFail(err) {
 }
 
 function chooseTennisVideo() {
-  return pickChooseVideo({ sourceType: ["album"], compressed: true })
-    .catch(function (err) {
-      if (isUserCancelPick(err)) throw err;
-      if (isPrivacyError(err)) {
-        return requirePrivacyIfNeeded().then(function () {
-          return pickChooseVideo({ sourceType: ["album"], compressed: true });
+  return ensureChooseVideoGuide()
+    .then(function () {
+      var t0 = Date.now();
+      wx.showLoading({ title: "等待微信读入…", mask: true });
+      return pickFromAlbumCompressed()
+        .catch(function (err) {
+          if (isUserCancelPick(err)) throw err;
+          return pickFromAlbumOrCamera();
+        })
+        .finally(function () {
+          wx.hideLoading();
+        })
+        .then(function (file) {
+          if (Date.now() - t0 > 4000) {
+            wx.showToast({ title: "视频已选入", icon: "success", duration: 1800 });
+          }
+          return file;
         });
-      }
-      return pickChooseMedia({ sourceType: ["album"] });
-    })
-    .catch(function (err) {
-      if (isUserCancelPick(err)) throw err;
-      return pickChooseMedia({
-        sourceType: ["album", "camera"],
-        maxDuration: CHOOSE_VIDEO_MAX_SEC,
-      });
-    })
-    .catch(function (err) {
-      if (isUserCancelPick(err)) throw err;
-      if (isPrivacyError(err)) {
-        return requirePrivacyIfNeeded().then(function () {
-          return pickChooseVideo({ sourceType: ["album", "camera"], compressed: true });
-        });
-      }
-      return pickChooseVideo({ sourceType: ["album", "camera"], compressed: true });
     });
 }
 
@@ -706,6 +889,7 @@ module.exports = {
   uploadAnalyzeSubmit,
   getAnalyzeTask,
   chooseTennisVideo,
+  showChooseVideoHelp,
   showChooseFail,
   prepareVideoForUpload,
   formatUploadProgress,
