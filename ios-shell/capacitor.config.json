@@ -1,0 +1,15 @@
+{
+  "appId": "com.uchance.tenclip",
+  "appName": "TenniTi",
+  "webDir": "www",
+  "server": {
+    "url": "https://clip.uchanceai.com/web/stroke",
+    "allowNavigation": [
+      "https://clip.uchanceai.com/*"
+    ]
+  },
+  "ios": {
+    "contentInset": "automatic",
+    "preferredContentMode": "mobile"
+  }
+}

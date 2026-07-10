@@ -36,3 +36,16 @@ data/**/*.m4v
 
 # 微信开发者工具本地私有配置
 miniprogram/project.private.config.json
+
+# Capacitor iOS 壳
+ios-shell/node_modules/
+ios-shell/ios/App/Pods/
+ios-shell/ios/App/App/public/
+*.xcuserstate
+
+# Flutter
+tenclip_app/.dart_tool/
+tenclip_app/build/
+tenclip_app/.flutter-plugins
+tenclip_app/.flutter-plugins-dependencies
+tenclip_app/**/Pods/
