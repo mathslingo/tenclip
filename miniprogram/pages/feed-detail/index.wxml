@@ -1,0 +1,41 @@
+<view class="detail-page" wx:if="{{item}}">
+  <view class="hero-cover">
+    <image
+      wx:if="{{!coverFailed}}"
+      class="hero-img"
+      src="{{item.cover}}"
+      mode="widthFix"
+      binderror="onCoverError"
+    />
+    <view wx:else class="hero-fallback">
+      <text>{{item.author_initial}}</text>
+    </view>
+  </view>
+
+  <view class="detail-card">
+    <text class="detail-title">{{item.title}}</text>
+    <view class="detail-author-row">
+      <view class="avatar">{{item.author_initial}}</view>
+      <view class="author-block">
+        <text class="author-name">{{item.author_name}}</text>
+        <text class="pub" wx:if="{{publishedText}}">{{publishedText}}</text>
+      </view>
+      <view class="likes">
+        <text>♡ {{item.like_count}}</text>
+      </view>
+    </view>
+
+    <text class="detail-summary">{{item.summary}}</text>
+
+    <view class="tag-row" wx:if="{{item.tags.length}}">
+      <text class="tag" wx:for="{{item.tags}}" wx:key="*this">#{{item}}</text>
+    </view>
+
+    <button class="primary-btn" bindtap="onCopyLink" wx:if="{{item.url}}">复制原文链接</button>
+    <button class="ghost-btn" bindtap="onGoAnalyze">用视频做 AI 分析</button>
+  </view>
+</view>
+
+<view class="detail-loading" wx:else>
+  <text>{{errorText || '加载中…'}}</text>
+</view>

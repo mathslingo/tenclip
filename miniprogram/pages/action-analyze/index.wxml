@@ -1,6 +1,6 @@
 <view class="page">
   <view class="hero">
-    <text class="hero-title">UChance · 动作分析</text>
+    <text class="hero-title">UChance 动作分析</text>
     <text class="hero-sub">上传网球视频，由 AI 生成中文动作指导。默认分析前约 5 分钟画面，更长视频请先剪辑。</text>
   </view>
 

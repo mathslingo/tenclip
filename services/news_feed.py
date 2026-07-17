@@ -260,6 +260,21 @@ def init_news_db() -> None:
         )
         conn.execute("CREATE INDEX IF NOT EXISTS idx_news_published ON news_articles(published_at DESC)")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_news_feedback_user ON news_feedback(user_id)")
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS news_ingest_runs (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                started_at TEXT NOT NULL,
+                finished_at TEXT NOT NULL,
+                status TEXT NOT NULL,
+                limit_per_source INTEGER NOT NULL,
+                inserted_or_updated INTEGER NOT NULL DEFAULT 0,
+                sources_ok TEXT,
+                sources_failed TEXT,
+                detail_json TEXT
+            )
+            """
+        )
         conn.commit()
 
 
@@ -552,6 +567,7 @@ def _ingest_one_source_rows(source: NewsSource, limit_per_source: int) -> list[d
 
 def ingest_news(limit_per_source: int = 20) -> dict[str, Any]:
     init_news_db()
+    started = _to_iso(_utc_now())
     inserted = 0
     touched_sources: list[str] = []
     failed_sources: list[dict[str, str]] = []
@@ -609,13 +625,196 @@ def ingest_news(limit_per_source: int = 20) -> dict[str, Any]:
                 )
                 inserted += int(cur.rowcount > 0)
         conn.commit()
-    return {
+    finished = _to_iso(_utc_now())
+    result = {
         "inserted_or_updated": inserted,
         "sources": touched_sources,
         "failed": failed_sources,
         "http_timeout_sec": http_cap,
         "source_timeout_sec": per_source_deadline,
+        "started_at": started,
+        "finished_at": finished,
     }
+    status = "ok" if touched_sources else "failed"
+    if touched_sources and failed_sources:
+        status = "partial"
+    _record_ingest_run(
+        started_at=started,
+        finished_at=finished,
+        status=status,
+        limit_per_source=limit_per_source,
+        result=result,
+    )
+    return result
+
+
+def _record_ingest_run(
+    *,
+    started_at: str,
+    finished_at: str,
+    status: str,
+    limit_per_source: int,
+    result: dict[str, Any],
+) -> None:
+    init_news_db()
+    with sqlite3.connect(DB_PATH) as conn:
+        conn.execute(
+            """
+            INSERT INTO news_ingest_runs(
+                started_at, finished_at, status, limit_per_source,
+                inserted_or_updated, sources_ok, sources_failed, detail_json
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                started_at,
+                finished_at,
+                status,
+                int(limit_per_source),
+                int(result.get("inserted_or_updated") or 0),
+                json.dumps(result.get("sources") or [], ensure_ascii=False),
+                json.dumps(result.get("failed") or [], ensure_ascii=False),
+                json.dumps(result, ensure_ascii=False),
+            ),
+        )
+        conn.commit()
+
+
+def list_ingest_runs(limit: int = 20) -> list[dict[str, Any]]:
+    init_news_db()
+    limit = max(1, min(int(limit), 100))
+    with sqlite3.connect(DB_PATH) as conn:
+        conn.row_factory = sqlite3.Row
+        rows = conn.execute(
+            """
+            SELECT id, started_at, finished_at, status, limit_per_source,
+                   inserted_or_updated, sources_ok, sources_failed
+            FROM news_ingest_runs
+            ORDER BY id DESC
+            LIMIT ?
+            """,
+            (limit,),
+        ).fetchall()
+    out: list[dict[str, Any]] = []
+    for r in rows:
+        item = dict(r)
+        try:
+            item["sources_ok"] = json.loads(r["sources_ok"] or "[]")
+        except Exception:
+            item["sources_ok"] = []
+        try:
+            item["sources_failed"] = json.loads(r["sources_failed"] or "[]")
+        except Exception:
+            item["sources_failed"] = []
+        out.append(item)
+    return out
+
+
+def _mock_category_distribution(total: int) -> list[dict[str, Any]]:
+    """类目尚未正式标注；先按固定比例 mock，便于后台可视化。"""
+    if total <= 0:
+        return [
+            {"name": "赛事", "count": 0, "pct": 0.0},
+            {"name": "教学", "count": 0, "pct": 0.0},
+            {"name": "综合", "count": 0, "pct": 0.0},
+            {"name": "其它", "count": 0, "pct": 0.0},
+        ]
+    weights = [("赛事", 0.38), ("教学", 0.27), ("综合", 0.22), ("其它", 0.13)]
+    counts: list[int] = []
+    used = 0
+    for i, (_, w) in enumerate(weights):
+        if i == len(weights) - 1:
+            c = max(0, total - used)
+        else:
+            c = int(round(total * w))
+            used += c
+        counts.append(c)
+    # 修正四舍五入导致的偏差
+    diff = total - sum(counts)
+    counts[0] = max(0, counts[0] + diff)
+    return [
+        {"name": name, "count": counts[i], "pct": round(100.0 * counts[i] / total, 1)}
+        for i, (name, _) in enumerate(weights)
+    ]
+
+
+def get_news_admin_overview() -> dict[str, Any]:
+    init_news_db()
+    with sqlite3.connect(DB_PATH) as conn:
+        conn.row_factory = sqlite3.Row
+        total = int(conn.execute("SELECT COUNT(*) AS c FROM news_articles").fetchone()["c"])
+        with_image = int(
+            conn.execute(
+                "SELECT COUNT(*) AS c FROM news_articles WHERE image_url IS NOT NULL AND TRIM(image_url) <> ''"
+            ).fetchone()["c"]
+        )
+        feedback_n = int(conn.execute("SELECT COUNT(*) AS c FROM news_feedback").fetchone()["c"])
+        profile_n = int(conn.execute("SELECT COUNT(*) AS c FROM news_user_profile").fetchone()["c"])
+        by_source_rows = conn.execute(
+            """
+            SELECT source, COUNT(*) AS c
+            FROM news_articles
+            GROUP BY source
+            ORDER BY c DESC
+            LIMIT 30
+            """
+        ).fetchall()
+        latest = conn.execute(
+            """
+            SELECT id, source, title, url, published_at, ingested_at,
+                   CASE WHEN image_url IS NOT NULL AND TRIM(image_url) <> '' THEN 1 ELSE 0 END AS has_image
+            FROM news_articles
+            ORDER BY datetime(ingested_at) DESC
+            LIMIT 15
+            """
+        ).fetchall()
+        latest_pub = conn.execute(
+            "SELECT published_at FROM news_articles ORDER BY datetime(published_at) DESC LIMIT 1"
+        ).fetchone()
+
+    by_source = [{"source": r["source"], "count": int(r["c"])} for r in by_source_rows]
+    return {
+        "db_path": str(DB_PATH),
+        "article_total": total,
+        "with_image": with_image,
+        "without_image": max(0, total - with_image),
+        "feedback_total": feedback_n,
+        "profile_total": profile_n,
+        "latest_published_at": (latest_pub["published_at"] if latest_pub else None),
+        "by_source": by_source,
+        "categories": _mock_category_distribution(total),
+        "categories_is_mock": True,
+        "recent_articles": [dict(r) for r in latest],
+        "recent_ingest_runs": list_ingest_runs(limit=8),
+        "configured_sources": [
+            {"name": s.name, "kind": s.kind, "tier": s.quality_tier, "url": s.url}
+            for s in get_news_sources()
+        ],
+    }
+
+
+def list_news_articles_admin(*, limit: int = 30, offset: int = 0) -> dict[str, Any]:
+    init_news_db()
+    limit = max(1, min(int(limit), 100))
+    offset = max(0, int(offset))
+    with sqlite3.connect(DB_PATH) as conn:
+        conn.row_factory = sqlite3.Row
+        total = int(conn.execute("SELECT COUNT(*) AS c FROM news_articles").fetchone()["c"])
+        rows = conn.execute(
+            """
+            SELECT id, source, source_domain, source_tier, title, summary, url, image_url,
+                   tags_csv, published_at, ingested_at, popularity
+            FROM news_articles
+            ORDER BY datetime(published_at) DESC
+            LIMIT ? OFFSET ?
+            """,
+            (limit, offset),
+        ).fetchall()
+    items = []
+    for r in rows:
+        item = dict(r)
+        item["tags"] = _split_tags_csv(r["tags_csv"])
+        items.append(item)
+    return {"items": items, "total": total, "limit": limit, "offset": offset}
 
 
 def set_user_profile(user_id: str, tags: list[str]) -> None:

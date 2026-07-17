@@ -1,6 +1,6 @@
 <view class="page">
   <view class="hero">
-    <text class="hero-title">UChance击球片段提取</text>
+    <text class="hero-title">UChance 击球剪辑</text>
     <text class="hero-sub">上传网球视频，自动剪掉换边与等待，保留击球/回合画面。</text>
   </view>
 

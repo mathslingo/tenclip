@@ -1,0 +1,41 @@
+<view class="me-page">
+  <view class="me-hero">
+    <text class="brand">UChance</text>
+    <text class="brand-sub">网球剪辑 · 资讯 · AI 分析</text>
+  </view>
+
+  <view class="card">
+    <text class="card-title">工具</text>
+    <view class="menu-row" bindtap="onGoStroke">
+      <text>击球剪辑</text>
+      <text class="chev">›</text>
+    </view>
+    <view class="menu-row" bindtap="onGoAnalyze">
+      <text>大模型动作分析</text>
+      <text class="chev">›</text>
+    </view>
+    <view class="menu-row" bindtap="onGoFeed">
+      <text>发现 · 网球资讯</text>
+      <text class="chev">›</text>
+    </view>
+  </view>
+
+  <view class="card">
+    <text class="card-title">数据源</text>
+    <view class="switch-row">
+      <view>
+        <text class="switch-label">资讯使用 Mock</text>
+        <text class="switch-hint">关闭后请求线上 /api/news/feed；失败回退 Mock，空库显示空态</text>
+      </view>
+      <switch checked="{{feedUseMock}}" bindchange="onMockChange" color="#13d8a8" />
+    </view>
+    <text class="build-tag">Build {{buildTag}}</text>
+  </view>
+
+  <view class="card">
+    <text class="card-title">关于</text>
+    <text class="about-text">UChance 帮助你浏览网球资讯、剪辑击球片段，并用大模型获得动作指导。发现页默认接新闻库；可在本页临时切回 Mock。</text>
+  </view>
+</view>
+
+<bottom-tabs active="me" />

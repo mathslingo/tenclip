@@ -14,7 +14,7 @@
   flex: 1;
   text-align: center;
   padding: 22rpx 0 18rpx;
-  font-size: 24rpx;
+  font-size: 22rpx;
   color: #6e7582;
 }
 

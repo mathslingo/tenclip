@@ -28,7 +28,10 @@ const LOCAL_API_HOST = "http://127.0.0.1:7861";
 const PROD_API_BASE_URL = "https://clip.uchanceai.com";
 
 /** 每次上传体验版前改一下，用于确认手机跑的是新包 */
-const APP_BUILD_TAG = "2026-07-10-chunk-fallback";
+const APP_BUILD_TAG = "2026-07-12-feed-m1";
+
+/** 发现页：true=本地 Mock；false=请求 /api/news/feed（失败回退 Mock；空库显示空态） */
+const FEED_USE_MOCK = false;
 
 /** 超过此大小（MB）自动走分片上传（用户无感知，入口不变） */
 const UPLOAD_LARGE_ROUTE_MB = 50;
@@ -128,6 +131,7 @@ module.exports = {
   UPLOAD_LARGE_ROUTE_MB,
   UPLOAD_COMPRESS_ABOVE_MB,
   UPLOAD_COMPRESS_QUALITY,
+  FEED_USE_MOCK,
   APP_BUILD_TAG,
   WEB_STROKE_URL,
   WEB_ANALYZE_URL,

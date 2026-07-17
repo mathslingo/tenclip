@@ -1,0 +1,93 @@
+.me-page {
+  padding: 24rpx 24rpx calc(120rpx + env(safe-area-inset-bottom));
+}
+
+.me-hero {
+  background: linear-gradient(145deg, #baf5e8, #d4fff4);
+  border-radius: 32rpx;
+  padding: 36rpx 32rpx;
+  margin-bottom: 20rpx;
+}
+
+.brand {
+  display: block;
+  font-size: 44rpx;
+  font-weight: 700;
+  color: #0d3d32;
+}
+
+.brand-sub {
+  display: block;
+  margin-top: 10rpx;
+  font-size: 24rpx;
+  color: #415360;
+}
+
+.card {
+  background: #fff;
+  border-radius: 28rpx;
+  padding: 8rpx 28rpx 28rpx;
+  margin-bottom: 20rpx;
+  box-shadow: 0 2rpx 12rpx rgba(0, 0, 0, 0.05);
+}
+
+.card-title {
+  display: block;
+  padding: 24rpx 0 8rpx;
+  font-size: 30rpx;
+  font-weight: 600;
+}
+
+.menu-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 28rpx 0;
+  border-top: 2rpx solid #f0f3f6;
+  font-size: 28rpx;
+  color: #151821;
+}
+
+.chev {
+  color: #c0c6ce;
+  font-size: 36rpx;
+}
+
+.switch-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20rpx;
+  padding: 20rpx 0 8rpx;
+  border-top: 2rpx solid #f0f3f6;
+}
+
+.switch-label {
+  display: block;
+  font-size: 28rpx;
+}
+
+.switch-hint {
+  display: block;
+  margin-top: 8rpx;
+  font-size: 22rpx;
+  color: #9aa3af;
+  line-height: 1.4;
+  max-width: 460rpx;
+}
+
+.build-tag {
+  display: block;
+  margin-top: 12rpx;
+  font-size: 22rpx;
+  color: #b0b7c0;
+}
+
+.about-text {
+  display: block;
+  padding-top: 12rpx;
+  border-top: 2rpx solid #f0f3f6;
+  font-size: 26rpx;
+  line-height: 1.6;
+  color: #415360;
+}

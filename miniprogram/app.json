@@ -1,10 +1,13 @@
 {
   "pages": [
+    "pages/feed/index",
+    "pages/feed-detail/index",
     "pages/stroke-extract/index",
-    "pages/action-analyze/index"
+    "pages/action-analyze/index",
+    "pages/me/index"
   ],
   "window": {
-    "navigationBarTitleText": "TenniTi",
+    "navigationBarTitleText": "UChance",
     "navigationBarBackgroundColor": "#f2f3f5",
     "navigationBarTextStyle": "black",
     "backgroundColor": "#f2f3f5",

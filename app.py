@@ -50,8 +50,11 @@ from services.vlm_tennis import (
 )
 from services.news_feed import (
     RecommendInput,
+    get_news_admin_overview,
     ingest_news,
     init_news_db,
+    list_ingest_runs,
+    list_news_articles_admin,
     record_feedback,
     recommend_news,
     set_user_profile,
@@ -1079,6 +1082,30 @@ def create_app() -> FastAPI:
         )
         return {"items": items, "next_offset": offset + len(items)}
 
+    @api.get("/api/news/admin/overview")
+    def news_admin_overview():
+        return get_news_admin_overview()
+
+    @api.get("/api/news/admin/articles")
+    def news_admin_articles(
+        limit: int = Query(30, ge=1, le=100),
+        offset: int = Query(0, ge=0),
+    ):
+        return list_news_articles_admin(limit=limit, offset=offset)
+
+    @api.get("/api/news/admin/ingest-runs")
+    def news_admin_ingest_runs(limit: int = Query(20, ge=1, le=100)):
+        return {"items": list_ingest_runs(limit=limit)}
+
+    @api.get("/api/news/admin/queues")
+    def news_admin_queues():
+        from services.stroke_extract_tasks import STROKE_QUEUE
+
+        return {
+            "analysis_queue_size": ANALYSIS_QUEUE.qsize(),
+            "stroke_queue_size": STROKE_QUEUE.qsize(),
+        }
+
     front_page_dir = _REPO_ROOT / "pages" / "front_page"
     if front_page_dir.exists():
         # 独立 Web 入口（响应式：PC/手机皆可）；静态资源走独立前缀，避免与 Gradio 根路由冲突。
@@ -1116,6 +1143,19 @@ def create_app() -> FastAPI:
         @api.get("/news/")
         def news_home():
             return FileResponse(news_page_dir / "index.html")
+
+    news_admin_dir = _REPO_ROOT / "pages" / "news_admin"
+    if news_admin_dir.exists():
+        api.mount(
+            "/news-admin-assets",
+            StaticFiles(directory=str(news_admin_dir)),
+            name="news-admin-assets",
+        )
+
+        @api.get("/admin/news-feed")
+        @api.get("/admin/news-feed/")
+        def news_admin_home():
+            return FileResponse(news_admin_dir / "index.html")
 
     # 简单 H5（Gradio）：上传视频 + 指导意见，风格贴近 front_page（须在主界面 /gradio 之前注册，避免被吞）
     gr.mount_gradio_app(api, video_input_demo, path="/video_input")

@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>UChance · 新闻库管理</title>
+  <link rel="stylesheet" href="/news-admin-assets/styles.css" />
+</head>
+<body>
+  <main class="page">
+    <header class="header">
+      <div>
+        <h1>网球新闻库</h1>
+        <p>SQLite 入池概览 · 抓取任务 · 类目（mock）</p>
+      </div>
+      <div class="actions">
+        <button type="button" id="refreshBtn" class="ghost">刷新</button>
+        <button type="button" id="ingestBtn" class="primary">立即抓取入库</button>
+      </div>
+    </header>
+
+    <section class="cards" id="statCards">
+      <article class="stat"><span class="label">入池总数</span><strong id="statTotal">—</strong></article>
+      <article class="stat"><span class="label">有封面</span><strong id="statImage">—</strong></article>
+      <article class="stat"><span class="label">无封面</span><strong id="statNoImage">—</strong></article>
+      <article class="stat"><span class="label">反馈条数</span><strong id="statFeedback">—</strong></article>
+    </section>
+
+    <section class="grid-2">
+      <article class="panel">
+        <h2>类目分布 <span class="badge">Mock</span></h2>
+        <p class="hint">正式类目标注尚未接入，当前按固定比例示意。</p>
+        <div id="catBars" class="bars"></div>
+      </article>
+      <article class="panel">
+        <h2>来源分布 <span class="badge real">真实</span></h2>
+        <div id="sourceBars" class="bars"></div>
+      </article>
+    </section>
+
+    <section class="grid-2">
+      <article class="panel">
+        <h2>任务与队列</h2>
+        <ul class="kv" id="taskKv"></ul>
+        <h3 class="sub">最近抓取任务</h3>
+        <div id="ingestRuns" class="table-wrap"></div>
+      </article>
+      <article class="panel">
+        <h2>配置来源</h2>
+        <div id="cfgSources" class="table-wrap"></div>
+      </article>
+    </section>
+
+    <section class="panel">
+      <h2>最近入库</h2>
+      <div id="recentArticles" class="table-wrap"></div>
+    </section>
+
+    <p class="foot" id="dbPath"></p>
+  </main>
+  <div id="toast" class="toast" hidden></div>
+  <script src="/news-admin-assets/script.js"></script>
+</body>
+</html>
