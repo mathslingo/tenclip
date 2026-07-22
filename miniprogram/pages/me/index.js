@@ -1,4 +1,4 @@
-const { APP_BUILD_TAG, FEED_USE_MOCK } = require("../../utils/config");
+const { APP_BUILD_TAG, FEED_USE_MOCK, API_BASE_URL, LOCAL_DEV } = require("../../utils/config");
 
 const MOCK_KEY = "tenclip_feed_use_mock";
 
@@ -6,6 +6,8 @@ Page({
   data: {
     feedUseMock: !!FEED_USE_MOCK,
     buildTag: APP_BUILD_TAG,
+    apiBase: API_BASE_URL,
+    localDev: !!LOCAL_DEV,
   },
 
   onShow() {

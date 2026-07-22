@@ -4,11 +4,12 @@
   "sources": [
     {
       "id": "cnn_sport_rss",
-      "enabled": true,
+      "enabled": false,
       "name": "CNN · Sport (RSS)",
       "url": "http://rss.cnn.com/rss/edition_sport.rss",
       "kind": "rss",
-      "quality_tier": 2
+      "quality_tier": 2,
+      "comment": "综合体育噪声大，默认关闭；网球优先用 ATP/WTA/BBC/ESPN"
     },
     {
       "id": "bbc_tennis_rss",
@@ -67,6 +68,16 @@
       "kind": "html",
       "parser": "thepaper_list",
       "quality_tier": 2
+    },
+    {
+      "id": "live_tennis_cn_home",
+      "enabled": true,
+      "name": "Live Tennis CN",
+      "url": "https://www.live-tennis.cn/zh/home",
+      "kind": "html",
+      "parser": "live_tennis_list",
+      "quality_tier": 3,
+      "comment": "网球之家中文站首页动态流（夺冠/排名里程碑），解析器在 tennis_news 包"
     }
   ]
 }

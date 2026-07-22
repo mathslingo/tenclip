@@ -25,11 +25,12 @@
     <view class="switch-row">
       <view>
         <text class="switch-label">资讯使用 Mock</text>
-        <text class="switch-hint">关闭后请求线上 /api/news/feed；失败回退 Mock，空库显示空态</text>
+        <text class="switch-hint">关闭后请求本机 /api/news/feed（读 data/news_feed.db）；失败回退 Mock。Build 见下方。</text>
       </view>
       <switch checked="{{feedUseMock}}" bindchange="onMockChange" color="#13d8a8" />
     </view>
     <text class="build-tag">Build {{buildTag}}</text>
+    <text class="build-tag">API {{apiBase}}{{localDev ? ' · 本机库' : ' · 线上'}}</text>
   </view>
 
   <view class="card">

@@ -19,16 +19,18 @@
  * 【备选】tenclip.qiongjingtiyu.com — 见 DEPLOY_QIONGJING.md（qiongjingtiyu.com 主体）
  */
 
-const LOCAL_DEV = false;
+/** true=读本机 news_feed.db（经 /api/news/feed）；false=读线上 clip.uchanceai.com */
+const LOCAL_DEV = true;
 
-/** 本地后端；WSL 里 hostname -I 取 IP，例如 http://172.22.123.45:7861 */
+/** 本地后端；WSL 里 hostname -I 取 IP，例如 http://172.22.123.45:7861
+ *  Win11 镜像网络可用 127.0.0.1；模拟器不通时改成 WSL eth0 IP */
 const LOCAL_API_HOST = "http://127.0.0.1:7861";
 
 /** 上线时填写（须与微信公众平台 uploadFile/request 合法域名一致） */
 const PROD_API_BASE_URL = "https://clip.uchanceai.com";
 
 /** 每次上传体验版前改一下，用于确认手机跑的是新包 */
-const APP_BUILD_TAG = "2026-07-12-feed-m1";
+const APP_BUILD_TAG = "2026-07-22-rec-order-fix";
 
 /** 发现页：true=本地 Mock；false=请求 /api/news/feed（失败回退 Mock；空库显示空态） */
 const FEED_USE_MOCK = false;

@@ -6,7 +6,7 @@ import logging
 import os
 import re
 import sqlite3
-from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeoutError
+from concurrent.futures import TimeoutError as FuturesTimeoutError
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
@@ -16,6 +16,9 @@ from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode, urlparse
 from urllib.request import HTTPCookieProcessor, Request, build_opener, urlopen
 from xml.etree import ElementTree as ET
+import threading
+
+from rec.tags import TAG_KEYWORDS, split_tags_csv
 
 logger = logging.getLogger(__name__)
 
@@ -30,6 +33,7 @@ class NewsSource:
     kind: str  # rss | html
     quality_tier: int  # 3=官方机构, 2=主流媒体, 1=聚合/其它
     parser: str | None = None  # html 子类型：tennis_com_list | thepaper_list；省略时按域名推断
+    source_id: str = ""  # config 中的 id，用于打 ATP/WTA 等标签
 
 
 def _news_sources_config_path() -> Path:
@@ -61,6 +65,7 @@ def _sources_from_json(path: Path) -> list[NewsSource]:
                 kind=kind,
                 quality_tier=tier,
                 parser=parser or None,
+                source_id=str(item.get("id") or "").strip(),
             )
         )
     if not out:
@@ -134,22 +139,6 @@ def get_news_sources() -> list[NewsSource]:
             logger.warning("读取 %s 失败，使用内置默认来源：%s", path, exc)
     return _default_news_sources()
 
-TAG_KEYWORDS: dict[str, tuple[str, ...]] = {
-    "阿尔卡拉斯": ("alcaraz", "carlos alcaraz", "阿尔卡拉斯"),
-    "德约科维奇": ("djokovic", "novak", "德约科维奇"),
-    "辛纳": ("sinner", "jannik", "辛纳"),
-    "萨巴伦卡": ("sabalenka", "aryna", "萨巴伦卡"),
-    "斯瓦泰克": ("swiatek", "iga", "斯瓦泰克"),
-    "平台式发球": ("platform stance", "platform serve", "平台式发球"),
-    "单脚式发球": ("pinpoint stance", "pinpoint serve", "单脚式发球"),
-    "单手反拍": ("one-handed backhand", "单手反拍"),
-    "反东方式单手反拍": ("eastern one-handed backhand", "反东方式单手反拍"),
-    "双手反拍": ("two-handed backhand", "双手反拍"),
-    "红土": ("clay court", "红土"),
-    "草地": ("grass court", "草地"),
-    "硬地": ("hard court", "硬地"),
-}
-
 
 def _utc_now() -> datetime:
     return datetime.now(timezone.utc)
@@ -173,19 +162,36 @@ def _clean_html(raw: str) -> str:
     return text.strip()
 
 
-def _infer_tags(title: str, summary: str) -> list[str]:
-    hay = f"{title} {summary}".lower()
+def _infer_tags(title: str, summary: str, source: NewsSource | None = None) -> list[str]:
+    hay = f" {title} {summary} ".lower()
     out: list[str] = []
     for tag, kws in TAG_KEYWORDS.items():
         if any(kw in hay for kw in kws):
             out.append(tag)
-    return out
-
-
-def _split_tags_csv(raw: str | None) -> list[str]:
-    if not raw:
-        return []
-    return [x.strip() for x in raw.split(",") if x.strip()]
+    if source is not None:
+        sid = (source.source_id or "").lower()
+        sname = (source.name or "").lower()
+        if "atp" in sid or "atp" in sname:
+            if "ATP" not in out:
+                out.append("ATP")
+            if "赛事" not in out:
+                out.append("赛事")
+        if "wta" in sid or "wta" in sname:
+            if "WTA" not in out:
+                out.append("WTA")
+            if "赛事" not in out:
+                out.append("赛事")
+        if "tennis_com" in sid or "espn_tennis" in sid or "bbc_tennis" in sid:
+            if "赛事" not in out and ("ATP" in out or "WTA" in out):
+                out.append("赛事")
+    # 去重保序
+    seen: set[str] = set()
+    ordered: list[str] = []
+    for t in out:
+        if t not in seen:
+            seen.add(t)
+            ordered.append(t)
+    return ordered
 
 
 def _to_iso(dt: datetime) -> str:
@@ -398,7 +404,7 @@ def _parse_rss_items(source: NewsSource, xml_text: str, cap: int) -> list[dict[s
                     break
         if not image_url:
             image_url = ""
-        tags = _infer_tags(title, summary)
+        tags = _infer_tags(title, summary, source)
         domain = (urlparse(link).hostname or "").replace("www.", "")
         out.append(
             {
@@ -463,7 +469,7 @@ def _parse_thepaper_html(source: NewsSource, html: str, cap: int) -> list[dict[s
             continue
         seen_url.add(full)
         title = _title_near(cid) or f"澎湃新闻 · 文章 {cid}"
-        tags = _infer_tags(title, "")
+        tags = _infer_tags(title, "", source)
         out.append(
             {
                 "source": source.name,
@@ -502,7 +508,7 @@ def _parse_tennis_com_all_news_html(source: NewsSource, html: str, cap: int) -> 
         if len(t) < 6:
             slug = u.rstrip("/").split("/")[-1]
             t = " ".join(slug.split("-")).strip().title()
-        tags = _infer_tags(t, "")
+        tags = _infer_tags(t, "", source)
         out.append(
             {
                 "source": source.name,
@@ -528,7 +534,7 @@ def _parse_tennis_com_all_news_html(source: NewsSource, html: str, cap: int) -> 
         seen.add(u)
         slug = u.rstrip("/").split("/")[-1]
         t = " ".join(slug.split("-")).strip().title()
-        tags = _infer_tags(t, "")
+        tags = _infer_tags(t, "", source)
         out.append(
             {
                 "source": source.name,
@@ -560,9 +566,41 @@ def _ingest_one_source_rows(source: NewsSource, limit_per_source: int) -> list[d
             return _parse_tennis_com_all_news_html(source, raw_text, cap=limit_per_source)
         if p == "thepaper_list" or (not p and "thepaper.cn" in host):
             return _parse_thepaper_html(source, raw_text, cap=limit_per_source)
+        if p == "live_tennis_list" or (not p and "live-tennis.cn" in host):
+            # 复用 tennis_news 包的解析逻辑（纯标准库，不反向依赖本模块）
+            from tennis_news.live_tennis import parse_home_items
+
+            return parse_home_items(
+                raw_text,
+                cap=limit_per_source,
+                source_name=source.name,
+                source_tier=int(source.quality_tier),
+            )
         logger.warning("html 来源未识别 parser/域名，跳过：%s (%s)", source.name, source.url)
         return []
     return []
+
+
+def _run_source_with_timeout(
+    source: NewsSource, limit_per_source: int, timeout_sec: float
+) -> list[dict[str, Any]]:
+    """在 daemon 线程中抓取单源；超时抛 FuturesTimeoutError，且不阻塞进程退出。"""
+    box: dict[str, Any] = {"rows": None, "exc": None}
+
+    def _target() -> None:
+        try:
+            box["rows"] = _ingest_one_source_rows(source, limit_per_source)
+        except Exception as exc:  # noqa: BLE001 - 交给外层统一记 failed
+            box["exc"] = exc
+
+    t = threading.Thread(target=_target, name=f"news-ingest:{source.name[:24]}", daemon=True)
+    t.start()
+    t.join(timeout=timeout_sec)
+    if t.is_alive():
+        raise FuturesTimeoutError()
+    if box["exc"] is not None:
+        raise box["exc"]
+    return list(box["rows"] or [])
 
 
 def ingest_news(limit_per_source: int = 20) -> dict[str, Any]:
@@ -575,16 +613,14 @@ def ingest_news(limit_per_source: int = 20) -> dict[str, Any]:
     http_cap = news_http_timeout_sec()
     with sqlite3.connect(DB_PATH) as conn:
         for source in get_news_sources():
+            rows: list[dict[str, Any]] = []
             try:
-                with ThreadPoolExecutor(max_workers=1) as pool:
-                    fut = pool.submit(_ingest_one_source_rows, source, limit_per_source)
-                    try:
-                        rows = fut.result(timeout=per_source_deadline)
-                    except FuturesTimeoutError:
-                        msg = f"source timeout (>{per_source_deadline:.0f}s)"
-                        logger.warning("ingest source timeout: %s", source.name)
-                        failed_sources.append({"source": source.name, "error": msg})
-                        continue
+                rows = _run_source_with_timeout(source, limit_per_source, per_source_deadline)
+            except FuturesTimeoutError:
+                msg = f"source timeout (>{per_source_deadline:.0f}s)"
+                logger.warning("ingest source timeout: %s", source.name)
+                failed_sources.append({"source": source.name, "error": msg})
+                continue
             except Exception as exc:
                 logger.warning("ingest source failed: %s %s", source.name, exc)
                 failed_sources.append({"source": source.name, "error": str(exc)})
@@ -709,16 +745,45 @@ def list_ingest_runs(limit: int = 20) -> list[dict[str, Any]]:
     return out
 
 
+def _category_distribution_from_db(conn: sqlite3.Connection, total: int) -> tuple[list[dict[str, Any]], bool]:
+    """优先用 tags 真实统计 ATP/WTA/赛事/教学；样本不足时回退 mock 比例。"""
+    rows = conn.execute(
+        "SELECT tags_csv FROM news_articles WHERE tags_csv IS NOT NULL AND TRIM(tags_csv) <> ''"
+    ).fetchall()
+    freq = {"ATP": 0, "WTA": 0, "赛事": 0, "教学": 0, "其它": 0}
+    tagged = 0
+    for (csv_tags,) in rows:
+        tags = set(split_tags_csv(csv_tags))
+        if not tags:
+            continue
+        tagged += 1
+        hit = False
+        for key in ("ATP", "WTA", "赛事", "教学"):
+            if key in tags:
+                freq[key] += 1
+                hit = True
+        if not hit:
+            freq["其它"] += 1
+    if tagged < max(5, int(total * 0.15)):
+        return _mock_category_distribution(total), True
+    out = [
+        {"name": k, "count": freq[k], "pct": round(100.0 * freq[k] / max(1, tagged), 1)}
+        for k in ("ATP", "WTA", "赛事", "教学", "其它")
+        if freq[k] > 0 or k in ("ATP", "WTA", "赛事")
+    ]
+    return out, False
+
+
 def _mock_category_distribution(total: int) -> list[dict[str, Any]]:
-    """类目尚未正式标注；先按固定比例 mock，便于后台可视化。"""
+    """类目尚未正式标注时的示意比例。"""
     if total <= 0:
         return [
+            {"name": "ATP", "count": 0, "pct": 0.0},
+            {"name": "WTA", "count": 0, "pct": 0.0},
             {"name": "赛事", "count": 0, "pct": 0.0},
             {"name": "教学", "count": 0, "pct": 0.0},
-            {"name": "综合", "count": 0, "pct": 0.0},
-            {"name": "其它", "count": 0, "pct": 0.0},
         ]
-    weights = [("赛事", 0.38), ("教学", 0.27), ("综合", 0.22), ("其它", 0.13)]
+    weights = [("ATP", 0.32), ("WTA", 0.28), ("赛事", 0.25), ("教学", 0.15)]
     counts: list[int] = []
     used = 0
     for i, (_, w) in enumerate(weights):
@@ -728,7 +793,6 @@ def _mock_category_distribution(total: int) -> list[dict[str, Any]]:
             c = int(round(total * w))
             used += c
         counts.append(c)
-    # 修正四舍五入导致的偏差
     diff = total - sum(counts)
     counts[0] = max(0, counts[0] + diff)
     return [
@@ -770,6 +834,7 @@ def get_news_admin_overview() -> dict[str, Any]:
         latest_pub = conn.execute(
             "SELECT published_at FROM news_articles ORDER BY datetime(published_at) DESC LIMIT 1"
         ).fetchone()
+        categories, categories_is_mock = _category_distribution_from_db(conn, total)
 
     by_source = [{"source": r["source"], "count": int(r["c"])} for r in by_source_rows]
     return {
@@ -781,12 +846,12 @@ def get_news_admin_overview() -> dict[str, Any]:
         "profile_total": profile_n,
         "latest_published_at": (latest_pub["published_at"] if latest_pub else None),
         "by_source": by_source,
-        "categories": _mock_category_distribution(total),
-        "categories_is_mock": True,
+        "categories": categories,
+        "categories_is_mock": categories_is_mock,
         "recent_articles": [dict(r) for r in latest],
         "recent_ingest_runs": list_ingest_runs(limit=8),
         "configured_sources": [
-            {"name": s.name, "kind": s.kind, "tier": s.quality_tier, "url": s.url}
+            {"name": s.name, "kind": s.kind, "tier": s.quality_tier, "url": s.url, "id": s.source_id}
             for s in get_news_sources()
         ],
     }
@@ -812,145 +877,35 @@ def list_news_articles_admin(*, limit: int = 30, offset: int = 0) -> dict[str, A
     items = []
     for r in rows:
         item = dict(r)
-        item["tags"] = _split_tags_csv(r["tags_csv"])
+        item["tags"] = split_tags_csv(r["tags_csv"])
         items.append(item)
     return {"items": items, "total": total, "limit": limit, "offset": offset}
 
 
-def set_user_profile(user_id: str, tags: list[str]) -> None:
-    init_news_db()
-    uid = (user_id or "").strip()
-    if not uid:
-        raise ValueError("user_id 不能为空")
-    clean_tags = sorted({t.strip() for t in tags if t and t.strip()})
-    with sqlite3.connect(DB_PATH) as conn:
-        conn.execute(
-            """
-            INSERT INTO news_user_profile(user_id, tags_json, updated_at)
-            VALUES (?, ?, ?)
-            ON CONFLICT(user_id) DO UPDATE SET
-                tags_json=excluded.tags_json,
-                updated_at=excluded.updated_at
-            """,
-            (uid, json.dumps(clean_tags, ensure_ascii=False), _to_iso(_utc_now())),
-        )
-        conn.commit()
+# 推荐子系统已迁至 rec/；此处 re-export 保持旧 import 路径兼容。
+from rec import (  # noqa: E402
+    RecommendInput,
+    get_user_profile_tags,
+    record_feedback,
+    recommend_news,
+    set_user_profile,
+    suggest_tags,
+)
 
-
-def get_user_profile_tags(user_id: str | None) -> list[str]:
-    init_news_db()
-    uid = (user_id or "").strip()
-    if not uid:
-        return []
-    with sqlite3.connect(DB_PATH) as conn:
-        row = conn.execute("SELECT tags_json FROM news_user_profile WHERE user_id=?", (uid,)).fetchone()
-    if not row:
-        return []
-    try:
-        data = json.loads(row[0] or "[]")
-        if isinstance(data, list):
-            return [str(x).strip() for x in data if str(x).strip()]
-    except Exception:
-        pass
-    return []
-
-
-def record_feedback(user_id: str, article_id: int, action: str) -> None:
-    init_news_db()
-    if not user_id.strip():
-        raise ValueError("user_id 不能为空")
-    if action not in {"view", "click", "like", "dislike", "bookmark", "read"}:
-        raise ValueError("action 非法")
-    with sqlite3.connect(DB_PATH) as conn:
-        conn.execute(
-            "INSERT INTO news_feedback(user_id, article_id, action, created_at) VALUES(?, ?, ?, ?)",
-            (user_id.strip(), int(article_id), action, _to_iso(_utc_now())),
-        )
-        if action in {"click", "like", "bookmark", "read"}:
-            conn.execute(
-                "UPDATE news_articles SET popularity = popularity + ? WHERE id = ?",
-                (
-                    1.0
-                    if action == "click"
-                    else 3.5
-                    if action in {"like", "bookmark"}
-                    else 1.8,
-                    int(article_id),
-                ),
-            )
-        if action == "dislike":
-            conn.execute("UPDATE news_articles SET popularity = popularity - 2.0 WHERE id = ?", (int(article_id),))
-        conn.commit()
-
-
-@dataclass
-class RecommendInput:
-    user_tags: list[str]
-    limit: int = 20
-    offset: int = 0
-    user_id: str | None = None
-
-
-def recommend_news(inp: RecommendInput) -> list[dict[str, Any]]:
-    init_news_db()
-    limit = max(1, min(inp.limit, 60))
-    offset = max(0, inp.offset)
-
-    tags = sorted({x.strip() for x in inp.user_tags if x and x.strip()})
-    if not tags and inp.user_id:
-        tags = get_user_profile_tags(inp.user_id)
-
-    with sqlite3.connect(DB_PATH) as conn:
-        conn.row_factory = sqlite3.Row
-        rows = conn.execute(
-            """
-            SELECT id, source, source_domain, source_tier, title, summary, url, image_url, tags_csv, published_at, popularity
-            FROM news_articles
-            ORDER BY datetime(published_at) DESC
-            LIMIT 400
-            """
-        ).fetchall()
-
-    now = _utc_now()
-    scored: list[tuple[float, dict[str, Any]]] = []
-    for r in rows:
-        art_tags = _split_tags_csv(r["tags_csv"])
-        tag_overlap = len(set(tags) & set(art_tags))
-        try:
-            pub = datetime.fromisoformat(r["published_at"])
-            if pub.tzinfo is None:
-                pub = pub.replace(tzinfo=timezone.utc)
-            age_hours = max(0.0, (now - pub).total_seconds() / 3600.0)
-        except Exception:
-            age_hours = 72.0
-        # 当前策略：优先时效，其次标签匹配，再叠加来源质量与行为热度。
-        freshness = max(0.0, 120.0 - min(age_hours * 2.0, 120.0))
-        source_bonus = max(0.0, min(float(r["source_tier"] or 1), 3.0)) * 4.0
-        score = freshness + tag_overlap * 20.0 + source_bonus + float(r["popularity"] or 0.0)
-        item = dict(r)
-        item["tags"] = art_tags
-        item["score"] = round(score, 2)
-        scored.append((score, item))
-
-    scored.sort(key=lambda x: x[0], reverse=True)
-    sliced = [it for _, it in scored[offset : offset + limit]]
-    return sliced
-
-
-def suggest_tags(limit: int = 40) -> list[str]:
-    init_news_db()
-    with sqlite3.connect(DB_PATH) as conn:
-        rows = conn.execute("SELECT tags_csv FROM news_articles WHERE tags_csv <> '' ORDER BY datetime(published_at) DESC LIMIT 500").fetchall()
-    freq: dict[str, int] = {}
-    for (csv_tags,) in rows:
-        for t in _split_tags_csv(csv_tags):
-            freq[t] = freq.get(t, 0) + 1
-    hot = sorted(freq.items(), key=lambda kv: (-kv[1], kv[0]))
-    base = [x for x, _ in hot[:limit]]
-    if len(base) < 8:
-        for t in TAG_KEYWORDS:
-            if t not in base:
-                base.append(t)
-            if len(base) >= limit:
-                break
-    return base
+__all__ = [
+    "DB_PATH",
+    "NewsSource",
+    "RecommendInput",
+    "TAG_KEYWORDS",
+    "get_news_admin_overview",
+    "get_news_sources",
+    "get_user_profile_tags",
+    "ingest_news",
+    "init_news_db",
+    "list_ingest_runs",
+    "list_news_articles_admin",
+    "record_feedback",
+    "recommend_news",
+    "set_user_profile",
+    "suggest_tags",
+]

@@ -5,6 +5,39 @@
 
 var FALLBACK_COVER = "/assets/feed-fallback.png";
 
+/** 无真实封面时轮换的 mock 图（仅保留已验证 HTTP 200 的 Unsplash） */
+var MOCK_COVERS = [
+  {
+    url: "https://images.unsplash.com/photo-1554068865-24cecd4e34b8?w=600&q=80&auto=format&fit=crop",
+    ratio: 1.25,
+  },
+  {
+    url: "https://images.unsplash.com/photo-1622279457486-62dcc4a431d6?w=600&q=80&auto=format&fit=crop",
+    ratio: 0.85,
+  },
+  {
+    url: "https://images.unsplash.com/photo-1595435934249-5df7ed86e1c0?w=600&q=80&auto=format&fit=crop",
+    ratio: 1.1,
+  },
+  {
+    url: "https://images.unsplash.com/photo-1534158914592-062992fbe900?w=600&q=80&auto=format&fit=crop",
+    ratio: 0.95,
+  },
+  {
+    url: "https://images.unsplash.com/photo-1551698618-1dfe5d97d256?w=600&q=80&auto=format&fit=crop",
+    ratio: 1.15,
+  },
+];
+
+function pickMockCover(id) {
+  var s = String(id || "0");
+  var h = 0;
+  for (var i = 0; i < s.length; i++) {
+    h = (h * 31 + s.charCodeAt(i)) >>> 0;
+  }
+  return MOCK_COVERS[h % MOCK_COVERS.length];
+}
+
 var MOCK_ITEMS = [
   {
     id: "mock-001",
@@ -244,6 +277,8 @@ function getMockById(id) {
 
 module.exports = {
   FALLBACK_COVER,
+  MOCK_COVERS,
+  pickMockCover,
   MOCK_ITEMS,
   normalizeItem,
   filterByTab,

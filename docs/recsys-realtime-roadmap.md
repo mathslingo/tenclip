@@ -29,7 +29,7 @@
 
 ### M0 — 当前（已有）
 
-- `recommend_news()`：SQLite 全表扫描 + 规则分（时效 + 标签 + popularity）
+- `recommend_news()`（`rec/recommend.py`）：SQLite 候选 + 规则分（图文丰富度 + 时效 + 标签 + popularity）
 - 适合：&lt; 几千条、开发验证
 - 瓶颈：数据量上来后 **无法实时扩展**
 
@@ -159,7 +159,7 @@
 
 | 模块 | 路径 | M1 改动建议 |
 |------|------|-------------|
-| 推荐入口 | `services/news_feed.py` → `recommend_news()` | 改为「召回 + 精排」两阶段 |
+| 推荐入口 | `rec/recommend.py` → `recommend_news()` | 后续改为「召回 + 精排」两阶段 |
 | API | `app.py` → `/api/news/feed` | 加 `Cache-Control`、分页不变 |
 | 反馈 | `news_feedback` 表 | 增加 `impression` 曝光 |
 | 配置 | `config/news_sources.json` | source_tier 作特征 |

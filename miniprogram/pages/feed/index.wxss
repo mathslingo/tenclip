@@ -98,6 +98,18 @@
   justify-content: center;
 }
 
+.tour-badge {
+  position: absolute;
+  left: 12rpx;
+  top: 12rpx;
+  padding: 4rpx 12rpx;
+  border-radius: 8rpx;
+  background: rgba(13, 61, 50, 0.82);
+  color: #d4fff4;
+  font-size: 20rpx;
+  font-weight: 600;
+}
+
 .note-body {
   padding: 16rpx 14rpx 14rpx;
 }
