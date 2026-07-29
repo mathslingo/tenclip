@@ -1,11 +1,19 @@
 {
   "pages": [
+    "pages/login/index",
+    "pages/courts/index",
+    "pages/court-detail/index",
     "pages/feed/index",
     "pages/feed-detail/index",
     "pages/stroke-extract/index",
     "pages/action-analyze/index",
     "pages/me/index"
   ],
+  "permission": {
+    "scope.userLocation": {
+      "desc": "你的位置信息将用于查找附近的网球场"
+    }
+  },
   "window": {
     "navigationBarTitleText": "UChance",
     "navigationBarBackgroundColor": "#f2f3f5",

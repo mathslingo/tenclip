@@ -21,7 +21,7 @@
 
 const LOCAL_DEV = false;
 
-/** 本地后端；WSL 里 hostname -I 取 IP，例如 http://172.22.123.45:7861 */
+/** 本地后端；WSL 里 hostname -I 取 IP */
 const LOCAL_API_HOST = "http://127.0.0.1:7861";
 
 /** 上线时填写（须与微信公众平台 uploadFile/request 合法域名一致） */
@@ -47,6 +47,15 @@ const UPLOAD_TIMEOUT_MS = 600000;
 
 /** 超过此大小（MB）选视频时提示用户 */
 const UPLOAD_WARN_SIZE_MB = 50;
+
+/** 找球场：true=本地 Mock；false=请求后端 API（失败回退 Mock） */
+const COURTS_USE_MOCK = true;
+
+/** 默认定位（北京天安门附近），当用户拒绝位置权限时使用 */
+const DEFAULT_LOCATION = { latitude: 31.23, longitude: 121.47 };
+
+/** 腾讯地图 WebService Key（免费申请：https://lbs.qq.com/） */
+const TENCENT_MAP_KEY = "MUDBZ-V5P64-OMVUS-FUDTC-NUX7K-O4BAE";
 
 /** 超过此大小（MB）才走 wx.compressVideo（过小文件压缩收益低） */
 const UPLOAD_COMPRESS_ABOVE_MB = 0.5;
@@ -135,6 +144,9 @@ module.exports = {
   APP_BUILD_TAG,
   WEB_STROKE_URL,
   WEB_ANALYZE_URL,
+  COURTS_USE_MOCK,
+  DEFAULT_LOCATION,
+  TENCENT_MAP_KEY,
   isApiConfigValid,
   apiConfigHint,
   apiHostForWhitelist,

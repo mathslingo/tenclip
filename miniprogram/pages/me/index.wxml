@@ -1,25 +1,72 @@
 <view class="me-page">
-  <view class="me-hero">
-    <text class="brand">UChance</text>
-    <text class="brand-sub">网球剪辑 · 资讯 · AI 分析</text>
+  <!-- 未登录提示 -->
+  <view class="login-prompt-card" wx:if="{{!isLoggedIn}}">
+    <view class="login-prompt-icon">👤</view>
+    <text class="login-prompt-title">未登录</text>
+    <text class="login-prompt-desc">登录后可查看个人数据、积分和使用统计</text>
+    <button class="login-prompt-btn" bindtap="onGoLogin">微信一键登录</button>
   </view>
 
-  <view class="card">
-    <text class="card-title">工具</text>
-    <view class="menu-row" bindtap="onGoStroke">
-      <text>击球剪辑</text>
-      <text class="chev">›</text>
-    </view>
-    <view class="menu-row" bindtap="onGoAnalyze">
-      <text>大模型动作分析</text>
-      <text class="chev">›</text>
-    </view>
-    <view class="menu-row" bindtap="onGoFeed">
-      <text>发现 · 网球资讯</text>
-      <text class="chev">›</text>
-    </view>
-  </view>
+  <!-- 已登录：用户信息卡片 -->
+  <block wx:else>
+    <view class="profile-card">
+      <view class="profile-top">
+        <view class="avatar-wrap" bindtap="onGetProfile">
+          <image wx:if="{{avatarUrl}}" class="avatar" src="{{avatarUrl}}" mode="aspectFill" />
+          <view wx:else class="avatar-placeholder">👤</view>
+          <view class="avatar-edit-tag">✎</view>
+        </view>
+        <view class="profile-info">
+          <view class="nickname-row" bindtap="onEditNickname">
+            <text class="nickname">{{nickName}}</text>
+            <text class="edit-icon">✎</text>
+          </view>
+          <text class="user-id">ID: {{userId}}</text>
+        </view>
+      </view>
 
+      <!-- 积分与统计 -->
+      <view class="stats-row">
+        <view class="stat-item">
+          <text class="stat-value">{{points}}</text>
+          <text class="stat-label">积分</text>
+        </view>
+        <view class="stat-divider"></view>
+        <view class="stat-item">
+          <text class="stat-value">{{clipCount}}</text>
+          <text class="stat-label">剪辑次数</text>
+        </view>
+        <view class="stat-divider"></view>
+        <view class="stat-item">
+          <text class="stat-value">{{analyzeCount}}</text>
+          <text class="stat-label">AI分析</text>
+        </view>
+      </view>
+
+      <view class="points-tip" wx:if="{{points === 0}}">
+        <text>💡 使用视频剪辑和AI教练可以获得积分</text>
+      </view>
+    </view>
+
+    <!-- 积分明细 -->
+    <view class="card">
+      <text class="card-title">积分规则</text>
+      <view class="rule-row">
+        <text class="rule-label">🎬 完成一次视频剪辑</text>
+        <text class="rule-points">+50 积分</text>
+      </view>
+      <view class="rule-row">
+        <text class="rule-label">🤖 完成一次AI动作分析</text>
+        <text class="rule-points">+80 积分</text>
+      </view>
+      <view class="rule-row">
+        <text class="rule-label">🎾 提报一个新球场</text>
+        <text class="rule-points">+100 积分</text>
+      </view>
+    </view>
+  </block>
+
+  <!-- 数据源 -->
   <view class="card">
     <text class="card-title">数据源</text>
     <view class="switch-row">
@@ -32,9 +79,18 @@
     <text class="build-tag">Build {{buildTag}}</text>
   </view>
 
+  <!-- 关于 -->
   <view class="card">
     <text class="card-title">关于</text>
-    <text class="about-text">UChance 帮助你浏览网球资讯、剪辑击球片段，并用大模型获得动作指导。发现页默认接新闻库；可在本页临时切回 Mock。</text>
+    <text class="about-text">UChance 帮你找网球场、浏览网球资讯、剪辑击球片段，并用 AI 教练获得动作指导。视频剪辑与 AI 教练工具在「发现」页。</text>
+  </view>
+
+  <!-- 退出登录 / 去登录 -->
+  <view wx:if="{{isLoggedIn}}" class="logout-btn" bindtap="onLogout">
+    <text>退出登录</text>
+  </view>
+  <view wx:else class="logout-btn go-login" bindtap="onGoLogin">
+    <text>登录 / 注册</text>
   </view>
 </view>
 

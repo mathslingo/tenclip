@@ -1,0 +1,6 @@
+{
+  "navigationBarTitleText": "找球场",
+  "usingComponents": {
+    "bottom-tabs": "/components/bottom-tabs/index"
+  }
+}

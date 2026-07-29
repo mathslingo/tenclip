@@ -2,33 +2,192 @@
   padding: 24rpx 24rpx calc(120rpx + env(safe-area-inset-bottom));
 }
 
-.me-hero {
+/* ── 未登录提示卡片 ── */
+
+.login-prompt-card {
+  background: #fff;
+  border-radius: 32rpx;
+  padding: 48rpx 32rpx 40rpx;
+  margin-bottom: 20rpx;
+  text-align: center;
+  box-shadow: 0 2rpx 12rpx rgba(0,0,0,0.05);
+}
+
+.login-prompt-icon {
+  display: block;
+  font-size: 80rpx;
+  margin-bottom: 16rpx;
+}
+
+.login-prompt-title {
+  display: block;
+  font-size: 34rpx;
+  font-weight: 700;
+  color: #0d3d32;
+  margin-bottom: 8rpx;
+}
+
+.login-prompt-desc {
+  display: block;
+  font-size: 24rpx;
+  color: #9aa3af;
+  margin-bottom: 32rpx;
+}
+
+.login-prompt-btn {
+  width: 100%;
+  border: none;
+  border-radius: 20rpx;
+  background: linear-gradient(140deg, #3bf0bf, #13d8a8);
+  color: #fff;
+  font-size: 30rpx;
+  font-weight: 600;
+  padding: 24rpx 0;
+}
+
+/* ── 用户信息卡片 ── */
+
+.profile-card {
   background: linear-gradient(145deg, #baf5e8, #d4fff4);
   border-radius: 32rpx;
-  padding: 36rpx 32rpx;
+  padding: 36rpx 32rpx 28rpx;
   margin-bottom: 20rpx;
 }
 
-.brand {
-  display: block;
-  font-size: 44rpx;
+.profile-top {
+  display: flex;
+  align-items: center;
+  gap: 24rpx;
+}
+
+.avatar-wrap {
+  position: relative;
+  width: 120rpx;
+  height: 120rpx;
+  flex-shrink: 0;
+}
+
+.avatar {
+  width: 120rpx;
+  height: 120rpx;
+  border-radius: 50%;
+  border: 4rpx solid rgba(19, 216, 168, 0.5);
+}
+
+.avatar-placeholder {
+  width: 120rpx;
+  height: 120rpx;
+  border-radius: 50%;
+  background: rgba(19, 216, 168, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 52rpx;
+  border: 4rpx solid rgba(19, 216, 168, 0.4);
+}
+
+.avatar-edit-tag {
+  position: absolute;
+  right: -4rpx;
+  bottom: -4rpx;
+  width: 40rpx;
+  height: 40rpx;
+  border-radius: 50%;
+  background: #13d8a8;
+  color: #fff;
+  font-size: 22rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+}
+
+.profile-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.nickname-row {
+  display: flex;
+  align-items: center;
+  gap: 8rpx;
+}
+
+.nickname {
+  font-size: 38rpx;
   font-weight: 700;
   color: #0d3d32;
 }
 
-.brand-sub {
-  display: block;
-  margin-top: 10rpx;
-  font-size: 24rpx;
-  color: #415360;
+.edit-icon {
+  font-size: 26rpx;
+  color: rgba(13, 61, 50, 0.4);
 }
+
+.user-id {
+  display: block;
+  margin-top: 6rpx;
+  font-size: 22rpx;
+  color: #415360;
+  font-family: monospace;
+}
+
+/* ── 统计行 ── */
+
+.stats-row {
+  display: flex;
+  align-items: center;
+  margin-top: 32rpx;
+  padding: 24rpx 16rpx;
+  background: rgba(255, 255, 255, 0.65);
+  border-radius: 20rpx;
+}
+
+.stat-item {
+  flex: 1;
+  text-align: center;
+}
+
+.stat-value {
+  display: block;
+  font-size: 40rpx;
+  font-weight: 700;
+  color: #0d3d32;
+}
+
+.stat-label {
+  display: block;
+  margin-top: 4rpx;
+  font-size: 22rpx;
+  color: #6e7582;
+}
+
+.stat-divider {
+  width: 2rpx;
+  height: 48rpx;
+  background: rgba(13, 61, 50, 0.12);
+}
+
+/* ── 积分提示 ── */
+
+.points-tip {
+  margin-top: 20rpx;
+  padding: 16rpx 20rpx;
+  background: rgba(255, 255, 255, 0.55);
+  border-radius: 14rpx;
+  font-size: 22rpx;
+  color: #415360;
+  text-align: center;
+}
+
+/* ── 通用卡片 ── */
 
 .card {
   background: #fff;
   border-radius: 28rpx;
   padding: 8rpx 28rpx 28rpx;
   margin-bottom: 20rpx;
-  box-shadow: 0 2rpx 12rpx rgba(0, 0, 0, 0.05);
+  box-shadow: 0 2rpx 12rpx rgba(0,0,0,0.05);
 }
 
 .card-title {
@@ -38,20 +197,28 @@
   font-weight: 600;
 }
 
-.menu-row {
+/* ── 积分规则 ── */
+
+.rule-row {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 28rpx 0;
+  padding: 20rpx 0;
   border-top: 2rpx solid #f0f3f6;
-  font-size: 28rpx;
+}
+
+.rule-label {
+  font-size: 26rpx;
   color: #151821;
 }
 
-.chev {
-  color: #c0c6ce;
-  font-size: 36rpx;
+.rule-points {
+  font-size: 26rpx;
+  color: #13d8a8;
+  font-weight: 600;
 }
+
+/* ── 数据源 ── */
 
 .switch-row {
   display: flex;
@@ -83,6 +250,8 @@
   color: #b0b7c0;
 }
 
+/* ── 关于 ── */
+
 .about-text {
   display: block;
   padding-top: 12rpx;
@@ -90,4 +259,23 @@
   font-size: 26rpx;
   line-height: 1.6;
   color: #415360;
+}
+
+/* ── 退出登录 ── */
+
+.logout-btn {
+  text-align: center;
+  padding: 28rpx 0;
+  margin-top: 8rpx;
+  margin-bottom: 20rpx;
+  font-size: 28rpx;
+  color: #b42318;
+  background: #fff;
+  border-radius: 28rpx;
+  box-shadow: 0 2rpx 12rpx rgba(0,0,0,0.05);
+}
+
+.logout-btn.go-login {
+  color: #13d8a8;
+  font-weight: 600;
 }

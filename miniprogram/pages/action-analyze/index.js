@@ -13,6 +13,19 @@ const {
 const { formatGuidance } = require("../../utils/guidance");
 const { startTaskPoll } = require("../../utils/poll");
 
+const STATS_KEY = "tenclip_user_stats";
+
+function addStats(delta) {
+  try {
+    var raw = wx.getStorageSync(STATS_KEY);
+    var stats = raw ? JSON.parse(raw) : { clipCount: 0, analyzeCount: 0, points: 0 };
+    if (delta.clipCount) stats.clipCount = (stats.clipCount || 0) + delta.clipCount;
+    if (delta.analyzeCount) stats.analyzeCount = (stats.analyzeCount || 0) + delta.analyzeCount;
+    if (delta.points) stats.points = (stats.points || 0) + delta.points;
+    wx.setStorageSync(STATS_KEY, JSON.stringify(stats));
+  } catch (e) {}
+}
+
 const STATUS_LABEL = {
   queued: "排队中",
   running: "分析中",
@@ -69,6 +82,18 @@ Page({
     if (this.data.busy && this._stopPollFn && this._stopPollFn.resume) {
       this._stopPollFn.resume();
     }
+  },
+
+  onTabInfo() {
+    wx.redirectTo({ url: "/pages/feed/index" });
+  },
+
+  onTabStroke() {
+    wx.redirectTo({ url: "/pages/stroke-extract/index" });
+  },
+
+  onTabCoach() {
+    // 当前已在 AI 教练
   },
 
   _stopPoll() {
@@ -142,6 +167,23 @@ Page({
 
   async onSubmit() {
     if (!this.data.videoPath || this.data.busy) return;
+
+    // 检查登录
+    var app = getApp();
+    if (!(app.isAuthDone && app.isAuthDone())) {
+      wx.showModal({
+        title: "请先登录",
+        content: "登录后才能使用 AI 教练功能",
+        confirmText: "去登录",
+        success: function (res) {
+          if (res.confirm) {
+            wx.reLaunch({ url: "/pages/login/index" });
+          }
+        },
+      });
+      return;
+    }
+
     this._stopPoll();
     this.setData({
       busy: true,
@@ -245,6 +287,7 @@ Page({
         }
         this.setData({ busy: false, progressText: "开始分析" });
         if (task && task.status === "succeeded") {
+          addStats({ analyzeCount: 1, points: 80 });
           this._applyTask(task);
         }
       },
