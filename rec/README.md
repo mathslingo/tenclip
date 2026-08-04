@@ -17,7 +17,7 @@ rec/
 
 ## 用法
 
-```python
+```pytho n
 from rec import RecommendInput, recommend_news, record_feedback, suggest_tags
 
 items = recommend_news(RecommendInput(user_tags=[], limit=20))

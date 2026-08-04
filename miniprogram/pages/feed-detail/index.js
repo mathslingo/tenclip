@@ -1,4 +1,5 @@
 const { getFeedItemById } = require("../../utils/feed_api");
+const { isLiked, isBookmarked, toggleLike, toggleBookmark } = require("../../utils/me_store");
 
 Page({
   data: {
@@ -6,6 +7,8 @@ Page({
     coverFailed: false,
     publishedText: "",
     errorText: "",
+    liked: false,
+    bookmarked: false,
   },
 
   onLoad(query) {
@@ -28,7 +31,12 @@ Page({
           publishedText = "";
         }
       }
-      that.setData({ item: item, publishedText: publishedText });
+      that.setData({
+        item: item,
+        publishedText: publishedText,
+        liked: isLiked(item.id),
+        bookmarked: isBookmarked(item.id),
+      });
       wx.setNavigationBarTitle({
         title: item.title ? item.title.slice(0, 12) : "笔记详情",
       });
@@ -37,6 +45,22 @@ Page({
 
   onCoverError() {
     this.setData({ coverFailed: true });
+  },
+
+  onToggleLike() {
+    var item = this.data.item;
+    if (!item) return;
+    var res = toggleLike(item.id);
+    this.setData({ liked: res.on });
+    wx.showToast({ title: res.on ? "已赞" : "已取消赞", icon: "none" });
+  },
+
+  onToggleBookmark() {
+    var item = this.data.item;
+    if (!item) return;
+    var res = toggleBookmark(item.id);
+    this.setData({ bookmarked: res.on });
+    wx.showToast({ title: res.on ? "已收藏" : "已取消收藏", icon: "none" });
   },
 
   onCopyLink() {

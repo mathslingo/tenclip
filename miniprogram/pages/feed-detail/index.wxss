@@ -112,6 +112,29 @@
   border-radius: 999rpx;
 }
 
+.action-row {
+  display: flex;
+  gap: 16rpx;
+  margin-top: 28rpx;
+}
+
+.action-chip {
+  flex: 1;
+  text-align: center;
+  padding: 18rpx 0;
+  border-radius: 16rpx;
+  font-size: 26rpx;
+  color: #415360;
+  background: #f5f7f9;
+  font-weight: 500;
+}
+
+.action-chip.on {
+  color: #0d3d32;
+  background: #e8faf4;
+  font-weight: 600;
+}
+
 .primary-btn {
   margin-top: 36rpx;
   background: linear-gradient(140deg, #3bf0bf, #13d8a8);
