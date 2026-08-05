@@ -49,12 +49,14 @@ from services.vlm_tennis import (
     vlm_dependency_message,
 )
 from services.news_feed import (
-    RecommendInput,
     get_news_admin_overview,
     ingest_news,
     init_news_db,
     list_ingest_runs,
     list_news_articles_admin,
+)
+from rec import (
+    RecommendInput,
     record_feedback,
     recommend_news,
     set_user_profile,
@@ -364,6 +366,53 @@ def _ensure_retention_pruner_started() -> None:
         t = threading.Thread(target=_retention_pruner_loop, name="upload-retention", daemon=True)
         t.start()
         ANALYSIS_RETENTION_PRUNER_STARTED = True
+
+
+NEWS_INGEST_SCHEDULER_STARTED = False
+NEWS_INGEST_SCHEDULER_LOCK = threading.Lock()
+
+
+def _news_hourly_ingest_enabled() -> bool:
+    return (os.environ.get("TENCLIP_NEWS_HOURLY_INGEST") or "").strip().lower() in (
+        "1",
+        "true",
+        "yes",
+        "on",
+    )
+
+
+def _news_ingest_scheduler_loop() -> None:
+    """进程内周期性抓取。生产推荐 crontab；本地可开 TENCLIP_NEWS_HOURLY_INGEST=1。"""
+    interval = int(float(os.environ.get("TENCLIP_NEWS_INGEST_INTERVAL_SEC") or 3600))
+    interval = max(300, min(interval, 24 * 3600))
+    time.sleep(45)
+    while True:
+        try:
+            result = ingest_news(limit_per_source=30)
+            logging.info(
+                "scheduled news ingest: inserted=%s ok_sources=%s failed=%s",
+                result.get("inserted_or_updated"),
+                len(result.get("sources") or []),
+                len(result.get("failed") or []),
+            )
+        except Exception:
+            logging.exception("scheduled news ingest failed")
+        time.sleep(interval)
+
+
+def _ensure_news_ingest_scheduler_started() -> None:
+    global NEWS_INGEST_SCHEDULER_STARTED
+    if not _news_hourly_ingest_enabled():
+        return
+    with NEWS_INGEST_SCHEDULER_LOCK:
+        if NEWS_INGEST_SCHEDULER_STARTED:
+            return
+        t = threading.Thread(
+            target=_news_ingest_scheduler_loop, name="news-hourly-ingest", daemon=True
+        )
+        t.start()
+        NEWS_INGEST_SCHEDULER_STARTED = True
+        logging.info("TENCLIP_NEWS_HOURLY_INGEST=1: in-process news ingest scheduler started")
 
 
 def _set_task_fields(task_id: str, **fields) -> None:
@@ -762,6 +811,7 @@ def create_app() -> FastAPI:
     except Exception:
         logging.exception("initial upload retention prune failed")
     _ensure_retention_pruner_started()
+    _ensure_news_ingest_scheduler_started()
 
     # 主 Gradio 若挂在 path="/"，会注册 Mount("/") 抢走所有子路径（含 /video_input），故主界面改挂 /gradio。
     @api.get("/", include_in_schema=False)
@@ -776,6 +826,7 @@ def create_app() -> FastAPI:
             "stroke_worker": True,
             "analysis_worker": ANALYSIS_WORKER_STARTED,
             "analysis_queue_size": ANALYSIS_QUEUE.qsize(),
+            "news_hourly_ingest": _news_hourly_ingest_enabled(),
         }
 
     @api.get("/api/mobile/events")

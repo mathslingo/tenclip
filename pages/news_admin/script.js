@@ -49,6 +49,12 @@ function renderOverview(data, queues) {
   $("dbPath").textContent = `DB: ${data.db_path || ""}`;
 
   const total = data.article_total || 0;
+  const catMock = !!data.categories_is_mock;
+  const catBadge = document.querySelectorAll(".panel h2 .badge")[0];
+  if (catBadge) {
+    catBadge.textContent = catMock ? "Mock" : "真实";
+    catBadge.className = catMock ? "badge" : "badge real";
+  }
   renderBars($("catBars"), data.categories || [], "name", "count", total);
   renderBars($("sourceBars"), data.by_source || [], "source", "count", total);
 

@@ -1,0 +1,16 @@
+# Flask 和基础依赖
+flask>=2.3.0
+flask-cors>=4.0.0
+opencv-python>=4.8.0
+numpy>=1.24.0
+Pillow>=10.0.0
+
+# MMPose 完整版（可选，推荐）
+# 如需安装，请运行：
+# pip install torch torchvision --index-url https://download.pytorch.org/whl/cu118
+# pip install -U openmim
+# mim install mmengine mmcv mmdet mmpose
+
+# MediaPipe 轻量版（可选，备选方案）
+# 如需安装，请运行：
+# pip install mediapipe>=0.10.0

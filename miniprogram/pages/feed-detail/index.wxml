@@ -31,6 +31,15 @@
       <text class="tag" wx:for="{{item.tags}}" wx:key="*this">#{{item}}</text>
     </view>
 
+    <view class="action-row">
+      <view class="action-chip {{liked ? 'on' : ''}}" bindtap="onToggleLike">
+        <text>{{liked ? '♥' : '♡'}} {{liked ? '已赞' : '赞'}}</text>
+      </view>
+      <view class="action-chip {{bookmarked ? 'on' : ''}}" bindtap="onToggleBookmark">
+        <text>{{bookmarked ? '★' : '☆'}} {{bookmarked ? '已收藏' : '收藏'}}</text>
+      </view>
+    </view>
+
     <button class="primary-btn" bindtap="onCopyLink" wx:if="{{item.url}}">复制原文链接</button>
     <button class="ghost-btn" bindtap="onGoAnalyze">用视频做 AI 分析</button>
   </view>

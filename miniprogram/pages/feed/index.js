@@ -1,4 +1,6 @@
-const { fetchFeedPage, FALLBACK_COVER } = require("../../utils/feed_api");
+const { fetchFeedPage } = require("../../utils/feed_api");
+const { API_BASE_URL, LOCAL_DEV } = require("../../utils/config");
+const { pickMockCover } = require("../../utils/feed_mock");
 
 const PAGE_SIZE = 6;
 
@@ -57,9 +59,10 @@ Page({
   },
 
   _sourceLabel(source) {
-    if (source === "api") return "数据源：新闻库";
-    if (source === "api-empty") return "数据源：新闻库（空）";
-    if (source === "mock-fallback") return "数据源：Mock（接口失败回退）";
+    var hostHint = LOCAL_DEV ? "本机库" : "线上";
+    if (source === "api") return "数据源：新闻库 · " + hostHint;
+    if (source === "api-empty") return "数据源：新闻库空 · " + hostHint + " · " + API_BASE_URL;
+    if (source === "mock-fallback") return "数据源：Mock（接口失败 · " + API_BASE_URL + "）";
     return "数据源：Mock";
   },
 
@@ -77,14 +80,13 @@ Page({
       .then(function (page) {
         var left = that.data.leftList.slice();
         var right = that.data.rightList.slice();
-        (page.items || []).forEach(function (item) {
-          var h = 180 * (item.cover_ratio || 1) + 90;
-          if (that._leftH <= that._rightH) {
+        // 按推荐序交替落入左右列：阅读顺序为 1→2→3→4…（左上=最高分）
+        var base = left.length + right.length;
+        (page.items || []).forEach(function (item, i) {
+          if ((base + i) % 2 === 0) {
             left.push(item);
-            that._leftH += h;
           } else {
             right.push(item);
-            that._rightH += h;
           }
         });
         var emptyHint = "";
@@ -93,7 +95,11 @@ Page({
           !left.length &&
           !right.length
         ) {
-          emptyHint = "新闻库暂无内容。请在后台抓取入库，或到「我」打开 Mock。";
+          emptyHint =
+            "新闻库暂无内容。请在 WSL 启动后端并执行 python -m tennis_news.ingest，或到「我」打开 Mock。";
+        }
+        if (page.source === "mock-fallback" && !left.length && !right.length) {
+          emptyHint = "无法连接 " + API_BASE_URL + "，请启动 run-wsl.sh 并勾选不校验合法域名。";
         }
         that.setData({
           leftList: left,
@@ -116,7 +122,13 @@ Page({
     var key = col === "right" ? "rightList" : "leftList";
     var list = (this.data[key] || []).map(function (it) {
       if (String(it.id) !== String(id)) return it;
-      return Object.assign({}, it, { coverFailed: true, cover: FALLBACK_COVER });
+      var mock = pickMockCover(it.id);
+      return Object.assign({}, it, {
+        coverFailed: false,
+        cover: mock.url,
+        cover_ratio: mock.ratio,
+        cover_is_mock: true,
+      });
     });
     var patch = {};
     patch[key] = list;

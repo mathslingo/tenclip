@@ -261,17 +261,17 @@ score = 40*cos_sim + 20*tag_overlap + freshness + 4*source_tier + popularity
 
 ```text
 services/
-  news_feed.py              # 保留 ingest/feedback；recommend_news 调 orchestrator
-  news_rec/
-    __init__.py
-    embedder.py             # SentenceTransformer 单例 + encode()
-    index_store.py          # FAISS load/search/rebuild
-    user_vector.py          # query 向量 from tags + history
-    rank_rule.py            # Phase A 规则分
-    rank_lgb.py             # Phase B 可选
-    rerank.py               # 多样性 / dislike
-    recommend.py            # recommend_news_m1() 主入口
-    legacy.py               # recommend_news_legacy() 原 M0 逻辑
+  news_feed.py              # 抓取 / 入库 / admin；推荐 API re-export 自 rec/
+
+rec/                        # 推荐子系统（已落地 M0）
+  __init__.py               # recommend_news / feedback / profile / tags
+  recommend.py              # M0 规则精排主入口
+  richness.py               # 图文丰富度
+  profile.py
+  feedback.py
+  tags.py
+  # 后续 M1：
+  # embedder.py / index_store.py / user_vector.py / rank_lgb.py / rerank.py
 
 scripts/
   news_reindex_embeddings.py
@@ -284,17 +284,20 @@ config/
 data/news_feed/             # 索引与模型产物（gitignore）
 ```
 
-### 9.1 `recommend_news()` 入口改造
+### 9.1 `recommend_news()` 入口
+
+当前默认走 `rec.recommend.recommend_news`（M0）。M1 接入后：
 
 ```python
+# rec/recommend.py（规划）
 def recommend_news(inp: RecommendInput) -> list[dict[str, Any]]:
     if os.environ.get("TENCLIP_NEWS_REC_ENGINE", "m1") == "legacy":
-        return recommend_news_legacy(inp)
+        return recommend_news_m0(inp)
     try:
         return recommend_news_m1(inp)
     except Exception:
-        logger.exception("M1 recommend failed, fallback legacy")
-        return recommend_news_legacy(inp)
+        logger.exception("M1 recommend failed, fallback M0")
+        return recommend_news_m0(inp)
 ```
 
 **API 无 breaking change**。

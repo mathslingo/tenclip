@@ -30,8 +30,9 @@
           <view wx:else class="cover-fallback">
             <text class="fallback-letter">{{item.author_initial}}</text>
           </view>
-          <view class="play-badge" wx:if="{{item.media_type === 'video'}}">▶</view>
-        </view>
+            <view class="play-badge" wx:if="{{item.media_type === 'video'}}">▶</view>
+            <view class="tour-badge" wx:if="{{item.tour_badge}}">{{item.tour_badge}}</view>
+          </view>
         <view class="note-body">
           <text class="note-title">{{item.title}}</text>
           <view class="note-meta">
@@ -69,8 +70,9 @@
           <view wx:else class="cover-fallback">
             <text class="fallback-letter">{{item.author_initial}}</text>
           </view>
-          <view class="play-badge" wx:if="{{item.media_type === 'video'}}">▶</view>
-        </view>
+            <view class="play-badge" wx:if="{{item.media_type === 'video'}}">▶</view>
+            <view class="tour-badge" wx:if="{{item.tour_badge}}">{{item.tour_badge}}</view>
+          </view>
         <view class="note-body">
           <text class="note-title">{{item.title}}</text>
           <view class="note-meta">

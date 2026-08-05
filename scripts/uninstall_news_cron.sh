@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# 卸载新闻抓取 crontab（Python 直跑 + HTTP 两种）
 set -euo pipefail
 
 EXISTING="$(crontab -l 2>/dev/null || true)"
@@ -7,7 +8,7 @@ if [[ -z "${EXISTING}" ]]; then
   exit 0
 fi
 
-FILTERED="$(echo "${EXISTING}" | grep -Fv "scripts/news_ingest_once.py" || true)"
+FILTERED="$(echo "${EXISTING}" | grep -Fv "scripts/news_ingest_once.py" | grep -Fv "scripts/news_ingest_via_http.sh" || true)"
 
 if [[ -z "${FILTERED}" ]]; then
   crontab -r

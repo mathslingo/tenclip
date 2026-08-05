@@ -1,96 +1,179 @@
 <view class="me-page">
-  <!-- 未登录提示 -->
-  <view class="login-prompt-card" wx:if="{{!isLoggedIn}}">
-    <view class="login-prompt-icon">👤</view>
-    <text class="login-prompt-title">未登录</text>
-    <text class="login-prompt-desc">登录后可查看个人数据、积分和使用统计</text>
-    <button class="login-prompt-btn" bindtap="onGoLogin">微信一键登录</button>
+  <!-- 小红书式头图 + 身份区 -->
+  <view class="profile-cover">
+    <view class="cover-wash"></view>
+    <view class="cover-actions">
+      <view class="cover-btn" bindtap="onToggleSettings">设置</view>
+      <view class="cover-btn primary" bindtap="onEditProfile">编辑资料</view>
+    </view>
   </view>
 
-  <!-- 已登录：用户信息卡片 -->
-  <block wx:else>
-    <view class="profile-card">
-      <view class="profile-top">
-        <view class="avatar-wrap" bindtap="onGetProfile">
-          <image wx:if="{{avatarUrl}}" class="avatar" src="{{avatarUrl}}" mode="aspectFill" />
-          <view wx:else class="avatar-placeholder">👤</view>
-          <view class="avatar-edit-tag">✎</view>
-        </view>
-        <view class="profile-info">
-          <view class="nickname-row" bindtap="onEditNickname">
-            <text class="nickname">{{nickName}}</text>
-            <text class="edit-icon">✎</text>
-          </view>
-          <text class="user-id">ID: {{userId}}</text>
-        </view>
+  <view class="profile-panel">
+    <view class="identity-row">
+      <view class="avatar-wrap" bindtap="onEditProfile">
+        <image wx:if="{{profile.avatarUrl}}" class="avatar-img" src="{{profile.avatarUrl}}" mode="aspectFill" />
+        <view wx:else class="avatar-fallback">{{avatarLetter}}</view>
       </view>
-
-      <!-- 积分与统计 -->
-      <view class="stats-row">
-        <view class="stat-item">
-          <text class="stat-value">{{points}}</text>
-          <text class="stat-label">积分</text>
+      <view class="identity-main">
+        <view class="name-row">
+          <text class="nickname">{{profile.nickname}}</text>
+          <text class="gender-pill" wx:if="{{profile.gender}}">{{profile.gender}}</text>
         </view>
-        <view class="stat-divider"></view>
-        <view class="stat-item">
-          <text class="stat-value">{{clipCount}}</text>
-          <text class="stat-label">剪辑次数</text>
-        </view>
-        <view class="stat-divider"></view>
-        <view class="stat-item">
-          <text class="stat-value">{{analyzeCount}}</text>
-          <text class="stat-label">AI分析</text>
-        </view>
-      </view>
-
-      <view class="points-tip" wx:if="{{points === 0}}">
-        <text>💡 使用视频剪辑和AI教练可以获得积分</text>
+        <text class="uid-line">小程序号：{{profile.uid}} · IP：{{profile.location}}</text>
       </view>
     </view>
 
-    <!-- 积分明细 -->
-    <view class="card">
-      <text class="card-title">积分规则</text>
-      <view class="rule-row">
-        <text class="rule-label">🎬 完成一次视频剪辑</text>
-        <text class="rule-points">+50 积分</text>
+    <view class="stats-row">
+      <view class="stat">
+        <text class="stat-num">{{stats.following}}</text>
+        <text class="stat-label">关注</text>
       </view>
-      <view class="rule-row">
-        <text class="rule-label">🤖 完成一次AI动作分析</text>
-        <text class="rule-points">+80 积分</text>
+      <view class="stat">
+        <text class="stat-num">{{stats.followers}}</text>
+        <text class="stat-label">粉丝</text>
       </view>
-      <view class="rule-row">
-        <text class="rule-label">🎾 提报一个新球场</text>
-        <text class="rule-points">+100 积分</text>
+      <view class="stat">
+        <text class="stat-num">{{stats.likedCollect}}</text>
+        <text class="stat-label">获赞与收藏</text>
       </view>
+    </view>
+
+    <text class="bio">{{profile.bio}}</text>
+    <view class="tag-row" wx:if="{{profile.tags.length}}">
+      <text class="interest-tag" wx:for="{{profile.tags}}" wx:key="*this">{{item}}</text>
+    </view>
+  </view>
+
+  <!-- 快捷入口（原工具菜单） -->
+  <view class="quick-row">
+    <view class="quick-card" bindtap="onGoStroke">
+      <text class="quick-icon">✂</text>
+      <text class="quick-label">击球剪辑</text>
+    </view>
+    <view class="quick-card" bindtap="onGoAnalyze">
+      <text class="quick-icon">◎</text>
+      <text class="quick-label">动作分析</text>
+    </view>
+    <view class="quick-card" bindtap="onGoFeed">
+      <text class="quick-icon">▣</text>
+      <text class="quick-label">发现资讯</text>
     </view>
   </block>
 
-  <!-- 数据源 -->
-  <view class="card">
-    <text class="card-title">数据源</text>
+  <!-- 内容 Tab -->
+  <view class="content-tabs">
+    <view
+      wx:for="{{tabs}}"
+      wx:key="key"
+      class="content-tab {{activeTab === item.key ? 'active' : ''}}"
+      data-key="{{item.key}}"
+      bindtap="onTab"
+    >
+      <text>{{item.label}}</text>
+      <text class="tab-count" wx:if="{{item.count != null}}">{{item.count}}</text>
+    </view>
+  </view>
+
+  <view class="waterfall" wx:if="{{leftList.length || rightList.length}}">
+    <view class="col">
+      <view
+        class="note-card"
+        wx:for="{{leftList}}"
+        wx:key="id"
+        data-id="{{item.id}}"
+        bindtap="onOpenDetail"
+      >
+        <view class="cover-wrap" style="padding-bottom: {{item.cover_ratio * 100}}%;">
+          <image
+            wx:if="{{!item.coverFailed}}"
+            class="cover"
+            src="{{item.cover}}"
+            mode="aspectFill"
+            lazy-load
+            data-id="{{item.id}}"
+            data-col="left"
+            binderror="onCoverError"
+          />
+          <view wx:else class="cover-fallback">
+            <text class="fallback-letter">{{item.author_initial}}</text>
+          </view>
+        </view>
+        <view class="note-body">
+          <text class="note-title">{{item.title}}</text>
+        </view>
+      </view>
+    </view>
+    <view class="col">
+      <view
+        class="note-card"
+        wx:for="{{rightList}}"
+        wx:key="id"
+        data-id="{{item.id}}"
+        bindtap="onOpenDetail"
+      >
+        <view class="cover-wrap" style="padding-bottom: {{item.cover_ratio * 100}}%;">
+          <image
+            wx:if="{{!item.coverFailed}}"
+            class="cover"
+            src="{{item.cover}}"
+            mode="aspectFill"
+            lazy-load
+            data-id="{{item.id}}"
+            data-col="right"
+            binderror="onCoverError"
+          />
+          <view wx:else class="cover-fallback">
+            <text class="fallback-letter">{{item.author_initial}}</text>
+          </view>
+        </view>
+        <view class="note-body">
+          <text class="note-title">{{item.title}}</text>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <view class="empty-block" wx:else>
+    <text class="empty-title">{{emptyTitle}}</text>
+    <text class="empty-sub">{{emptySub}}</text>
+    <view class="empty-cta" bindtap="onEmptyCta" wx:if="{{emptyCta}}">{{emptyCta}}</view>
+  </view>
+
+  <!-- 开发设置（默认收起） -->
+  <view class="settings-card" wx:if="{{showSettings}}">
+    <text class="settings-title">数据源与调试</text>
     <view class="switch-row">
-      <view>
+      <view class="switch-text">
         <text class="switch-label">资讯使用 Mock</text>
-        <text class="switch-hint">关闭后请求线上 /api/news/feed；失败回退 Mock，空库显示空态</text>
+        <text class="switch-hint">关闭后请求本机 /api/news/feed；失败回退 Mock。</text>
       </view>
       <switch checked="{{feedUseMock}}" bindchange="onMockChange" color="#13d8a8" />
     </view>
     <text class="build-tag">Build {{buildTag}}</text>
+    <text class="build-tag">API {{apiBase}}{{localDev ? ' · 本机库' : ' · 线上'}}</text>
   </view>
+</view>
 
-  <!-- 关于 -->
-  <view class="card">
-    <text class="card-title">关于</text>
-    <text class="about-text">UChance 帮你找网球场、浏览网球资讯、剪辑击球片段，并用 AI 教练获得动作指导。视频剪辑与 AI 教练工具在「发现」页。</text>
-  </view>
-
-  <!-- 退出登录 / 去登录 -->
-  <view wx:if="{{isLoggedIn}}" class="logout-btn" bindtap="onLogout">
-    <text>退出登录</text>
-  </view>
-  <view wx:else class="logout-btn go-login" bindtap="onGoLogin">
-    <text>登录 / 注册</text>
+<!-- 编辑资料弹层 -->
+<view class="edit-mask" wx:if="{{editing}}" catchtouchmove="noop">
+  <view class="edit-sheet">
+    <text class="edit-title">编辑资料</text>
+    <text class="field-label">昵称</text>
+    <input class="field-input" value="{{editForm.nickname}}" maxlength="20" bindinput="onEditNick" />
+    <text class="field-label">简介</text>
+    <textarea
+      class="field-area"
+      value="{{editForm.bio}}"
+      maxlength="80"
+      auto-height
+      bindinput="onEditBio"
+    />
+    <text class="field-label">兴趣标签（逗号分隔）</text>
+    <input class="field-input" value="{{editForm.tagsText}}" maxlength="40" bindinput="onEditTags" />
+    <view class="edit-actions">
+      <view class="edit-btn ghost" bindtap="onCancelEdit">取消</view>
+      <view class="edit-btn solid" bindtap="onSaveEdit">保存</view>
+    </view>
   </view>
 </view>
 
