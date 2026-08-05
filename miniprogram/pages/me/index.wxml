@@ -58,7 +58,7 @@
       <text class="quick-icon">▣</text>
       <text class="quick-label">发现资讯</text>
     </view>
-  </view>
+  </block>
 
   <!-- 内容 Tab -->
   <view class="content-tabs">

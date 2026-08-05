@@ -371,6 +371,8 @@
   margin-bottom: 8rpx;
 }
 
+/* ── 数据源 ── */
+
 .switch-row {
   display: flex;
   align-items: center;

@@ -6,8 +6,6 @@ const PAGE_SIZE = 6;
 
 Page({
   data: {
-    topTabs: ["推荐", "赛事", "教学"],
-    activeTab: "推荐",
     leftList: [],
     rightList: [],
     offset: 0,
@@ -34,11 +32,16 @@ Page({
     this.loadMore();
   },
 
-  onTopTab(e) {
-    var tab = e.currentTarget.dataset.tab;
-    if (!tab || tab === this.data.activeTab) return;
-    this.setData({ activeTab: tab });
-    this.reload();
+  onTabInfo() {
+    // 当前已在资讯
+  },
+
+  onTabStroke() {
+    wx.redirectTo({ url: "/pages/stroke-extract/index" });
+  },
+
+  onTabCoach() {
+    wx.redirectTo({ url: "/pages/action-analyze/index" });
   },
 
   reload() {
@@ -70,7 +73,7 @@ Page({
     }
     that.setData({ loading: true });
     return fetchFeedPage({
-      tab: that.data.activeTab,
+      tab: "推荐",
       offset: that.data.offset,
       limit: PAGE_SIZE,
     })

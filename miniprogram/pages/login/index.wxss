@@ -1,0 +1,197 @@
+.login-page {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 80rpx 48rpx 60rpx;
+  background: #f2f3f5;
+  box-sizing: border-box;
+}
+
+/* ── 品牌 ── */
+
+.brand-area {
+  text-align: center;
+  margin-bottom: 56rpx;
+}
+
+.brand-icon {
+  display: block;
+  font-size: 100rpx;
+  margin-bottom: 20rpx;
+}
+
+.brand-name {
+  display: block;
+  font-size: 56rpx;
+  font-weight: 800;
+  color: #0d3d32;
+  letter-spacing: 4rpx;
+}
+
+.brand-desc {
+  display: block;
+  margin-top: 14rpx;
+  font-size: 26rpx;
+  color: #6e7582;
+}
+
+/* ── 授权卡片 ── */
+
+.auth-card {
+  width: 100%;
+  background: #fff;
+  border-radius: 28rpx;
+  padding: 36rpx 32rpx 20rpx;
+  box-shadow: 0 4rpx 20rpx rgba(0,0,0,0.06);
+}
+
+.auth-title {
+  display: block;
+  font-size: 34rpx;
+  font-weight: 700;
+  color: #0d3d32;
+}
+
+.auth-sub {
+  display: block;
+  margin-top: 8rpx;
+  margin-bottom: 28rpx;
+  font-size: 24rpx;
+  color: #9aa3af;
+}
+
+/* ── 授权项 ── */
+
+.auth-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20rpx 0;
+}
+
+.auth-left {
+  display: flex;
+  align-items: center;
+  gap: 20rpx;
+  flex: 1;
+  min-width: 0;
+}
+
+.auth-avatar {
+  width: 72rpx;
+  height: 72rpx;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.auth-icon-wrap {
+  width: 72rpx;
+  height: 72rpx;
+  border-radius: 50%;
+  background: #f0faf6;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.auth-icon {
+  font-size: 36rpx;
+}
+
+.auth-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.auth-label {
+  font-size: 28rpx;
+  font-weight: 600;
+  color: #151821;
+}
+
+.auth-value {
+  margin-top: 4rpx;
+  font-size: 24rpx;
+  color: #13d8a8;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.auth-hint {
+  margin-top: 4rpx;
+  font-size: 22rpx;
+  color: #9aa3af;
+}
+
+.auth-status {
+  width: 48rpx;
+  height: 48rpx;
+  border-radius: 50%;
+  border: 2rpx solid #e5e9f0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 28rpx;
+  color: #c0c6ce;
+  flex-shrink: 0;
+}
+
+.auth-status.done {
+  background: #13d8a8;
+  border-color: #13d8a8;
+  color: #fff;
+}
+
+.auth-divider {
+  height: 2rpx;
+  background: #f0f3f6;
+  margin: 0;
+}
+
+/* ── 位置说明 ── */
+
+.location-note {
+  display: block;
+  width: 100%;
+  margin-top: 24rpx;
+  padding: 0 8rpx;
+  font-size: 22rpx;
+  color: #9aa3af;
+  text-align: center;
+}
+
+/* ── 进入按钮 ── */
+
+.enter-btn {
+  width: 100%;
+  margin-top: 48rpx;
+  border: none;
+  border-radius: 24rpx;
+  padding: 28rpx 0;
+  font-size: 32rpx;
+  font-weight: 700;
+  background: #e5e9f0;
+  color: #9aa3af;
+}
+
+.enter-btn.ready {
+  background: linear-gradient(140deg, #3bf0bf, #13d8a8);
+  color: #fff;
+}
+
+.enter-btn[disabled] {
+  opacity: 1;
+}
+
+/* ── 跳过 ── */
+
+.skip-text {
+  margin-top: 28rpx;
+  font-size: 24rpx;
+  color: #9aa3af;
+  text-decoration: underline;
+}

@@ -293,3 +293,28 @@
   color: #9aa3af;
   word-break: break-all;
 }
+
+/* 顶部三 Tab（资讯/视频剪辑/AI教练） */
+.top-tabs {
+  display: flex;
+  gap: 8rpx;
+  padding: 0 0 16rpx;
+}
+
+.top-tab {
+  flex: 1;
+  text-align: center;
+  padding: 16rpx 0;
+  font-size: 26rpx;
+  color: #6e7582;
+  border-radius: 999rpx;
+  background: #fff;
+  border: 2rpx solid #e5e9f0;
+}
+
+.top-tab.active {
+  color: #0d3d32;
+  font-weight: 700;
+  background: #d4fff4;
+  border-color: #13d8a8;
+}

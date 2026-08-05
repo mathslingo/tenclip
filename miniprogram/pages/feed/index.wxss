@@ -1,34 +1,33 @@
 .feed-page {
-  padding: 0 12rpx calc(120rpx + env(safe-area-inset-bottom));
+  padding: 16rpx 12rpx calc(120rpx + env(safe-area-inset-bottom));
   min-height: 100vh;
   box-sizing: border-box;
   background: #f5f5f5;
 }
 
+/* 顶部三 Tab */
 .top-tabs {
-  position: sticky;
-  top: 0;
-  z-index: 10;
   display: flex;
   gap: 8rpx;
-  padding: 16rpx 12rpx 12rpx;
-  background: #f5f5f5;
+  padding: 0 8rpx 16rpx;
 }
 
 .top-tab {
   flex: 1;
   text-align: center;
   padding: 16rpx 0;
-  font-size: 28rpx;
+  font-size: 26rpx;
   color: #6e7582;
   border-radius: 999rpx;
   background: #fff;
+  border: 2rpx solid #e5e9f0;
 }
 
 .top-tab.active {
   color: #0d3d32;
   font-weight: 700;
   background: #d4fff4;
+  border-color: #13d8a8;
 }
 
 .waterfall {
