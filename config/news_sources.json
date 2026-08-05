@@ -1,0 +1,83 @@
+{
+  "schema_version": 1,
+  "comment": "网坛新闻抓取来源。enabled=false 可临时下线；quality_tier: 3=官方/强专业 2=主流媒体 1=聚合/兜底。html.parser 可选 tennis_com_list | thepaper_list（省略时按域名推断）。",
+  "sources": [
+    {
+      "id": "cnn_sport_rss",
+      "enabled": false,
+      "name": "CNN · Sport (RSS)",
+      "url": "http://rss.cnn.com/rss/edition_sport.rss",
+      "kind": "rss",
+      "quality_tier": 2,
+      "comment": "综合体育噪声大，默认关闭；网球优先用 ATP/WTA/BBC/ESPN"
+    },
+    {
+      "id": "bbc_tennis_rss",
+      "enabled": true,
+      "name": "BBC Sport · Tennis",
+      "url": "https://feeds.bbci.co.uk/sport/tennis/rss.xml",
+      "kind": "rss",
+      "quality_tier": 2
+    },
+    {
+      "id": "tennis_com_all_news",
+      "enabled": true,
+      "name": "Tennis.com · All news",
+      "url": "https://www.tennis.com/news/all-news/",
+      "kind": "html",
+      "parser": "tennis_com_list",
+      "quality_tier": 3
+    },
+    {
+      "id": "atp_tour_rss",
+      "enabled": true,
+      "name": "ATP Tour News",
+      "url": "https://www.atptour.com/en/media/rss-feed/xml-feed",
+      "kind": "rss",
+      "quality_tier": 3
+    },
+    {
+      "id": "wta_news_rss",
+      "enabled": true,
+      "name": "WTA News",
+      "url": "https://www.wtatennis.com/rss/news",
+      "kind": "rss",
+      "quality_tier": 3
+    },
+    {
+      "id": "espn_tennis_rss",
+      "enabled": true,
+      "name": "ESPN Tennis",
+      "url": "https://www.espn.com/espn/rss/tennis/news",
+      "kind": "rss",
+      "quality_tier": 2
+    },
+    {
+      "id": "google_news_tennis",
+      "enabled": true,
+      "name": "Google News · Tennis",
+      "url": "https://news.google.com/rss/search?q=ATP+OR+WTA+OR+tennis&hl=en-US&gl=US&ceid=US:en",
+      "kind": "rss",
+      "quality_tier": 1
+    },
+    {
+      "id": "thepaper_sports",
+      "enabled": true,
+      "name": "ThePaper Sports",
+      "url": "https://m.thepaper.cn/list_25599",
+      "kind": "html",
+      "parser": "thepaper_list",
+      "quality_tier": 2
+    },
+    {
+      "id": "live_tennis_cn_home",
+      "enabled": true,
+      "name": "Live Tennis CN",
+      "url": "https://www.live-tennis.cn/zh/home",
+      "kind": "html",
+      "parser": "live_tennis_list",
+      "quality_tier": 3,
+      "comment": "网球之家中文站首页动态流（夺冠/排名里程碑），解析器在 tennis_news 包"
+    }
+  ]
+}

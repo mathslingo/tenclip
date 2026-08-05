@@ -1,0 +1,6 @@
+# TenClip VLM API（FastAPI）— 主项目 requirements.txt + requirements-llm*.txt 已含推理依赖
+fastapi>=0.100
+uvicorn[standard]>=0.23
+python-multipart>=0.0.6
+pydantic>=2.0
+requests>=2.28

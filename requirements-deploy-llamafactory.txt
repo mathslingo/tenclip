@@ -1,0 +1,13 @@
+gradio>=4.0,<6.0
+moviepy>=1.0.3
+imageio-ffmpeg>=0.4
+python-dotenv>=1.0.0
+torch>=2.1.0
+transformers>=4.46.0
+accelerate>=0.34.0
+huggingface_hub>=0.20.0
+modelscope>=1.14.0
+qwen-vl-utils
+pillow>=10.0.0
+bitsandbytes>=0.43.0
+llamafactory>=0.9.0

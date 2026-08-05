@@ -1,0 +1,37 @@
+# api.uchance.tech → 127.0.0.1:7861
+# certbot 之后请确认本文件仍含 client_body_timeout / client_max_body_size
+
+server {
+    listen 80;
+    server_name api.uchance.tech;
+    return 301 https://$host$request_uri;
+}
+
+server {
+    # 微信小程序 uploadFile 遇 ERR_CONNECTION_RESET 时建议去掉 http2
+    listen 443 ssl;
+    server_name api.uchance.tech;
+
+    # certbot 会自动写入证书路径，并 include options-ssl-nginx.conf（勿再写 ssl_protocols 避免重复）
+
+    client_max_body_size 512m;
+    client_body_buffer_size 16m;
+    client_body_timeout 600s;
+    client_header_timeout 600s;
+    send_timeout 600s;
+    proxy_read_timeout 600s;
+    proxy_send_timeout 600s;
+    proxy_connect_timeout 60s;
+
+    location / {
+        proxy_pass http://127.0.0.1:7861;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header Connection "";
+        # 勿设 proxy_request_buffering off，易导致小程序 uploadFile ERR_CONNECTION_RESET
+        proxy_request_buffering on;
+    }
+}

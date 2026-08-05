@@ -1,0 +1,493 @@
+.me-page {
+  min-height: 100vh;
+  padding-bottom: calc(120rpx + env(safe-area-inset-bottom));
+  background: #f2f3f5;
+  box-sizing: border-box;
+}
+
+/* —— 头图 —— */
+.profile-cover {
+  position: relative;
+  height: 280rpx;
+  background:
+    radial-gradient(ellipse 80% 60% at 20% 30%, rgba(255, 255, 255, 0.35), transparent 55%),
+    linear-gradient(155deg, #1a5c4a 0%, #13d8a8 48%, #7ee0c8 100%);
+  overflow: hidden;
+}
+
+.cover-wash {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  background:
+    repeating-linear-gradient(
+      -18deg,
+      transparent,
+      transparent 28rpx,
+      rgba(255, 255, 255, 0.04) 28rpx,
+      rgba(255, 255, 255, 0.04) 30rpx
+    );
+}
+
+.cover-actions {
+  position: absolute;
+  right: 24rpx;
+  top: 24rpx;
+  z-index: 2;
+  display: flex;
+  gap: 12rpx;
+}
+
+.cover-btn {
+  padding: 10rpx 22rpx;
+  border-radius: 999rpx;
+  font-size: 22rpx;
+  color: #fff;
+  background: rgba(0, 0, 0, 0.28);
+  backdrop-filter: blur(8px);
+}
+
+.cover-btn.primary {
+  background: rgba(255, 255, 255, 0.92);
+  color: #0d3d32;
+  font-weight: 600;
+}
+
+/* —— 身份面板 —— */
+.profile-panel {
+  margin: -72rpx 20rpx 0;
+  position: relative;
+  z-index: 3;
+  background: #fff;
+  border-radius: 28rpx;
+  padding: 28rpx 28rpx 24rpx;
+  box-shadow: 0 8rpx 28rpx rgba(13, 61, 50, 0.08);
+}
+
+.identity-row {
+  display: flex;
+  gap: 24rpx;
+  align-items: flex-end;
+}
+
+.avatar-wrap {
+  width: 140rpx;
+  height: 140rpx;
+  margin-top: -88rpx;
+  border-radius: 50%;
+  border: 6rpx solid #fff;
+  overflow: hidden;
+  background: #13d8a8;
+  flex-shrink: 0;
+  box-shadow: 0 6rpx 20rpx rgba(0, 0, 0, 0.12);
+}
+
+.avatar-img {
+  width: 100%;
+  height: 100%;
+}
+
+.avatar-fallback {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 56rpx;
+  font-weight: 700;
+  color: #0d3d32;
+  background: linear-gradient(145deg, #baf5e8, #13d8a8);
+}
+
+.identity-main {
+  flex: 1;
+  min-width: 0;
+  padding-bottom: 8rpx;
+}
+
+.name-row {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+}
+
+.nickname {
+  font-size: 36rpx;
+  font-weight: 700;
+  color: #151821;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.gender-pill {
+  flex-shrink: 0;
+  padding: 2rpx 12rpx;
+  border-radius: 8rpx;
+  font-size: 20rpx;
+  color: #0d6b52;
+  background: #e8faf4;
+}
+
+.uid-line {
+  display: block;
+  margin-top: 8rpx;
+  font-size: 22rpx;
+  color: #9aa3af;
+}
+
+.stats-row {
+  display: flex;
+  gap: 40rpx;
+  margin-top: 28rpx;
+}
+
+.stat {
+  display: flex;
+  flex-direction: column;
+  gap: 4rpx;
+}
+
+.stat-num {
+  font-size: 32rpx;
+  font-weight: 700;
+  color: #151821;
+  line-height: 1.2;
+}
+
+.stat-label {
+  font-size: 22rpx;
+  color: #9aa3af;
+}
+
+.bio {
+  display: block;
+  margin-top: 20rpx;
+  font-size: 26rpx;
+  line-height: 1.55;
+  color: #415360;
+}
+
+.tag-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12rpx;
+  margin-top: 16rpx;
+}
+
+.interest-tag {
+  padding: 6rpx 16rpx;
+  border-radius: 8rpx;
+  font-size: 22rpx;
+  color: #0d6b52;
+  background: #eefaf6;
+}
+
+/* —— 快捷入口 —— */
+.quick-row {
+  display: flex;
+  gap: 12rpx;
+  margin: 20rpx 20rpx 0;
+}
+
+.quick-card {
+  flex: 1;
+  background: #fff;
+  border-radius: 20rpx;
+  padding: 24rpx 12rpx;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10rpx;
+  box-shadow: 0 2rpx 10rpx rgba(0, 0, 0, 0.04);
+}
+
+.quick-icon {
+  font-size: 32rpx;
+  color: #0d6b52;
+  line-height: 1;
+}
+
+.quick-label {
+  font-size: 22rpx;
+  color: #415360;
+  font-weight: 500;
+}
+
+/* —— 内容 Tab —— */
+.content-tabs {
+  display: flex;
+  margin: 28rpx 20rpx 0;
+  padding: 0 8rpx;
+  border-bottom: 2rpx solid #e8ecf1;
+}
+
+.content-tab {
+  position: relative;
+  padding: 18rpx 24rpx 20rpx;
+  font-size: 28rpx;
+  color: #6e7582;
+  display: flex;
+  align-items: baseline;
+  gap: 6rpx;
+}
+
+.content-tab.active {
+  color: #0d3d32;
+  font-weight: 700;
+}
+
+.content-tab.active::after {
+  content: "";
+  position: absolute;
+  left: 24rpx;
+  right: 24rpx;
+  bottom: 0;
+  height: 6rpx;
+  border-radius: 6rpx;
+  background: #13d8a8;
+}
+
+.tab-count {
+  font-size: 20rpx;
+  color: #9aa3af;
+  font-weight: 400;
+}
+
+/* —— 双列 —— */
+.waterfall {
+  display: flex;
+  align-items: flex-start;
+  gap: 12rpx;
+  padding: 16rpx 20rpx 0;
+}
+
+.col {
+  flex: 1;
+  min-width: 0;
+}
+
+.note-card {
+  background: #fff;
+  border-radius: 16rpx;
+  overflow: hidden;
+  margin-bottom: 12rpx;
+  box-shadow: 0 2rpx 10rpx rgba(0, 0, 0, 0.04);
+}
+
+.cover-wrap {
+  position: relative;
+  width: 100%;
+  background: #e8eef2;
+}
+
+.cover {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.cover-fallback {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(145deg, #baf5e8, #7ee0c8);
+}
+
+.fallback-letter {
+  font-size: 56rpx;
+  font-weight: 700;
+  color: rgba(13, 61, 50, 0.45);
+}
+
+.note-body {
+  padding: 14rpx 14rpx 16rpx;
+}
+
+.note-title {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  font-size: 24rpx;
+  line-height: 1.4;
+  color: #151821;
+  font-weight: 600;
+}
+
+/* —— 空态 —— */
+.empty-block {
+  margin: 48rpx 40rpx 24rpx;
+  text-align: center;
+}
+
+.empty-title {
+  display: block;
+  font-size: 30rpx;
+  font-weight: 600;
+  color: #415360;
+}
+
+.empty-sub {
+  display: block;
+  margin-top: 12rpx;
+  font-size: 24rpx;
+  color: #9aa3af;
+  line-height: 1.5;
+}
+
+.empty-cta {
+  display: inline-block;
+  margin-top: 28rpx;
+  padding: 16rpx 40rpx;
+  border-radius: 999rpx;
+  background: linear-gradient(140deg, #3bf0bf, #13d8a8);
+  color: #fff;
+  font-size: 26rpx;
+  font-weight: 600;
+}
+
+/* —— 设置 —— */
+.settings-card {
+  margin: 24rpx 20rpx 0;
+  background: #fff;
+  border-radius: 24rpx;
+  padding: 24rpx 28rpx 28rpx;
+}
+
+.settings-title {
+  display: block;
+  font-size: 28rpx;
+  font-weight: 600;
+  margin-bottom: 8rpx;
+}
+
+/* ── 数据源 ── */
+
+.switch-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20rpx;
+  padding: 16rpx 0 8rpx;
+  border-top: 2rpx solid #f0f3f6;
+}
+
+.switch-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.switch-label {
+  display: block;
+  font-size: 28rpx;
+}
+
+.switch-hint {
+  display: block;
+  margin-top: 8rpx;
+  font-size: 22rpx;
+  color: #9aa3af;
+  line-height: 1.4;
+}
+
+.build-tag {
+  display: block;
+  margin-top: 12rpx;
+  font-size: 22rpx;
+  color: #b0b7c0;
+  word-break: break-all;
+}
+
+/* —— 编辑弹层 —— */
+.edit-mask {
+  position: fixed;
+  left: 0;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  z-index: 200;
+  background: rgba(15, 24, 32, 0.45);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+
+.edit-sheet {
+  width: 100%;
+  max-width: 750rpx;
+  background: #fff;
+  border-radius: 32rpx 32rpx 0 0;
+  padding: 36rpx 32rpx calc(36rpx + env(safe-area-inset-bottom));
+  box-sizing: border-box;
+}
+
+.edit-title {
+  display: block;
+  text-align: center;
+  font-size: 32rpx;
+  font-weight: 700;
+  color: #0d3d32;
+  margin-bottom: 8rpx;
+}
+
+.field-label {
+  display: block;
+  margin-top: 24rpx;
+  margin-bottom: 10rpx;
+  font-size: 24rpx;
+  color: #6e7582;
+}
+
+.field-input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 18rpx 20rpx;
+  border-radius: 16rpx;
+  background: #f5f7f9;
+  font-size: 28rpx;
+}
+
+.field-area {
+  width: 100%;
+  min-height: 120rpx;
+  box-sizing: border-box;
+  padding: 18rpx 20rpx;
+  border-radius: 16rpx;
+  background: #f5f7f9;
+  font-size: 28rpx;
+}
+
+.edit-actions {
+  display: flex;
+  gap: 16rpx;
+  margin-top: 36rpx;
+}
+
+.edit-btn {
+  flex: 1;
+  text-align: center;
+  padding: 22rpx 0;
+  border-radius: 20rpx;
+  font-size: 28rpx;
+  font-weight: 600;
+}
+
+.edit-btn.ghost {
+  background: #eef2f5;
+  color: #415360;
+}
+
+.edit-btn.solid {
+  background: linear-gradient(140deg, #3bf0bf, #13d8a8);
+  color: #fff;
+}

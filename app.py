@@ -1,10 +1,522 @@
-import gradio as gr
-from moviepy.video.io.VideoFileClip import VideoFileClip
-import tempfile
-import os
 import logging
+import os
+import queue
+import shutil
+import sqlite3
+import threading
+import tempfile
+import time
+import uuid
+from pathlib import Path
+
+try:
+    from dotenv import load_dotenv
+
+    load_dotenv()
+except ImportError:
+    pass
+
+# 仓库在 ~/code/tenclip 等任意路径时：若存在本地权重目录，优先直接推理（不再走远程下载）
+_REPO_ROOT = Path(__file__).resolve().parent
+_LOCAL_VLM = _REPO_ROOT / "model" / "Qwen2-VL-2B-Instruct"
+if not os.environ.get("TENCLIP_VLM_MODEL", "").strip() and _LOCAL_VLM.is_dir():
+    os.environ["TENCLIP_VLM_MODEL"] = str(_LOCAL_VLM)
+
+import gradio as gr
+import uvicorn
+from fastapi import FastAPI, File, Form, HTTPException, Query, Request, UploadFile
+from fastapi.responses import FileResponse, RedirectResponse
+from fastapi.staticfiles import StaticFiles
+from moviepy.video.io.VideoFileClip import VideoFileClip
+
+from pages.video_input.gradio_page import video_input_demo
+
+from services.stroke_detect import StrokeDetectConfig, run_stroke_extract_pipeline
+from services.stroke_extract_tasks import (
+    ensure_stroke_worker_started,
+    get_stroke_output_path,
+    get_stroke_task,
+    init_stroke_db,
+    submit_stroke_task,
+)
+from services import mobile_chunk_upload as mcu
+from services.vlm_tennis import (
+    MAX_VIDEO_DURATION_SEC,
+    analyze_tennis_video,
+    format_guidance_markdown,
+    prompt_profile_radio_choices,
+    resolve_prompt_profile,
+    vlm_dependency_message,
+)
+from services.news_feed import (
+    get_news_admin_overview,
+    ingest_news,
+    init_news_db,
+    list_ingest_runs,
+    list_news_articles_admin,
+)
+from rec import (
+    RecommendInput,
+    record_feedback,
+    recommend_news,
+    set_user_profile,
+    suggest_tags,
+)
+
 logging.basicConfig(level=logging.INFO)
 os.environ["GRADIO_ANALYTICS_ENABLED"] = "False"
+
+PERF_MAP = {
+    "省显存（弱显卡推荐）": "eco",
+    "平衡": "balanced",
+    "质量优先（显存充足）": "quality",
+}
+
+MOBILE_EVENTS = [
+    {
+        "id": "evt-101",
+        "title": "午间小团课【正手进阶】1号+2号场",
+        "timeText": "明天(周三)下午12点 · 1.5小时",
+        "locationText": "闵行区吴中路485号古北 · 室内 · 6.4km",
+        "joined": 1,
+        "capacity": 5,
+        "levelMin": 1.0,
+        "levelMax": 5.0,
+        "playType": "不限",
+        "distanceKm": 6.4,
+        "startTimestamp": 1765560000,
+        "hotScore": 98,
+    },
+    {
+        "id": "evt-102",
+        "title": "晨间2小时畅打【4号场】",
+        "timeText": "明天(周三)上午8点 · 2小时",
+        "locationText": "闵行区吴中路485号古北 · 室内 · 6.4km",
+        "joined": 1,
+        "capacity": 2,
+        "levelMin": 1.0,
+        "levelMax": 5.0,
+        "playType": "不限",
+        "distanceKm": 6.4,
+        "startTimestamp": 1765545600,
+        "hotScore": 88,
+    },
+    {
+        "id": "evt-103",
+        "title": "周日晚 OMC 5.0 双打比赛局",
+        "timeText": "本周日晚上8点 · 2小时",
+        "locationText": "徐汇区天钥桥路 · 室内 · 4.0km",
+        "joined": 2,
+        "capacity": 16,
+        "levelMin": 2.0,
+        "levelMax": 3.0,
+        "playType": "双打",
+        "distanceKm": 4.0,
+        "startTimestamp": 1765800000,
+        "hotScore": 76,
+    },
+]
+
+ANALYSIS_TASKS: dict[str, dict] = {}
+ANALYSIS_TASKS_LOCK = threading.Lock()
+ANALYSIS_QUEUE: "queue.Queue[tuple[str, str, str, str | None]]" = queue.Queue()
+ANALYSIS_WORKER_STARTED = False
+ANALYSIS_WORKER_LOCK = threading.Lock()
+ANALYSIS_DB = _REPO_ROOT / "data" / "analysis_tasks.db"
+UPLOAD_DIR = _REPO_ROOT / "data" / "uploads"
+
+ANALYSIS_RETENTION_PRUNER_STARTED = False
+ANALYSIS_RETENTION_PRUNER_LOCK = threading.Lock()
+
+
+def _video_retention_days() -> int:
+    raw = os.environ.get("TENCLIP_VIDEO_RETENTION_DAYS", "60").strip()
+    try:
+        days = int(raw)
+    except ValueError:
+        days = 60
+    return max(1, min(days, 3650))
+
+
+def _new_task(task_id: str, perf_mode: str, prompt_profile: str | None) -> dict:
+    return {
+        "task_id": task_id,
+        "status": "queued",  # queued | running | succeeded | failed
+        "perf_mode": perf_mode,
+        "prompt_profile": prompt_profile or "",
+        "prompt_profile_effective": "",
+        "guidance": "",
+        "error": "",
+        "progress_message": "",
+        "progress_frac": 0.0,
+        "created_at": time.time(),
+        "started_at": None,
+        "finished_at": None,
+    }
+
+
+def _db_conn() -> sqlite3.Connection:
+    ANALYSIS_DB.parent.mkdir(parents=True, exist_ok=True)
+    conn = sqlite3.connect(ANALYSIS_DB)
+    conn.row_factory = sqlite3.Row
+    return conn
+
+
+def init_analysis_db() -> None:
+    UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+    with _db_conn() as conn:
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS analysis_tasks (
+                task_id TEXT PRIMARY KEY,
+                status TEXT NOT NULL,
+                perf_mode TEXT NOT NULL,
+                prompt_profile TEXT,
+                prompt_profile_effective TEXT,
+                guidance TEXT,
+                error TEXT,
+                created_at REAL NOT NULL,
+                started_at REAL,
+                finished_at REAL
+            )
+            """
+        )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS analysis_videos (
+                task_id TEXT PRIMARY KEY,
+                original_filename TEXT,
+                stored_path TEXT NOT NULL,
+                file_size INTEGER NOT NULL DEFAULT 0,
+                content_type TEXT,
+                uploaded_at REAL NOT NULL,
+                status TEXT NOT NULL DEFAULT 'stored'
+            )
+            """
+        )
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_analysis_videos_uploaded_at ON analysis_videos(uploaded_at)"
+        )
+        conn.commit()
+
+
+def _db_upsert_task(task: dict) -> None:
+    with _db_conn() as conn:
+        conn.execute(
+            """
+            INSERT INTO analysis_tasks (
+                task_id, status, perf_mode, prompt_profile, prompt_profile_effective,
+                guidance, error, created_at, started_at, finished_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(task_id) DO UPDATE SET
+                status=excluded.status,
+                perf_mode=excluded.perf_mode,
+                prompt_profile=excluded.prompt_profile,
+                prompt_profile_effective=excluded.prompt_profile_effective,
+                guidance=excluded.guidance,
+                error=excluded.error,
+                created_at=excluded.created_at,
+                started_at=excluded.started_at,
+                finished_at=excluded.finished_at
+            """,
+            (
+                task["task_id"],
+                task["status"],
+                task["perf_mode"],
+                task.get("prompt_profile", ""),
+                task.get("prompt_profile_effective", ""),
+                task.get("guidance", ""),
+                task.get("error", ""),
+                task["created_at"],
+                task.get("started_at"),
+                task.get("finished_at"),
+            ),
+        )
+        conn.commit()
+
+
+def _db_insert_video(
+    task_id: str,
+    original_filename: str,
+    stored_path: str,
+    file_size: int,
+    content_type: str,
+) -> None:
+    with _db_conn() as conn:
+        conn.execute(
+            """
+            INSERT OR REPLACE INTO analysis_videos (
+                task_id, original_filename, stored_path, file_size, content_type, uploaded_at, status
+            ) VALUES (?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                task_id,
+                original_filename,
+                stored_path,
+                int(file_size),
+                content_type,
+                time.time(),
+                "stored",
+            ),
+        )
+        conn.commit()
+
+
+def _db_update_video_status(task_id: str, status: str) -> None:
+    with _db_conn() as conn:
+        conn.execute("UPDATE analysis_videos SET status=? WHERE task_id=?", (status, task_id))
+        conn.commit()
+
+
+def _db_get_task(task_id: str) -> dict | None:
+    with _db_conn() as conn:
+        row = conn.execute("SELECT * FROM analysis_tasks WHERE task_id=?", (task_id,)).fetchone()
+    return dict(row) if row else None
+
+
+def _db_list_recent_tasks(limit: int) -> list[dict]:
+    with _db_conn() as conn:
+        rows = conn.execute(
+            """
+            SELECT
+                t.task_id,
+                t.status,
+                t.perf_mode,
+                t.prompt_profile,
+                t.prompt_profile_effective,
+                t.guidance,
+                t.error,
+                t.created_at,
+                t.started_at,
+                t.finished_at,
+                v.stored_path,
+                v.original_filename,
+                v.file_size,
+                v.content_type,
+                v.uploaded_at AS video_uploaded_at,
+                v.status AS video_status
+            FROM analysis_tasks t
+            LEFT JOIN analysis_videos v ON v.task_id = t.task_id
+            ORDER BY t.created_at DESC
+            LIMIT ?
+            """,
+            (limit,),
+        ).fetchall()
+    return [dict(r) for r in rows]
+
+
+def prune_expired_uploads() -> dict[str, int | float]:
+    """Remove on-disk uploads older than retention; mark analysis_videos as expired."""
+    days = _video_retention_days()
+    cutoff = time.time() - days * 86400.0
+    removed_files = 0
+    marked = 0
+    with _db_conn() as conn:
+        rows = conn.execute(
+            """
+            SELECT v.task_id, v.stored_path
+            FROM analysis_videos v
+            LEFT JOIN analysis_tasks t ON t.task_id = v.task_id
+            WHERE v.uploaded_at < ?
+              AND v.status <> 'expired'
+              AND COALESCE(t.status, '') NOT IN ('queued', 'running')
+            """,
+            (cutoff,),
+        ).fetchall()
+        for row in rows:
+            p = Path(row["stored_path"])
+            if p.is_file():
+                try:
+                    p.unlink()
+                    removed_files += 1
+                except OSError:
+                    logging.exception("prune unlink failed %s", p)
+            conn.execute(
+                "UPDATE analysis_videos SET status=? WHERE task_id=?",
+                ("expired", row["task_id"]),
+            )
+            marked += 1
+        conn.commit()
+    return {
+        "retention_days": days,
+        "cutoff_timestamp": cutoff,
+        "candidates": len(rows),
+        "rows_marked_expired": marked,
+        "files_removed": removed_files,
+    }
+
+
+def _retention_pruner_loop() -> None:
+    logging.info("upload retention pruner started (days=%s)", _video_retention_days())
+    while True:
+        try:
+            summary = prune_expired_uploads()
+            if summary["files_removed"] or summary["rows_marked_expired"]:
+                logging.info("upload retention prune: %s", summary)
+        except Exception:
+            logging.exception("upload retention prune failed")
+        time.sleep(6 * 3600)
+
+
+def _ensure_retention_pruner_started() -> None:
+    global ANALYSIS_RETENTION_PRUNER_STARTED
+    with ANALYSIS_RETENTION_PRUNER_LOCK:
+        if ANALYSIS_RETENTION_PRUNER_STARTED:
+            return
+        t = threading.Thread(target=_retention_pruner_loop, name="upload-retention", daemon=True)
+        t.start()
+        ANALYSIS_RETENTION_PRUNER_STARTED = True
+
+
+NEWS_INGEST_SCHEDULER_STARTED = False
+NEWS_INGEST_SCHEDULER_LOCK = threading.Lock()
+
+
+def _news_hourly_ingest_enabled() -> bool:
+    return (os.environ.get("TENCLIP_NEWS_HOURLY_INGEST") or "").strip().lower() in (
+        "1",
+        "true",
+        "yes",
+        "on",
+    )
+
+
+def _news_ingest_scheduler_loop() -> None:
+    """进程内周期性抓取。生产推荐 crontab；本地可开 TENCLIP_NEWS_HOURLY_INGEST=1。"""
+    interval = int(float(os.environ.get("TENCLIP_NEWS_INGEST_INTERVAL_SEC") or 3600))
+    interval = max(300, min(interval, 24 * 3600))
+    time.sleep(45)
+    while True:
+        try:
+            result = ingest_news(limit_per_source=30)
+            logging.info(
+                "scheduled news ingest: inserted=%s ok_sources=%s failed=%s",
+                result.get("inserted_or_updated"),
+                len(result.get("sources") or []),
+                len(result.get("failed") or []),
+            )
+        except Exception:
+            logging.exception("scheduled news ingest failed")
+        time.sleep(interval)
+
+
+def _ensure_news_ingest_scheduler_started() -> None:
+    global NEWS_INGEST_SCHEDULER_STARTED
+    if not _news_hourly_ingest_enabled():
+        return
+    with NEWS_INGEST_SCHEDULER_LOCK:
+        if NEWS_INGEST_SCHEDULER_STARTED:
+            return
+        t = threading.Thread(
+            target=_news_ingest_scheduler_loop, name="news-hourly-ingest", daemon=True
+        )
+        t.start()
+        NEWS_INGEST_SCHEDULER_STARTED = True
+        logging.info("TENCLIP_NEWS_HOURLY_INGEST=1: in-process news ingest scheduler started")
+
+
+def _set_task_fields(task_id: str, **fields) -> None:
+    task_snapshot = None
+    with ANALYSIS_TASKS_LOCK:
+        task = ANALYSIS_TASKS.get(task_id)
+        if not task:
+            return
+        task.update(fields)
+        task_snapshot = dict(task)
+    if task_snapshot:
+        _db_upsert_task(task_snapshot)
+
+
+def _analysis_worker_loop() -> None:
+    logging.info("analysis worker started")
+    while True:
+        task_id, video_path, perf_mode, prompt_profile = ANALYSIS_QUEUE.get()
+        _set_task_fields(
+            task_id,
+            status="running",
+            started_at=time.time(),
+            progress_message="准备分析…",
+            progress_frac=0.05,
+        )
+        _db_update_video_status(task_id, "running")
+
+        def _prog(msg: str, frac: float) -> None:
+            _set_task_fields(task_id, progress_message=msg, progress_frac=frac)
+
+        try:
+            guidance = run_mobile_api_analysis(
+                video_path=video_path,
+                perf_mode=perf_mode,
+                prompt_profile=prompt_profile,
+                on_progress=_prog,
+            )
+            _set_task_fields(
+                task_id,
+                status="succeeded",
+                guidance=guidance,
+                prompt_profile_effective=resolve_prompt_profile(prompt_profile),
+                finished_at=time.time(),
+                progress_message="分析完成",
+                progress_frac=1.0,
+            )
+            _db_update_video_status(task_id, "analyzed")
+        except Exception as exc:
+            _set_task_fields(
+                task_id,
+                status="failed",
+                error=str(exc),
+                finished_at=time.time(),
+            )
+            _db_update_video_status(task_id, "failed")
+        finally:
+            ANALYSIS_QUEUE.task_done()
+
+
+def _ensure_analysis_worker_started() -> None:
+    global ANALYSIS_WORKER_STARTED
+    with ANALYSIS_WORKER_LOCK:
+        if ANALYSIS_WORKER_STARTED:
+            return
+        t = threading.Thread(target=_analysis_worker_loop, name="analysis-worker", daemon=True)
+        t.start()
+        ANALYSIS_WORKER_STARTED = True
+
+
+def _upload_suffix(filename: str | None, content_type: str | None) -> str:
+    """Preserve .mov etc. when WeChat temp filename has no extension."""
+    suffix = Path(filename or "").suffix.lower()
+    if suffix in (".mp4", ".mov", ".avi", ".mkv", ".m4v", ".webm"):
+        return suffix
+    ct = (content_type or "").lower()
+    if "quicktime" in ct or ct == "video/mov":
+        return ".mov"
+    if "mp4" in ct:
+        return ".mp4"
+    return ".mp4"
+
+
+async def _save_upload_file_chunked(
+    upload: UploadFile,
+    dest: Path,
+    *,
+    log_label: str = "",
+) -> int:
+    """分块异步写入，避免在 async 路由里 sync copyfileobj 阻塞导致上传连接 reset。"""
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    size = 0
+    chunk_size = 1024 * 1024
+    if log_label:
+        logging.info("upload begin %s -> %s", log_label, dest)
+    with dest.open("wb") as out_file:
+        while True:
+            chunk = await upload.read(chunk_size)
+            if not chunk:
+                break
+            out_file.write(chunk)
+            size += len(chunk)
+    if log_label:
+        logging.info("upload done %s bytes=%s", log_label, size)
+    return size
 
 
 def _extract_video_path(video_file):
@@ -14,7 +526,6 @@ def _extract_video_path(video_file):
     if isinstance(video_file, str):
         return video_file
     if isinstance(video_file, dict):
-        # Some versions may return {"path": "...", ...}
         return video_file.get("path")
     if hasattr(video_file, "name"):
         return video_file.name
@@ -40,7 +551,6 @@ def trim_video(video_file, start_time, end_time):
         if end_time <= start_time:
             raise ValueError("结束时间必须大于开始时间")
 
-        # moviepy v1: subclip; moviepy v2: subclipped
         if hasattr(clip, "subclipped"):
             subclip = clip.subclipped(start_time, end_time)
         else:
@@ -62,17 +572,653 @@ def trim_video(video_file, start_time, end_time):
         if clip is not None:
             clip.close()
 
-iface = gr.Interface(
-    fn=trim_video,
-    inputs=[
-        gr.File(label="上传视频 (MP4/MOV/AVI)", file_types=[".mp4", ".mov", ".avi"]),
-        gr.Number(label="开始时间（秒）", value=0),
-        gr.Number(label="结束时间（秒）", value=10)
-    ],
-    outputs=gr.File(label="下载剪辑后的视频"),
-    title="🎬 视频剪辑助手",
-    description="上传视频文件，输入开始和结束时间（秒），点击剪辑即可下载片段。"
-)
+
+def run_tennis_analysis(video_file, perf_label, prompt_profile, progress=gr.Progress()):
+    path = _extract_video_path(video_file)
+    if not path:
+        return "请先上传视频文件。"
+    hint = vlm_dependency_message()
+    if hint:
+        return hint
+    mode = PERF_MAP.get(perf_label, "eco")
+    pp = (prompt_profile or "").strip() or None
+    progress(0.05, desc="检查视频与依赖…")
+    progress(0.15, desc="抽帧 / 加载模型（首次会下载权重，请耐心等待）…")
+    out = analyze_tennis_video(path, mode, prompt_profile=pp)
+    progress(1.0, desc="完成")
+    return format_guidance_markdown(out)
+
+
+def run_mobile_api_analysis(
+    video_path: str,
+    perf_mode: str,
+    prompt_profile: str | None = None,
+    on_progress=None,
+) -> str:
+    hint = vlm_dependency_message()
+    if hint:
+        raise ValueError(hint)
+    pp = (prompt_profile or "").strip() or None
+    return analyze_tennis_video(
+        video_path, perf_mode, prompt_profile=pp, on_progress=on_progress
+    )
+
+
+def run_stroke_extract(
+    video_file,
+    detect_mode,
+    motion_percentile,
+    use_vlm_filter,
+    progress=gr.Progress(),
+):
+    """检测击球/回合片段并导出集锦（适合长视频，流式 ffmpeg 分析）。"""
+    path = _extract_video_path(video_file)
+    if not path:
+        return None, "请先上传视频文件。"
+    if not os.path.isfile(path):
+        return None, f"视频不存在: {path}"
+
+    def _prog(msg: str, frac: float) -> None:
+        progress(frac, desc=msg)
+
+    cfg = StrokeDetectConfig(motion_percentile=float(motion_percentile))
+    out_path = tempfile.NamedTemporaryFile(suffix=".mp4", delete=False).name
+
+    try:
+        if use_vlm_filter:
+            hint = vlm_dependency_message()
+            if hint:
+                return None, f"已勾选 VLM 过滤，但模型不可用：\n\n{hint}"
+
+        _prog("开始分析（长视频流式处理，请耐心等待）…", 0.02)
+        result = run_stroke_extract_pipeline(
+            path,
+            out_path,
+            mode=detect_mode,
+            config=cfg,
+            vlm_filter=bool(use_vlm_filter),
+            vlm_mode="eco",
+            copy=False,
+            progress=_prog,
+        )
+    except Exception as e:
+        logging.exception("stroke extract failed")
+        return None, f"提取失败: {e}"
+
+    if not result.segments:
+        return None, (
+            "未检测到击球/回合片段。可尝试：降低「运动灵敏度」、换「仅画面运动」模式，"
+            "或取消 VLM 过滤后再试。"
+        )
+
+    ratio = result.kept_sec / result.duration_sec if result.duration_sec > 0 else 0.0
+    lines = [
+        f"**原时长** {result.duration_sec:.1f}s → **保留** {result.kept_sec:.1f}s（{ratio:.0%}）",
+        f"**片段数** {len(result.segments)}  ·  **模式** {result.mode}"
+        + ("  ·  **VLM 过滤** 已启用" if use_vlm_filter else ""),
+        "",
+        "| # | 开始 | 结束 | 时长 |",
+        "|---|---:|---:|---:|",
+    ]
+    for i, seg in enumerate(result.segments[:15]):
+        lines.append(f"| {i} | {seg.start:.1f}s | {seg.end:.1f}s | {seg.duration():.1f}s |")
+    if len(result.segments) > 15:
+        lines.append(f"| … | 共 {len(result.segments)} 段 | | |")
+    lines.append("\n下方下载为 **仅含击球/回合** 的拼接视频（MP4）。")
+    return out_path, "\n".join(lines)
+
+
+def _vlm_tab_intro():
+    dep = vlm_dependency_message()
+    base = (
+        f"使用 **Qwen2-VL-2B-Instruct**（约 2B）对视频均匀抽帧做视觉理解，"
+        f"输出动作是否大致合理及初学者的改进建议。\n\n"
+        f"- **推理框架**：优先 **LLaMA-Factory** `ChatModel`（`TENCLIP_INFER_BACKEND=auto`），失败时回退 **Transformers**。\n"
+        "- **权重下载**：默认 **ModelScope**（`TENCLIP_MODEL_DOWNLOAD_SOURCE=modelscope`）；HF 不可用时不必改镜像。\n"
+        f"- **时长**：仅分析前 **{int(MAX_VIDEO_DURATION_SEC)} 秒**（约 5 分钟）；更长请先剪辑。\n"
+        "- **省显存 / 平衡 / 质量**：帧数与分辨率递增，弱显卡请保持「省显存」。\n"
+        "- 首次分析前建议运行 `download-vlm-conda.bat` 预下载权重。\n"
+    )
+    if dep:
+        return (
+            base
+            + "\n**当前环境未安装分析依赖。** Conda：`setup-conda-env.bat`；或 pip："
+            + "`pip install -r requirements-llm.txt -r requirements-llm-lf.txt`。\n"
+        )
+    return base + "\n依赖已就绪，可直接点击「开始分析」。\n"
+
+
+TENNIS_GUIDANCE_CSS = """
+#tennis-guidance {
+  font-size: 0.95rem;
+  line-height: 1.55;
+  color: #1a1f26;
+  text-align: left;
+}
+#tennis-guidance h2 { margin: 0 0 0.5em; font-size: 1.12rem; color: #0d3d32; border-bottom: 1px solid #e5ebe9; padding-bottom: 0.35em; }
+#tennis-guidance h3, #tennis-guidance h4 { margin: 0.85em 0 0.35em; font-size: 1.02rem; color: #243240; }
+#tennis-guidance p { margin: 0.45em 0; }
+#tennis-guidance ul, #tennis-guidance ol { margin: 0.35em 0 0.55em; padding-left: 1.35em; }
+#tennis-guidance li { margin: 0.22em 0; }
+#tennis-guidance pre {
+  background: #f4f6f9;
+  border: 1px solid #e5e9f0;
+  border-radius: 10px;
+  padding: 10px 12px;
+  overflow-x: auto;
+  font-size: 0.8rem;
+  line-height: 1.45;
+}
+#tennis-guidance details { margin-top: 1rem; border-radius: 12px; border: 1px solid #e5e9f0; padding: 8px 10px; background: #fafbfc; }
+#tennis-guidance summary { cursor: pointer; font-size: 0.9rem; color: #415360; }
+#tennis-guidance hr { border: 0; border-top: 1px solid #e8ecf1; margin: 1em 0; }
+#tennis-guidance code { background: #eef2f6; padding: 0.12em 0.35em; border-radius: 4px; font-size: 0.88em; }
+"""
+
+
+with gr.Blocks(title="TenClip", css=TENNIS_GUIDANCE_CSS) as demo:
+    gr.Markdown("# TenClip：网球视频剪辑与动作分析")
+
+    with gr.Tabs():
+        with gr.Tab("视频剪辑"):
+            gr.Markdown("上传视频，按秒裁剪并下载片段。")
+            with gr.Row():
+                trim_file = gr.File(label="上传视频 (MP4/MOV/AVI)", file_types=[".mp4", ".mov", ".avi"])
+                t_start = gr.Number(label="开始时间（秒）", value=0)
+                t_end = gr.Number(label="结束时间（秒）", value=10)
+            trim_btn = gr.Button("剪辑并下载", variant="primary")
+            trim_out = gr.File(label="剪辑结果")
+
+            trim_btn.click(trim_video, inputs=[trim_file, t_start, t_end], outputs=trim_out)
+
+        with gr.Tab("网球动作分析（大模型）"):
+            gr.Markdown(_vlm_tab_intro())
+            with gr.Row():
+                tennis_file = gr.File(label="上传网球视频", file_types=[".mp4", ".mov", ".avi"])
+                perf = gr.Radio(
+                    list(PERF_MAP.keys()),
+                    value="省显存（弱显卡推荐）",
+                    label="显存 / 质量模式",
+                )
+            prompt_prof = gr.Radio(
+                choices=prompt_profile_radio_choices(),
+                value="default",
+                label="分析提示词版本",
+            )
+            tennis_btn = gr.Button("开始分析", variant="primary")
+            tennis_out = gr.Markdown(
+                elem_id="tennis-guidance",
+            )
+
+            tennis_btn.click(
+                run_tennis_analysis,
+                inputs=[tennis_file, perf, prompt_prof],
+                outputs=tennis_out,
+            )
+
+            gr.Markdown(
+                "**弱显卡建议**：保持「省显存」；若仍 OOM，可先剪辑更短片段，"
+                "或在启动前设置环境变量 `TENCLIP_FORCE_CPU=1` 强制走 CPU（会慢很多）。"
+            )
+
+        with gr.Tab("击球片段提取（去等待）"):
+            gr.Markdown(
+                "上传网球比赛/练习**长视频**（支持 MOV/MP4，200MB+ 可处理）。"
+                "基于 **画面运动 + 击球声** 自动识别回合/击球时间段，剪掉换边、等待等非击球画面，"
+                "输出拼接后的集锦。可选 **VLM 二次过滤**（更准但更慢，需 GPU）。"
+            )
+            with gr.Row():
+                stroke_file = gr.File(label="上传视频", file_types=[".mp4", ".mov", ".avi"])
+                stroke_mode = gr.Radio(
+                    [
+                        ("运动+击球声", "combined"),
+                        ("单次击球尖峰", "spike"),
+                        ("仅画面运动", "motion"),
+                        ("仅击球声", "audio"),
+                    ],
+                    value="combined",
+                    label="检测模式",
+                    info="combined=去等待保留回合；spike=每次击球一小段（约2～4秒）",
+                )
+            motion_p = gr.Slider(
+                60,
+                92,
+                value=74,
+                step=1,
+                label="剪辑强度（越低保留越多；推荐 70～78）",
+            )
+            stroke_vlm = gr.Checkbox(label="VLM 二次过滤（较慢，减少误保留的等待/捡球）", value=False)
+            stroke_btn = gr.Button("提取击球片段", variant="primary")
+            stroke_summary = gr.Markdown()
+            stroke_out = gr.File(label="击球集锦（MP4）")
+
+            stroke_btn.click(
+                run_stroke_extract,
+                inputs=[stroke_file, stroke_mode, motion_p, stroke_vlm],
+                outputs=[stroke_out, stroke_summary],
+            )
+
+
+def create_app() -> FastAPI:
+    api = FastAPI(title="TenClip API")
+    init_news_db()
+    init_analysis_db()
+    init_stroke_db()
+    _ensure_analysis_worker_started()
+    ensure_stroke_worker_started()
+    try:
+        prune_expired_uploads()
+    except Exception:
+        logging.exception("initial upload retention prune failed")
+    _ensure_retention_pruner_started()
+    _ensure_news_ingest_scheduler_started()
+
+    # 主 Gradio 若挂在 path="/"，会注册 Mount("/") 抢走所有子路径（含 /video_input），故主界面改挂 /gradio。
+    @api.get("/", include_in_schema=False)
+    def root_to_gradio():
+        return RedirectResponse(url="/gradio/", status_code=302)
+
+    @api.get("/api/mobile/health")
+    def mobile_health():
+        return {
+            "ok": True,
+            "service": "tenclip",
+            "stroke_worker": True,
+            "analysis_worker": ANALYSIS_WORKER_STARTED,
+            "analysis_queue_size": ANALYSIS_QUEUE.qsize(),
+            "news_hourly_ingest": _news_hourly_ingest_enabled(),
+        }
+
+    @api.get("/api/mobile/events")
+    def mobile_events():
+        return {"events": MOBILE_EVENTS}
+
+    @api.post("/api/mobile/analyze-video")
+    async def mobile_analyze_video(
+        video: UploadFile = File(...),
+        perf_mode: str = Form("eco"),
+        prompt_profile: str = Form(""),
+    ):
+        suffix = Path(video.filename or "upload.mp4").suffix or ".mp4"
+        temp_path = Path(tempfile.NamedTemporaryFile(suffix=suffix, delete=False).name)
+        try:
+            await _save_upload_file_chunked(video, temp_path, log_label="analyze-sync")
+            pp = prompt_profile.strip() or None
+            guidance = run_mobile_api_analysis(
+                str(temp_path), perf_mode=perf_mode, prompt_profile=pp
+            )
+            return {
+                "guidance": guidance,
+                "perf_mode": perf_mode,
+                "prompt_profile": resolve_prompt_profile(pp),
+            }
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        except Exception as exc:
+            raise HTTPException(status_code=500, detail=f"分析失败: {exc}") from exc
+        finally:
+            try:
+                temp_path.unlink(missing_ok=True)
+            except Exception:
+                logging.exception("Failed to cleanup temp file: %s", temp_path)
+            await video.close()
+
+    @api.post("/api/mobile/analyze-video/submit")
+    async def mobile_analyze_video_submit(
+        video: UploadFile = File(...),
+        perf_mode: str = Form("eco"),
+        prompt_profile: str = Form(""),
+    ):
+        task_id = uuid.uuid4().hex
+        suffix = Path(video.filename or "upload.mp4").suffix or ".mp4"
+        upload_path = UPLOAD_DIR / f"{task_id}{suffix}"
+        try:
+            await _save_upload_file_chunked(
+                video, upload_path, log_label=f"analyze-submit:{task_id}"
+            )
+
+            pp = prompt_profile.strip() or None
+            task = _new_task(task_id, perf_mode=perf_mode, prompt_profile=pp)
+            with ANALYSIS_TASKS_LOCK:
+                ANALYSIS_TASKS[task_id] = task
+            _db_upsert_task(task)
+            _db_insert_video(
+                task_id=task_id,
+                original_filename=video.filename or "",
+                stored_path=str(upload_path),
+                file_size=upload_path.stat().st_size if upload_path.exists() else 0,
+                content_type=video.content_type or "",
+            )
+            ANALYSIS_QUEUE.put((task_id, str(upload_path), perf_mode, pp))
+            return {
+                "task_id": task_id,
+                "status": "queued",
+                "queue_size": ANALYSIS_QUEUE.qsize(),
+                "stored_path": str(upload_path),
+            }
+        except Exception as exc:
+            try:
+                upload_path.unlink(missing_ok=True)
+            except Exception:
+                logging.exception("Failed to cleanup submit temp file: %s", upload_path)
+            raise HTTPException(status_code=500, detail=f"提交失败: {exc}") from exc
+        finally:
+            await video.close()
+
+    @api.post("/api/mobile/upload-sessions")
+    async def mobile_upload_session_create(
+        purpose: str = Form(...),
+        file_size: int = Form(...),
+        filename: str = Form("video.mp4"),
+        total_chunks: int = Form(...),
+        chunk_size: int = Form(mcu.CHUNK_SIZE_BYTES),
+        detect_mode: str = Form("spike"),
+        motion_percentile: float = Form(74.0),
+        vlm_filter: str = Form("0"),
+        perf_mode: str = Form("eco"),
+        prompt_profile: str = Form("default"),
+    ):
+        meta: dict = {
+            "filename": filename,
+            "content_type": "video/mp4",
+            "detect_mode": detect_mode,
+            "motion_percentile": motion_percentile,
+            "vlm_filter": vlm_filter,
+            "perf_mode": perf_mode,
+            "prompt_profile": prompt_profile,
+        }
+        return mcu.create_session(
+            repo_root=_REPO_ROOT,
+            purpose=purpose,
+            file_size=file_size,
+            filename=filename,
+            total_chunks=total_chunks,
+            chunk_size=chunk_size,
+            meta=meta,
+        )
+
+    @api.put("/api/mobile/upload-sessions/{session_id}/chunks/{chunk_index}")
+    async def mobile_upload_session_chunk(
+        session_id: str,
+        chunk_index: int,
+        request: Request,
+    ):
+        data = await request.body()
+        mcu.write_chunk(session_id, chunk_index, data)
+        return {"ok": True, "chunk_index": chunk_index}
+
+    @api.post("/api/mobile/upload-sessions/{session_id}/complete")
+    async def mobile_upload_session_complete(session_id: str):
+        sess = mcu.take_session(session_id)
+        if sess.purpose == "stroke":
+            task_id = uuid.uuid4().hex
+            suffix = sess.dest_path.suffix
+            final_path = (
+                _REPO_ROOT / "data" / "uploads" / "stroke" / f"{task_id}{suffix}"
+            )
+            final_path.parent.mkdir(parents=True, exist_ok=True)
+            sess.dest_path.replace(final_path)
+            mode = sess.meta.get("detect_mode", "spike")
+            if mode not in ("combined", "motion", "audio", "spike"):
+                mode = "combined"
+            mp = max(60.0, min(92.0, float(sess.meta.get("motion_percentile", 74.0))))
+            use_vlm = str(sess.meta.get("vlm_filter", "0")).strip().lower() in (
+                "1",
+                "true",
+                "yes",
+                "on",
+            )
+            return submit_stroke_task(
+                upload_path=final_path,
+                original_filename=sess.meta.get("filename") or final_path.name,
+                content_type=sess.meta.get("content_type") or "video/mp4",
+                detect_mode=mode,
+                motion_percentile=mp,
+                vlm_filter=use_vlm,
+                task_id=task_id,
+            )
+
+        task_id = uuid.uuid4().hex
+        suffix = sess.dest_path.suffix or ".mp4"
+        upload_path = UPLOAD_DIR / f"{task_id}{suffix}"
+        sess.dest_path.replace(upload_path)
+        perf_mode = sess.meta.get("perf_mode", "eco")
+        pp = (sess.meta.get("prompt_profile") or "").strip() or None
+        task = _new_task(task_id, perf_mode=perf_mode, prompt_profile=pp)
+        with ANALYSIS_TASKS_LOCK:
+            ANALYSIS_TASKS[task_id] = task
+        _db_upsert_task(task)
+        _db_insert_video(
+            task_id=task_id,
+            original_filename=sess.meta.get("filename") or upload_path.name,
+            stored_path=str(upload_path),
+            file_size=upload_path.stat().st_size if upload_path.exists() else 0,
+            content_type=sess.meta.get("content_type") or "video/mp4",
+        )
+        ANALYSIS_QUEUE.put((task_id, str(upload_path), perf_mode, pp))
+        return {
+            "task_id": task_id,
+            "status": "queued",
+            "queue_size": ANALYSIS_QUEUE.qsize(),
+            "stored_path": str(upload_path),
+        }
+
+    @api.get("/api/mobile/analyze-video/tasks")
+    def mobile_analyze_video_tasks_list(limit: int = Query(50, ge=1, le=200)):
+        items = _db_list_recent_tasks(limit)
+        for row in items:
+            row["queue_size"] = ANALYSIS_QUEUE.qsize()
+        return {"items": items, "retention_days": _video_retention_days()}
+
+    @api.get("/api/mobile/analyze-video/tasks/{task_id}")
+    def mobile_analyze_video_task_status(task_id: str):
+        with ANALYSIS_TASKS_LOCK:
+            task = ANALYSIS_TASKS.get(task_id)
+            data = dict(task) if task else None
+        if data is None:
+            data = _db_get_task(task_id)
+        if data is None:
+            raise HTTPException(status_code=404, detail="任务不存在")
+        data["queue_size"] = ANALYSIS_QUEUE.qsize()
+        return data
+
+    @api.post("/api/mobile/analyze-video/tasks/prune")
+    def mobile_analyze_video_tasks_prune():
+        return prune_expired_uploads()
+
+    def _stroke_task_payload(task_id: str) -> dict:
+        data = get_stroke_task(task_id)
+        if data is None:
+            raise HTTPException(status_code=404, detail="任务不存在")
+        from services.stroke_extract_tasks import STROKE_QUEUE
+
+        data["queue_size"] = STROKE_QUEUE.qsize()
+        if data.get("status") == "succeeded":
+            data["download_url"] = f"/api/mobile/stroke-extract/tasks/{task_id}/download"
+        return data
+
+    @api.post("/api/mobile/stroke-extract/submit")
+    async def mobile_stroke_extract_submit(
+        video: UploadFile = File(...),
+        detect_mode: str = Form("combined"),
+        motion_percentile: float = Form(74.0),
+        vlm_filter: str = Form("0"),
+    ):
+        mode = detect_mode if detect_mode in ("combined", "motion", "audio", "spike") else "combined"
+        mp = max(60.0, min(92.0, float(motion_percentile)))
+        use_vlm = vlm_filter.strip().lower() in ("1", "true", "yes", "on")
+        task_id = uuid.uuid4().hex
+        suffix = _upload_suffix(video.filename, video.content_type)
+        upload_path = (
+            _REPO_ROOT / "data" / "uploads" / "stroke" / f"{task_id}{suffix}"
+        )
+        upload_path.parent.mkdir(parents=True, exist_ok=True)
+        try:
+            await _save_upload_file_chunked(
+                video, upload_path, log_label=f"stroke-submit:{task_id}"
+            )
+            result = submit_stroke_task(
+                upload_path=upload_path,
+                original_filename=video.filename or "",
+                content_type=video.content_type or "",
+                detect_mode=mode,
+                motion_percentile=mp,
+                vlm_filter=use_vlm,
+                task_id=task_id,
+            )
+            return result
+        except Exception as exc:
+            try:
+                upload_path.unlink(missing_ok=True)
+            except Exception:
+                logging.exception("Failed to cleanup stroke upload: %s", upload_path)
+            raise HTTPException(status_code=500, detail=f"提交失败: {exc}") from exc
+        finally:
+            await video.close()
+
+    @api.get("/api/mobile/stroke-extract/tasks/{task_id}")
+    def mobile_stroke_extract_task_status(task_id: str):
+        return _stroke_task_payload(task_id)
+
+    @api.get("/api/mobile/stroke-extract/tasks/{task_id}/download")
+    def mobile_stroke_extract_download(task_id: str):
+        out = get_stroke_output_path(task_id)
+        if out is None:
+            raise HTTPException(status_code=404, detail="输出文件不存在或任务未完成")
+        return FileResponse(
+            path=str(out),
+            media_type="video/mp4",
+            filename=f"stroke_{task_id[:8]}.mp4",
+        )
+
+    @api.post("/api/news/ingest")
+    def news_ingest(limit_per_source: int = Query(20, ge=1, le=100)):
+        result = ingest_news(limit_per_source=limit_per_source)
+        return {"ok": True, **result}
+
+    @api.get("/api/news/tags")
+    def news_tags(limit: int = Query(40, ge=1, le=200)):
+        return {"tags": suggest_tags(limit=limit)}
+
+    @api.post("/api/news/profile")
+    def news_profile(user_id: str = Form(...), tags: str = Form("")):
+        tag_list = [x.strip() for x in tags.split(",") if x.strip()]
+        set_user_profile(user_id=user_id, tags=tag_list)
+        return {"ok": True, "user_id": user_id, "tags": tag_list}
+
+    @api.post("/api/news/feedback")
+    def news_feedback(
+        user_id: str = Form(...),
+        article_id: int = Form(...),
+        action: str = Form(...),
+    ):
+        record_feedback(user_id=user_id, article_id=article_id, action=action)
+        return {"ok": True}
+
+    @api.get("/api/news/feed")
+    def news_feed(
+        user_id: str = Query("", description="匿名用户可留空"),
+        tags: str = Query("", description="逗号分隔 tag"),
+        limit: int = Query(20, ge=1, le=60),
+        offset: int = Query(0, ge=0),
+    ):
+        tag_list = [x.strip() for x in tags.split(",") if x.strip()]
+        items = recommend_news(
+            RecommendInput(
+                user_tags=tag_list,
+                limit=limit,
+                offset=offset,
+                user_id=user_id.strip() or None,
+            )
+        )
+        return {"items": items, "next_offset": offset + len(items)}
+
+    @api.get("/api/news/admin/overview")
+    def news_admin_overview():
+        return get_news_admin_overview()
+
+    @api.get("/api/news/admin/articles")
+    def news_admin_articles(
+        limit: int = Query(30, ge=1, le=100),
+        offset: int = Query(0, ge=0),
+    ):
+        return list_news_articles_admin(limit=limit, offset=offset)
+
+    @api.get("/api/news/admin/ingest-runs")
+    def news_admin_ingest_runs(limit: int = Query(20, ge=1, le=100)):
+        return {"items": list_ingest_runs(limit=limit)}
+
+    @api.get("/api/news/admin/queues")
+    def news_admin_queues():
+        from services.stroke_extract_tasks import STROKE_QUEUE
+
+        return {
+            "analysis_queue_size": ANALYSIS_QUEUE.qsize(),
+            "stroke_queue_size": STROKE_QUEUE.qsize(),
+        }
+
+    front_page_dir = _REPO_ROOT / "pages" / "front_page"
+    if front_page_dir.exists():
+        # 独立 Web 入口（响应式：PC/手机皆可）；静态资源走独立前缀，避免与 Gradio 根路由冲突。
+        api.mount("/web-assets", StaticFiles(directory=str(front_page_dir)), name="web-assets")
+
+        @api.get("/web")
+        @api.get("/web/")
+        def web_home():
+            return FileResponse(front_page_dir / "index.html")
+
+        # 兼容旧地址：/mobile -> /web
+        @api.get("/mobile")
+        @api.get("/mobile/")
+        def mobile_home():
+            return FileResponse(front_page_dir / "index.html")
+
+    stroke_web_dir = _REPO_ROOT / "pages" / "stroke_web"
+    if stroke_web_dir.exists():
+        api.mount(
+            "/web-stroke-assets",
+            StaticFiles(directory=str(stroke_web_dir)),
+            name="web-stroke-assets",
+        )
+
+        @api.get("/web/stroke")
+        @api.get("/web/stroke/")
+        def web_stroke_home():
+            return FileResponse(stroke_web_dir / "index.html")
+
+    news_page_dir = _REPO_ROOT / "pages" / "news_page"
+    if news_page_dir.exists():
+        api.mount("/news-assets", StaticFiles(directory=str(news_page_dir)), name="news-assets")
+
+        @api.get("/news")
+        @api.get("/news/")
+        def news_home():
+            return FileResponse(news_page_dir / "index.html")
+
+    news_admin_dir = _REPO_ROOT / "pages" / "news_admin"
+    if news_admin_dir.exists():
+        api.mount(
+            "/news-admin-assets",
+            StaticFiles(directory=str(news_admin_dir)),
+            name="news-admin-assets",
+        )
+
+        @api.get("/admin/news-feed")
+        @api.get("/admin/news-feed/")
+        def news_admin_home():
+            return FileResponse(news_admin_dir / "index.html")
+
+    # 简单 H5（Gradio）：上传视频 + 指导意见，风格贴近 front_page（须在主界面 /gradio 之前注册，避免被吞）
+    gr.mount_gradio_app(api, video_input_demo, path="/video_input")
+
+    return gr.mount_gradio_app(api, demo, path="/gradio")
+
+
+def main() -> None:
+    port = int(os.environ.get("GRADIO_SERVER_PORT", "7861"))
+    host = os.environ.get("GRADIO_SERVER_NAME", "127.0.0.1")
+    uvicorn.run(create_app(), host=host, port=port, log_level="info")
+
 
 if __name__ == "__main__":
-    iface.launch(server_port=7860)
+    main()

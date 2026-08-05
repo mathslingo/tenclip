@@ -1,0 +1,5 @@
+<view class="tabbar">
+  <view class="tab {{active === 'courts' ? 'active' : ''}}" bindtap="onCourts">找球场</view>
+  <view class="tab {{active === 'feed' ? 'active' : ''}}" bindtap="onFeed">发现</view>
+  <view class="tab {{active === 'me' ? 'active' : ''}}" bindtap="onMe">我</view>
+</view>

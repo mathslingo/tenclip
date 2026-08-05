@@ -1,0 +1,126 @@
+.page {
+  max-width: 480px;
+  margin: 0 auto;
+  padding: 16px 16px 32px;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  background: #f2f3f5;
+  min-height: 100vh;
+  box-sizing: border-box;
+}
+
+.hero {
+  background: linear-gradient(145deg, #baf5e8, #d4fff4);
+  border-radius: 16px;
+  padding: 16px;
+  margin-bottom: 12px;
+}
+
+.hero h1 {
+  margin: 0 0 8px;
+  font-size: 1.25rem;
+}
+
+.hero p {
+  margin: 0;
+  font-size: 0.875rem;
+  color: #415360;
+  line-height: 1.5;
+}
+
+.card {
+  background: #fff;
+  border-radius: 16px;
+  padding: 16px;
+  margin-bottom: 12px;
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.06);
+}
+
+.card h2 {
+  margin: 0 0 12px;
+  font-size: 1.1rem;
+}
+
+.label {
+  margin: 12px 0 8px;
+  font-size: 0.8rem;
+  color: #6e7582;
+}
+
+.meta {
+  font-size: 0.8rem;
+  color: #6e7582;
+  margin: 8px 0 0;
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.chip {
+  border: 1px solid #e5e9f0;
+  background: #fff;
+  border-radius: 999px;
+  padding: 8px 14px;
+  font-size: 0.85rem;
+}
+
+.chip.active {
+  background: #121722;
+  color: #fff;
+  border-color: #121722;
+}
+
+#videoInput {
+  width: 100%;
+  font-size: 0.9rem;
+}
+
+#motionRange {
+  width: 100%;
+}
+
+.primary {
+  display: block;
+  width: 100%;
+  margin-top: 16px;
+  border: none;
+  border-radius: 12px;
+  padding: 14px;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #fff;
+  background: linear-gradient(140deg, #3bf0bf, #13d8a8);
+}
+
+.primary:disabled {
+  opacity: 0.55;
+}
+
+.link-btn {
+  text-align: center;
+  text-decoration: none;
+  box-sizing: border-box;
+}
+
+.status {
+  font-weight: 600;
+  margin: 0 0 8px;
+}
+
+.error {
+  color: #b42318;
+  font-size: 0.9rem;
+}
+
+.summary {
+  white-space: pre-wrap;
+  font-size: 0.85rem;
+  line-height: 1.5;
+}
+
+progress {
+  width: 100%;
+  height: 8px;
+}

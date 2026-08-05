@@ -1,0 +1,46 @@
+{
+  "events": [
+    {
+      "id": "evt-101",
+      "title": "午间小团课【正手进阶】1号+2号场",
+      "timeText": "明天(周三)下午12点 · 1.5小时",
+      "locationText": "闵行区吴中路485号古北 · 室内 · 6.4km",
+      "joined": 1,
+      "capacity": 5,
+      "levelMin": 1.0,
+      "levelMax": 5.0,
+      "playType": "不限",
+      "distanceKm": 6.4,
+      "startTimestamp": 1765560000,
+      "hotScore": 98
+    },
+    {
+      "id": "evt-102",
+      "title": "晨间2小时畅打【4号场】",
+      "timeText": "明天(周三)上午8点 · 2小时",
+      "locationText": "闵行区吴中路485号古北 · 室内 · 6.4km",
+      "joined": 1,
+      "capacity": 2,
+      "levelMin": 1.0,
+      "levelMax": 5.0,
+      "playType": "不限",
+      "distanceKm": 6.4,
+      "startTimestamp": 1765545600,
+      "hotScore": 88
+    },
+    {
+      "id": "evt-103",
+      "title": "周日晚 OMC 5.0 双打比赛局",
+      "timeText": "本周日晚上8点 · 2小时",
+      "locationText": "徐汇区天钥桥路 · 室内 · 4.0km",
+      "joined": 2,
+      "capacity": 16,
+      "levelMin": 2.0,
+      "levelMax": 3.0,
+      "playType": "双打",
+      "distanceKm": 4.0,
+      "startTimestamp": 1765800000,
+      "hotScore": 76
+    }
+  ]
+}

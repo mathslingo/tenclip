@@ -1,0 +1,8 @@
+{
+  "navigationBarTitleText": "UChance",
+  "enablePullDownRefresh": true,
+  "backgroundTextStyle": "dark",
+  "usingComponents": {
+    "bottom-tabs": "/components/bottom-tabs/index"
+  }
+}

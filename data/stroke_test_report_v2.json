@@ -1,0 +1,35 @@
+{
+  "duration_sec": 111.035,
+  "kept_sec": 87.905,
+  "kept_ratio": 0.7917,
+  "mode": "combined",
+  "segment_count": 2,
+  "segments": [
+    {
+      "start": 0.2,
+      "end": 50.2,
+      "duration": 50.0,
+      "score": 6438.1666,
+      "source": "combined"
+    },
+    {
+      "start": 73.13,
+      "end": 111.035,
+      "duration": 37.905,
+      "score": 3882.5273,
+      "source": "combined"
+    }
+  ],
+  "debug": {
+    "duration_sec": 111.035,
+    "mode": "combined",
+    "motion_segment_count": 14,
+    "motion_threshold_percentile": 72.0,
+    "motion_frames": 444,
+    "audio_available": true,
+    "audio_segment_count": 3,
+    "motion_spike_count": 32,
+    "audio_spike_count": 38,
+    "spike_segment_total": 70
+  }
+}

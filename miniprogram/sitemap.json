@@ -1,0 +1,9 @@
+{
+  "desc": "TenClip stroke extract mini program",
+  "rules": [
+    {
+      "action": "allow",
+      "page": "*"
+    }
+  ]
+}

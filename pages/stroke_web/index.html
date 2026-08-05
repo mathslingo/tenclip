@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>UChance 击球片段提取</title>
+  <link rel="stylesheet" href="/web-stroke-assets/styles.css">
+</head>
+<body>
+  <main class="page">
+    <header class="hero">
+      <h1>UChance 击球片段提取</h1>
+      <p>网页版（微信内置浏览器）。上传网球视频，自动剪掉等待与换边，保留击球/回合画面。</p>
+    </header>
+
+    <section class="card">
+      <h2>选择视频</h2>
+      <input id="videoInput" type="file" accept=".mp4,.mov,.avi,video/*">
+      <p id="fileMeta" class="meta"></p>
+
+      <p class="label">检测模式</p>
+      <div class="chips" id="modeRow">
+        <button type="button" class="chip active" data-mode="combined">运动+击球声</button>
+        <button type="button" class="chip" data-mode="spike">单次击球尖峰</button>
+        <button type="button" class="chip" data-mode="motion">仅画面运动</button>
+        <button type="button" class="chip" data-mode="audio">仅击球声</button>
+      </div>
+
+      <p class="label">运动灵敏度 <span id="motionVal">72</span></p>
+      <input id="motionRange" type="range" min="55" max="90" value="72">
+
+      <button id="submitBtn" class="primary">开始提取</button>
+    </section>
+
+    <section class="card" id="statusCard" hidden>
+      <h2>处理状态</h2>
+      <p id="statusText" class="status"></p>
+      <progress id="progressBar" value="0" max="100"></progress>
+      <p id="statusMsg" class="meta"></p>
+      <p id="errorBox" class="error" hidden></p>
+      <p id="summaryBox" class="summary" hidden></p>
+      <a id="downloadLink" class="primary link-btn" hidden download>下载集锦 MP4</a>
+    </section>
+  </main>
+  <script src="/web-stroke-assets/script.js"></script>
+</body>
+</html>

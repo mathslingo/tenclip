@@ -1,0 +1,42 @@
+### model
+model_name_or_path: model/Qwen2-VL-2B-Instruct
+trust_remote_code: true
+
+### method
+stage: dpo
+do_train: true
+finetuning_type: lora
+lora_rank: 8
+lora_target: all
+pref_beta: 0.1
+pref_loss: sigmoid
+
+### dataset
+dataset_dir: data
+dataset: mock_tennis_qwen2_vl_mm_dpo_1k
+template: qwen2_vl
+cutoff_len: 2048
+max_samples: 1000
+preprocessing_num_workers: 4
+dataloader_num_workers: 2
+
+### output
+output_dir: saves/qwen2_vl_2b/lora/dpo_mm
+logging_steps: 10
+save_steps: 200
+plot_loss: true
+overwrite_output_dir: true
+save_only_model: false
+report_to: none
+
+### train
+per_device_train_batch_size: 1
+gradient_accumulation_steps: 8
+learning_rate: 5.0e-6
+num_train_epochs: 2.0
+lr_scheduler_type: cosine
+warmup_ratio: 0.1
+bf16: true
+gradient_checkpointing: true
+ddp_timeout: 180000000
+resume_from_checkpoint: null

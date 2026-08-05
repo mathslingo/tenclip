@@ -1,0 +1,3 @@
+# Normalize line endings so WSL/bash scripts are not broken by CRLF from Windows editors.
+*.sh text eol=lf
+*.bash text eol=lf

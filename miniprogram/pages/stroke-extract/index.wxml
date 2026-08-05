@@ -1,0 +1,109 @@
+<view class="page">
+  <!-- 顶部三 Tab -->
+  <view class="top-tabs">
+    <view class="top-tab" bindtap="onTabInfo">资讯</view>
+    <view class="top-tab active" bindtap="onTabStroke">视频剪辑</view>
+    <view class="top-tab" bindtap="onTabCoach">AI 教练</view>
+  </view>
+
+  <view class="hero">
+    <text class="hero-title">UChance 击球剪辑</text>
+    <text class="hero-sub">上传网球视频，自动剪掉换边与等待，保留击球/回合画面。</text>
+  </view>
+
+  <view class="card">
+    <text class="card-title">选择视频</text>
+    <text class="card-sub">支持相册或拍摄；较长视频将自动压缩后上传，请保持 WiFi 并耐心等待。</text>
+
+    <view class="video-pick" bindtap="onChooseVideo">
+      <block wx:if="{{!videoName}}">
+        <text class="pick-icon">＋</text>
+        <text class="pick-text">点击选择视频</text>
+      </block>
+      <block wx:else>
+        <text class="pick-name">{{videoName}}</text>
+        <text class="pick-meta" wx:if="{{videoSizeText}}">{{videoSizeText}}</text>
+        <text class="pick-change">重新选择</text>
+      </block>
+    </view>
+
+    <view class="choose-notice">
+      <text class="choose-notice-text">点「发送」后若微信显示「正在加载」，是在读入视频（大文件约 1～3 分钟），请耐心等待，并非程序出错。</text>
+      <text class="choose-notice-link" bindtap="onShowChooseHelp">查看说明</text>
+    </view>
+
+    <text class="field-label">尖峰灵敏度 {{motionPercentile}}（越低检出越多击球，每段约 2～4 秒）</text>
+    <slider
+      min="60"
+      max="92"
+      step="1"
+      value="{{motionPercentile}}"
+      activeColor="#13d8a8"
+      backgroundColor="#e5e9f0"
+      block-size="20"
+      bindchange="onMotionChange"
+      disabled="{{busy}}"
+    />
+
+    <button class="primary-btn" bindtap="onSubmit" loading="{{busy}}" disabled="{{busy || !videoPath}}">
+      {{busy ? progressText : '开始提取'}}
+    </button>
+  </view>
+
+  <view class="card" wx:if="{{status}}">
+    <text class="card-title">处理状态</text>
+    <view class="status-row">
+      <text class="status-badge status-{{status}}">{{statusLabel}}</text>
+      <text class="status-queue" wx:if="{{queueSize > 0}}">排队 {{queueSize}}</text>
+    </view>
+    <progress wx:if="{{busy}}" percent="{{progressPercent}}" active stroke-width="6" activeColor="#13d8a8" backgroundColor="#e5e9f0" />
+    <text class="progress-msg" wx:if="{{progressMessage}}">{{progressMessage}}</text>
+    <text class="error-text" wx:if="{{errorText}}">{{errorText}}</text>
+  </view>
+
+  <view class="card" wx:if="{{summary}}">
+    <text class="card-title">提取结果</text>
+    <text class="summary-text">{{summary}}</text>
+
+    <view class="segment-list" wx:if="{{segments.length}}">
+      <view class="segment-item" wx:for="{{segments}}" wx:key="index">
+        <text class="seg-idx">#{{index + 1}}</text>
+        <text>{{item.start}}s – {{item.end}}s（{{item.duration}}s）</text>
+      </view>
+    </view>
+
+    <video
+      wx:if="{{previewUrl}}"
+      class="result-video"
+      src="{{previewUrl}}"
+      controls
+      show-center-play-btn
+      object-fit="contain"
+    />
+
+    <view class="action-row" wx:if="{{previewUrl}}">
+      <button class="secondary-btn" bindtap="onSaveVideo">保存到相册</button>
+    </view>
+  </view>
+</view>
+
+<bottom-tabs active="feed" />
+
+<view class="upload-overlay" wx:if="{{busy}}" catchtouchmove="true">
+  <view class="upload-overlay-panel">
+    <text class="upload-overlay-title">{{progressText || '处理中…'}}</text>
+    <view class="upload-overlay-progress-row">
+      <progress
+        class="upload-overlay-bar"
+        percent="{{progressPercent}}"
+        active
+        stroke-width="8"
+        activeColor="#13d8a8"
+        backgroundColor="#e5e9f0"
+      />
+      <text class="upload-overlay-pct">{{progressPercent}}%</text>
+    </view>
+    <text class="upload-overlay-message" wx:if="{{progressMessage}}">{{progressMessage}}</text>
+    <text class="upload-overlay-hint">视频较大时压缩与上传各需数分钟，请保持在本页等待</text>
+  </view>
+</view>

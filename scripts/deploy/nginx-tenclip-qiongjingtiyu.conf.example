@@ -1,0 +1,44 @@
+# TenClip @ tennisGo — tenclip.qiongjingtiyu.com（已备案主域 qiongjingtiyu.com）
+#
+# 宝塔 vhost：/www/server/panel/vhost/nginx/tenclip.qiongjingtiyu.com.conf
+# 将原 proxy_pass 外网隧道改为 127.0.0.1:7862
+#
+# 前置：nginx.conf http{} 内 include tenclip-connection-upgrade.map（见 patch 脚本）
+#
+# 安装：
+#   bash scripts/deploy/patch-nginx-baota-tenclip-qiongjing.sh
+
+server {
+    listen 80;
+    server_name tenclip.qiongjingtiyu.com;
+
+    client_max_body_size 512m;
+    client_body_buffer_size 16m;
+    client_body_timeout 600s;
+    client_header_timeout 600s;
+    send_timeout 600s;
+
+    include /www/server/panel/vhost/nginx/well-known/tenclip.qiongjingtiyu.com.conf;
+
+    location ^~ /.well-known/acme-challenge/ {
+        root /www/wwwroot/tenclip.qiongjingtiyu.com;
+        default_type "text/plain";
+    }
+
+    location / {
+        proxy_pass http://127.0.0.1:7862;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection $connection_upgrade;
+        proxy_request_buffering on;
+        proxy_read_timeout 600s;
+        proxy_send_timeout 600s;
+        proxy_connect_timeout 60s;
+    }
+}
+
+# 443：宝塔 SSL 部署后自动生成；须 listen 443 ssl; 勿 http2/quic

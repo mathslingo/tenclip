@@ -1,0 +1,40 @@
+<view class="login-page">
+  <!-- 品牌区域 -->
+  <view class="brand-area">
+    <view class="brand-icon">🎾</view>
+    <text class="brand-name">UChance</text>
+    <text class="brand-desc">网球 · 剪辑 · AI 教练 · 找球场</text>
+  </view>
+
+  <!-- 授权卡片 -->
+  <view class="auth-card">
+    <text class="auth-title">登录授权</text>
+    <text class="auth-sub">授权微信信息以获得完整体验</text>
+
+    <!-- 微信用户信息 -->
+    <view class="auth-item" bindtap="onGetUserInfo">
+      <view class="auth-left">
+        <image wx:if="{{hasUserInfo && avatarUrl}}" class="auth-avatar" src="{{avatarUrl}}" mode="aspectFill" />
+        <view wx:else class="auth-icon-wrap">
+          <text class="auth-icon">👤</text>
+        </view>
+        <view class="auth-text">
+          <text class="auth-label">微信头像与昵称</text>
+          <text class="auth-value" wx:if="{{hasUserInfo}}">{{nickName}}</text>
+          <text class="auth-hint" wx:else>点击授权</text>
+        </view>
+      </view>
+      <view class="auth-status {{hasUserInfo ? 'done' : ''}}">
+        <text wx:if="{{hasUserInfo}}">✓</text>
+        <text wx:else>›</text>
+      </view>
+    </view>
+  </view>
+
+  <text class="location-note">📍 位置信息将在使用找球场功能时按需获取</text>
+
+  <!-- 进入按钮 -->
+  <button class="enter-btn {{hasUserInfo ? 'ready' : ''}}" bindtap="onEnter">进入 UChance</button>
+
+  <text class="skip-text" bindtap="onEnter">暂不授权，直接进入</text>
+</view>

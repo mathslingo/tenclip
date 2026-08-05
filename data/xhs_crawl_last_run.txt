@@ -1,0 +1,7 @@
+ERR 6912f396000000000700aca9  
+ERR 69dd7f1d000000001b022940  
+ERR 696e4c6c0000000021029806  
+ERR 697f00b6000000000e00cb66  
+
+Wrote /home/hayden/code/tenclip/data/xhs_notes_meta.json  (0/4 ok)
+EXIT:True

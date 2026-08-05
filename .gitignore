@@ -10,3 +10,42 @@ Thumbs.db
 
 # local temporary outputs
 *.log
+
+# local secrets / overrides
+.env
+
+# 小红书登录 Cookie（本地粘贴，勿提交）
+data/xhs_cookie.txt
+data/.xhs_curl_cookie_jar.txt
+
+# VLM weights (multi-GB); keep only model/README.md in git
+model/*
+!model/README.md
+
+# 小程序 / API 运行时上传与导出（勿提交大视频）
+data/uploads/
+data/stroke_outputs/
+data/logs/
+data/*.db
+data/**/*.mp4
+data/**/*.mov
+data/**/*.MOV
+data/**/*.avi
+data/**/*.mkv
+data/**/*.m4v
+
+# 微信开发者工具本地私有配置
+miniprogram/project.private.config.json
+
+# Capacitor iOS 壳
+ios-shell/node_modules/
+ios-shell/ios/App/Pods/
+ios-shell/ios/App/App/public/
+*.xcuserstate
+
+# Flutter
+tenclip_app/.dart_tool/
+tenclip_app/build/
+tenclip_app/.flutter-plugins
+tenclip_app/.flutter-plugins-dependencies
+tenclip_app/**/Pods/

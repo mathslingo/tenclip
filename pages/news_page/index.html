@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>TenClip · 网坛新闻</title>
+  <link rel="stylesheet" href="/news-assets/styles.css">
+</head>
+<body>
+  <main class="page">
+    <header class="header">
+      <h1>网坛新闻</h1>
+      <p>双列下滑，按偏好推荐。</p>
+      <div class="toolbar">
+        <button id="refreshBtn" class="ghost">抓取最新</button>
+      </div>
+      <label for="tagInput" class="label">偏好标签（逗号分隔）</label>
+      <div class="row">
+        <input id="tagInput" type="text" placeholder="阿尔卡拉斯, 单手反拍, 红土">
+        <button id="applyBtn">应用</button>
+      </div>
+      <div id="hotTags" class="hot-tags"></div>
+    </header>
+
+    <section id="feedGrid" class="feed-grid"></section>
+    <p id="loading" class="loading">加载中...</p>
+    <p id="endHint" class="end-hint" hidden>没有更多了</p>
+  </main>
+
+  <script src="/news-assets/script.js"></script>
+</body>
+</html>

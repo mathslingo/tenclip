@@ -1,0 +1,114 @@
+<view class="page">
+  <!-- 顶部三 Tab -->
+  <view class="top-tabs">
+    <view class="top-tab" bindtap="onTabInfo">资讯</view>
+    <view class="top-tab" bindtap="onTabStroke">视频剪辑</view>
+    <view class="top-tab active" bindtap="onTabCoach">AI 教练</view>
+  </view>
+
+  <view class="hero">
+    <text class="hero-title">UChance 动作分析</text>
+    <text class="hero-sub">上传网球视频，由 AI 生成中文动作指导。默认分析前约 5 分钟画面，更长视频请先剪辑。</text>
+  </view>
+
+  <view class="card">
+    <text class="card-title">选择视频</text>
+    <text class="card-sub">支持相册或拍摄；较长视频将自动压缩后上传，请保持 WiFi。</text>
+
+    <view class="video-pick" bindtap="onChooseVideo">
+      <block wx:if="{{!videoName}}">
+        <text class="pick-icon">＋</text>
+        <text class="pick-text">点击选择视频</text>
+      </block>
+      <block wx:else>
+        <text class="pick-name">{{videoName}}</text>
+        <text class="pick-meta" wx:if="{{videoSizeText}}">{{videoSizeText}}</text>
+        <text class="pick-change">重新选择</text>
+      </block>
+    </view>
+
+    <view class="choose-notice">
+      <text class="choose-notice-text">点「发送」后若微信显示「正在加载」，是在读入视频（大文件约 1～3 分钟），请耐心等待，并非程序出错。</text>
+      <text class="choose-notice-link" bindtap="onShowChooseHelp">查看说明</text>
+    </view>
+
+    <text class="field-label">性能模式</text>
+    <view class="chip-row">
+      <view
+        wx:for="{{perfOptions}}"
+        wx:key="value"
+        class="chip {{perfMode === item.value ? 'active' : ''}}"
+        data-value="{{item.value}}"
+        bindtap="onPerfTap"
+      >{{item.label}}</view>
+    </view>
+
+    <text class="field-label">分析提示词</text>
+    <view class="chip-row">
+      <view
+        wx:for="{{promptOptions}}"
+        wx:key="value"
+        class="chip {{promptProfile === item.value ? 'active' : ''}}"
+        data-value="{{item.value}}"
+        bindtap="onPromptTap"
+      >{{item.label}}</view>
+    </view>
+
+    <button class="primary-btn" bindtap="onSubmit" loading="{{busy}}" disabled="{{busy || !videoPath}}">
+      {{busy ? progressText : '开始分析'}}
+    </button>
+  </view>
+
+  <view class="card" wx:if="{{status}}">
+    <text class="card-title">处理状态</text>
+    <view class="status-row">
+      <text class="status-badge status-{{status}}">{{statusLabel}}</text>
+      <text class="status-queue" wx:if="{{queueSize > 0}}">排队 {{queueSize}}</text>
+    </view>
+    <progress
+      wx:if="{{busy}}"
+      percent="{{progressPercent}}"
+      active
+      stroke-width="6"
+      activeColor="#13d8a8"
+      backgroundColor="#e5e9f0"
+    />
+    <text class="progress-msg" wx:if="{{progressMessage}}">{{progressMessage}}</text>
+    <text class="error-text" wx:if="{{errorText}}">{{errorText}}</text>
+  </view>
+
+  <view class="card" wx:if="{{guidanceBody}}">
+    <view class="guidance-head">
+      <text class="card-title">指导意见</text>
+      <text class="copy-link" bindtap="onCopyGuidance">复制全文</text>
+    </view>
+    <scroll-view class="guidance-panel" scroll-y>
+      <text class="guidance-body" selectable>{{guidanceBody}}</text>
+    </scroll-view>
+    <view class="meta-toggle" wx:if="{{guidanceMeta}}" bindtap="onToggleMeta">
+      <text>{{showMeta ? '收起' : '查看'}}运行环境与参数</text>
+    </view>
+    <text class="guidance-meta" wx:if="{{showMeta && guidanceMeta}}" selectable>{{guidanceMeta}}</text>
+  </view>
+</view>
+
+<bottom-tabs active="feed" />
+
+<view class="upload-overlay" wx:if="{{busy}}" catchtouchmove="true">
+  <view class="upload-overlay-panel">
+    <text class="upload-overlay-title">{{progressText || '处理中…'}}</text>
+    <view class="upload-overlay-progress-row">
+      <progress
+        class="upload-overlay-bar"
+        percent="{{progressPercent}}"
+        active
+        stroke-width="8"
+        activeColor="#13d8a8"
+        backgroundColor="#e5e9f0"
+      />
+      <text class="upload-overlay-pct">{{progressPercent}}%</text>
+    </view>
+    <text class="upload-overlay-message" wx:if="{{progressMessage}}">{{progressMessage}}</text>
+    <text class="upload-overlay-hint">视频较大时压缩与上传各需数分钟，请保持在本页等待</text>
+  </view>
+</view>

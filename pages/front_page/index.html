@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>TenClip Mobile</title>
+  <link rel="stylesheet" href="/web-assets/styles.css">
+  <script src="https://cdn.jsdelivr.net/npm/marked@12.0.2/marked.min.js"></script>
+</head>
+<body>
+  <main class="page">
+    <header class="header">
+      <div class="status">
+        <span>23:34</span>
+        <span class="pill"></span>
+        <span>19%</span>
+      </div>
+      <div class="city-row">
+        <div>
+          <h1 id="cityTitle">上海市</h1>
+          <p id="nearbyCount">附近球局加载中...</p>
+        </div>
+        <button class="icon-btn" aria-label="更多">⋯</button>
+      </div>
+      <div class="search-row">
+        <input id="searchInput" type="search" placeholder="搜索球局和场地">
+        <button class="icon-btn" aria-label="筛选">☰</button>
+      </div>
+      <div class="chip-row" id="chipRow">
+        <button class="chip active" data-sort="smart">智能排序</button>
+        <button class="chip" data-sort="distance">距离优先</button>
+        <button class="chip" data-sort="time">时间优先</button>
+      </div>
+    </header>
+
+    <section class="banner">
+      <h2>TenniTi 来了</h2>
+      <p>网球人自己的 AI 球局助手</p>
+    </section>
+
+    <section class="analyze-card">
+      <h3>上传视频获取动作指导</h3>
+      <p class="analyze-sub">上传 5 分钟以内网球视频，调用 TenClip 视频理解接口生成建议。</p>
+      <div class="analyze-controls">
+        <input id="videoInput" type="file" accept=".mp4,.mov,.avi,video/*">
+        <select id="perfMode">
+          <option value="eco">省显存</option>
+          <option value="balanced">平衡</option>
+          <option value="quality">质量优先</option>
+        </select>
+        <p class="analyze-field-label">分析提示词</p>
+        <div class="chip-row prompt-profile-row" id="promptProfileRow" role="group" aria-label="分析提示词">
+          <button type="button" class="chip prompt-chip active" data-profile="default">标准</button>
+          <button type="button" class="chip prompt-chip" data-profile="compact">精简</button>
+          <button type="button" class="chip prompt-chip" data-profile="step_by_step">分步</button>
+          <button type="button" class="chip prompt-chip" data-profile="step_by_step_v2">分步v2</button>
+          <button type="button" class="chip prompt-chip" data-profile="motion_deep">深度</button>
+        </div>
+        <button id="analyzeBtn" class="primary-btn">开始分析</button>
+      </div>
+      <p class="analyze-field-label" id="guidanceSectionLabel">指导意见</p>
+      <div id="guidancePanel" class="guidance-panel">
+        <div id="guidanceBody" class="guidance-body" role="region" aria-labelledby="guidanceSectionLabel"></div>
+      </div>
+    </section>
+
+    <section class="list" id="eventList"></section>
+    <section class="error" id="errorBox" hidden></section>
+
+    <nav class="tabbar">
+      <button class="tab active">球局</button>
+      <button class="tab">消息</button>
+      <button class="tab">我的</button>
+    </nav>
+    <button class="fab" aria-label="发起球局">＋</button>
+  </main>
+
+  <script src="/web-assets/script.js"></script>
+</body>
+</html>

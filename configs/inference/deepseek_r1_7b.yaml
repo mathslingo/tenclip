@@ -1,0 +1,8 @@
+model_name_or_path: deepseek-ai/DeepSeek-R1-Distill-Qwen-7B
+template: deepseekr1
+infer_backend: huggingface
+trust_remote_code: true
+quantization_bit: 4
+quantization_method: bitsandbytes
+quantization_type: nf4
+quantization_device_map: auto

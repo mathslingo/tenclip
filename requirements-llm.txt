@@ -1,0 +1,11 @@
+# Optional: tennis video analysis (Qwen2-VL-2B). Large download; GPU recommended.
+# 默认从 ModelScope 拉取权重（国内镜像）；HF 备用见 TENCLIP_MODEL_DOWNLOAD_SOURCE
+# pip install -r requirements.txt -r requirements-llm.txt [-r requirements-llm-lf.txt]
+torch>=2.1.0
+transformers>=4.46.0
+accelerate>=0.34.0
+huggingface_hub>=0.20.0
+modelscope>=1.14.0
+qwen-vl-utils
+pillow>=10.0.0
+bitsandbytes>=0.43.0

@@ -1,0 +1,215 @@
+{
+  "duration_sec": 409.493,
+  "kept_sec": 152.633,
+  "kept_ratio": 0.3727,
+  "mode": "combined",
+  "segment_count": 28,
+  "segments": [
+    {
+      "start": 0.9,
+      "end": 5.25,
+      "duration": 4.35,
+      "score": 19.0553,
+      "source": "motion"
+    },
+    {
+      "start": 24.15,
+      "end": 29.75,
+      "duration": 5.6,
+      "score": 2.5719,
+      "source": "motion"
+    },
+    {
+      "start": 35.9,
+      "end": 38.0,
+      "duration": 2.1,
+      "score": 2.2827,
+      "source": "motion"
+    },
+    {
+      "start": 40.15,
+      "end": 45.0,
+      "duration": 4.85,
+      "score": 4.3952,
+      "source": "motion"
+    },
+    {
+      "start": 50.65,
+      "end": 52.75,
+      "duration": 2.1,
+      "score": 1.9714,
+      "source": "motion"
+    },
+    {
+      "start": 56.65,
+      "end": 78.0,
+      "duration": 21.35,
+      "score": 1430.1884,
+      "source": "combined"
+    },
+    {
+      "start": 83.01,
+      "end": 87.19,
+      "duration": 4.18,
+      "score": 1719.4922,
+      "source": "audio"
+    },
+    {
+      "start": 99.4,
+      "end": 102.25,
+      "duration": 2.85,
+      "score": 3.0242,
+      "source": "motion"
+    },
+    {
+      "start": 105.4,
+      "end": 109.25,
+      "duration": 3.85,
+      "score": 2.9643,
+      "source": "motion"
+    },
+    {
+      "start": 120.15,
+      "end": 126.5,
+      "duration": 6.35,
+      "score": 2.4265,
+      "source": "motion"
+    },
+    {
+      "start": 145.15,
+      "end": 151.75,
+      "duration": 6.6,
+      "score": 6.9118,
+      "source": "motion"
+    },
+    {
+      "start": 166.15,
+      "end": 168.5,
+      "duration": 2.35,
+      "score": 1.9062,
+      "source": "motion"
+    },
+    {
+      "start": 176.49,
+      "end": 178.87,
+      "duration": 2.38,
+      "score": 1789.7449,
+      "source": "audio"
+    },
+    {
+      "start": 212.65,
+      "end": 223.5,
+      "duration": 10.85,
+      "score": 2.972,
+      "source": "motion"
+    },
+    {
+      "start": 225.4,
+      "end": 236.25,
+      "duration": 10.85,
+      "score": 8.2584,
+      "source": "motion"
+    },
+    {
+      "start": 264.9,
+      "end": 267.25,
+      "duration": 2.35,
+      "score": 2.394,
+      "source": "motion"
+    },
+    {
+      "start": 272.15,
+      "end": 275.5,
+      "duration": 3.35,
+      "score": 3.0762,
+      "source": "motion"
+    },
+    {
+      "start": 280.65,
+      "end": 285.5,
+      "duration": 4.85,
+      "score": 1559.7276,
+      "source": "combined"
+    },
+    {
+      "start": 289.4,
+      "end": 292.25,
+      "duration": 2.85,
+      "score": 2.3648,
+      "source": "motion"
+    },
+    {
+      "start": 297.65,
+      "end": 300.25,
+      "duration": 2.6,
+      "score": 2.0088,
+      "source": "motion"
+    },
+    {
+      "start": 303.15,
+      "end": 307.0,
+      "duration": 3.85,
+      "score": 3.5857,
+      "source": "motion"
+    },
+    {
+      "start": 313.9,
+      "end": 318.25,
+      "duration": 4.35,
+      "score": 2.6417,
+      "source": "motion"
+    },
+    {
+      "start": 320.4,
+      "end": 323.5,
+      "duration": 3.1,
+      "score": 2.9705,
+      "source": "motion"
+    },
+    {
+      "start": 325.57,
+      "end": 332.0,
+      "duration": 6.43,
+      "score": 1429.2591,
+      "source": "combined"
+    },
+    {
+      "start": 361.53,
+      "end": 364.27,
+      "duration": 2.74,
+      "score": 2525.6929,
+      "source": "audio"
+    },
+    {
+      "start": 367.65,
+      "end": 369.75,
+      "duration": 2.1,
+      "score": 2.8782,
+      "source": "motion"
+    },
+    {
+      "start": 383.89,
+      "end": 397.0,
+      "duration": 13.11,
+      "score": 1540.5091,
+      "source": "combined"
+    },
+    {
+      "start": 399.15,
+      "end": 409.493,
+      "duration": 10.343,
+      "score": 12.6808,
+      "source": "motion"
+    }
+  ],
+  "debug": {
+    "duration_sec": 409.493333,
+    "mode": "combined",
+    "motion_segment_count": 46,
+    "motion_threshold_percentile": 72.0,
+    "motion_frames": 1638,
+    "audio_available": true,
+    "audio_segment_count": 7,
+    "output_path": "/mnt/c/Users/baozi/Pictures/IMG_2835_strokes_only.mp4"
+  }
+}

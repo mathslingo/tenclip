@@ -1,0 +1,49 @@
+# TenClip @ tennisGo（与现有微信小程序后端隔离）
+#
+# 仅处理 Host: uchanceai.com / www.uchanceai.com
+# 上游：本机 127.0.0.1:7862（tenclip-uchanceai.service，勿与现有后端端口混用）
+#
+# 安装（在 tennisGo 上，不要改现有站点的 conf）：
+#   sudo cp scripts/deploy/nginx-tenclip-uchanceai.conf.example /etc/nginx/conf.d/tenclip-uchanceai.conf
+#   sudo nginx -t && sudo systemctl reload nginx
+#   sudo certbot --nginx -d uchanceai.com -d www.uchanceai.com
+#
+# certbot 会改写本文件；改完后确认仍含 client_body_timeout / proxy_request_buffering on
+
+server {
+    listen 80;
+    server_name uchanceai.com www.uchanceai.com;
+    return 301 https://$host$request_uri;
+}
+
+server {
+    listen 443 ssl;
+    server_name uchanceai.com www.uchanceai.com;
+
+    # certbot 写入 ssl_certificate / include options-ssl-nginx.conf
+
+    client_max_body_size 512m;
+    client_body_buffer_size 16m;
+    client_body_timeout 600s;
+    client_header_timeout 600s;
+    send_timeout 600s;
+    proxy_read_timeout 600s;
+    proxy_send_timeout 600s;
+    proxy_connect_timeout 60s;
+
+    # 可选：Gradio 仅内网调试，不对外暴露时可取消注释
+    # location /gradio/ {
+    #     return 404;
+    # }
+
+    location / {
+        proxy_pass http://127.0.0.1:7862;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header Connection "";
+        proxy_request_buffering on;
+    }
+}
