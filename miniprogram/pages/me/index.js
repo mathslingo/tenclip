@@ -232,6 +232,10 @@ Page({
     wx.redirectTo({ url: "/pages/action-analyze/index" });
   },
 
+  onGoPose() {
+    wx.navigateTo({ url: "/pages/pose-detect/index" });
+  },
+
   onGoFeed() {
     wx.redirectTo({ url: "/pages/feed/index" });
   },

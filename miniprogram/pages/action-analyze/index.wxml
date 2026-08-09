@@ -4,6 +4,14 @@
     <text class="hero-sub">上传网球视频，由 AI 生成中文动作指导。默认分析前约 5 分钟画面，更长视频请先剪辑。</text>
   </view>
 
+  <view class="card pose-entry" bindtap="onGoPose">
+    <view class="pose-entry-main">
+      <text class="card-title">实时关键点检测</text>
+      <text class="card-sub">摄像头即时骨架预览，分析前可先看姿态是否入镜。</text>
+    </view>
+    <text class="pose-entry-arrow">›</text>
+  </view>
+
   <view class="card">
     <text class="card-title">选择视频</text>
     <text class="card-sub">支持相册或拍摄；较长视频将自动压缩后上传，请保持 WiFi。</text>

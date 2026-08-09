@@ -279,7 +279,178 @@ python tools/deployment/export_model.py \
 - 📦 [模型下载](https://download.openmmlab.com/mmpose/)
 - 🎬 [视频教程](https://space.bilibili.com/1293512903)
 
-## 12. 结论
+## 12. 前端 vs 后端方案对比
+
+### 12.1 前端方案：MediaPipe Pose
+
+**技术栈**：
+- **开发者**: Google
+- **版本**: @mediapipe/pose@0.5
+- **运行环境**: 浏览器（WebAssembly + WebGL）
+- **模型大小**: 6-8 MB
+- **关键点**: 33 个（包含面部和手部）
+
+**性能指标**：
+```
+FPS:      30-60（依赖设备）
+延迟:     15-30ms
+精度:     中等
+资源占用:  低（浏览器 GPU）
+```
+
+**优势**：
+- ✅ 零安装，浏览器直接运行
+- ✅ 完全本地化，隐私保护
+- ✅ 跨平台（桌面、移动端）
+- ✅ 快速原型验证
+- ✅ 关键点数量多（33 个）
+
+**劣势**：
+- ❌ 依赖 CDN，国内可能受限
+- ❌ 性能受浏览器限制
+- ❌ 精度低于专业模型
+- ❌ 难以集成到后端流程
+
+**CDN 加载**：
+```html
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils@0.3/camera_utils.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils@0.6/control_utils.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils@0.3/drawing_utils.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose@0.5/pose.js"></script>
+```
+
+**模型配置**：
+```javascript
+pose.setOptions({
+    modelComplexity: 1,        // 0-轻量, 1-标准, 2-精确
+    smoothLandmarks: true,
+    enableSegmentation: false,
+    minDetectionConfidence: 0.5,
+    minTrackingConfidence: 0.5
+});
+```
+
+### 12.2 后端方案：MMPose RTMPose
+
+**技术栈**：
+- **开发者**: OpenMMLab
+- **模型**: RTMPose 系列（t/s/m/l/x）
+- **运行环境**: Python + PyTorch + GPU
+- **模型大小**: 5-30 MB（依模型）
+- **关键点**: 17 个（COCO 标准）
+
+**性能指标（RTX 3060）**：
+```
+模型         FPS      延迟      显存      精度(AP)
+RTMPose-t   150-200   5-7ms    ~1.5GB    68.5
+RTMPose-s   100-150   7-10ms   ~2GB      72.2
+RTMPose-m   80-120    10-12ms  ~2.5GB    75.8
+RTMPose-l   60-90     12-15ms  ~3.5GB    76.5
+```
+
+**优势**：
+- ✅ 高性能（GPU 加速）
+- ✅ 高精度（COCO 76.5% AP）
+- ✅ 完全本地化，无网络依赖
+- ✅ 灵活部署（ONNX、TensorRT）
+- ✅ 适合生产环境
+
+**劣势**：
+- ❌ 需要环境配置（Python + GPU）
+- ❌ 部署复杂度高
+- ❌ 需要服务器资源
+- ❌ 关键点数量少（17 个）
+
+**快速启动**：
+```bash
+conda activate mmpose_gpu
+cd ~/code/tenclip/pose
+python pose_server.py
+# 访问 http://localhost:5000
+```
+
+### 12.3 方案对比矩阵
+
+| 对比项 | MediaPipe Pose（前端） | RTMPose（后端 GPU） |
+|--------|----------------------|-------------------|
+| **部署难度** | ⭐ 极简（无需安装） | ⭐⭐⭐⭐ 复杂 |
+| **FPS** | 30-60 | 80-120 (RTMPose-m) |
+| **延迟** | 15-30ms | 10-12ms |
+| **精度** | ⭐⭐⭐ 中 | ⭐⭐⭐⭐⭐ 高 |
+| **关键点数** | 33 个 | 17 个 |
+| **隐私性** | ⭐⭐⭐⭐⭐ 本地 | ⭐⭐⭐⭐⭐ 本地 |
+| **网络依赖** | 需要（CDN） | 不需要 |
+| **硬件要求** | 低 | 高（需要 GPU） |
+| **适用环境** | 演示、移动端 | 生产、高精度 |
+| **成本** | 免费 | GPU 硬件成本 |
+
+### 12.4 使用场景推荐
+
+#### 🎯 前端 MediaPipe Pose 适用场景
+
+1. **快速原型验证**
+   - 概念验证（POC）
+   - 用户体验测试
+   - 功能演示
+
+2. **移动端应用**
+   - 移动浏览器
+   - 跨平台 Web App
+   - 轻量级应用
+
+3. **隐私敏感场景**
+   - 个人健身 App
+   - 医疗数据处理
+   - 无服务器架构
+
+4. **教育与科普**
+   - 教学演示
+   - 互动展示
+   - 科普项目
+
+#### 🎯 后端 RTMPose 适用场景
+
+1. **生产环境**
+   - 商业化产品
+   - 企业级应用
+   - SaaS 服务
+
+2. **高性能需求**
+   - 实时分析系统
+   - 批量视频处理
+   - 多路视频流
+
+3. **高精度需求**
+   - 体育动作分析（网球、高尔夫）
+   - 生物力学研究
+   - 医疗康复评估
+
+4. **复杂场景**
+   - 多人检测
+   - 复杂背景
+   - 遮挡处理
+
+### 12.5 混合方案
+
+对于网球分析项目，可以采用混合架构：
+
+```
+前端演示 (MediaPipe Pose)
+    ↓
+用户体验良好 → 升级
+    ↓
+后端分析 (RTMPose + GPU)
+    ↓
+详细报告 + 动作建议
+```
+
+**实现方式**：
+1. 前端用 MediaPipe 提供即时反馈
+2. 关键视频片段上传到后端
+3. 后端用 RTMPose 精确分析
+4. 生成专业报告
+
+## 13. 结论
 
 ### ✅ **MMPose 完全支持实时关键点检测**
 
@@ -291,16 +462,34 @@ python tools/deployment/export_model.py \
 
 ### 推荐方案
 
-**网球视频实时分析**：
+**快速演示与原型**（前端）：
+```
+MediaPipe Pose (浏览器)
+  → 30-60 FPS
+  → 零安装、即开即用
+  → 适合概念验证
+```
+
+**网球视频实时分析**（后端）：
 ```
 RTMDet-nano (人体检测) + RTMPose-m (姿态) 
-  → 70+ FPS @ GPU (GTX 1660Ti)
+  → 80-120 FPS @ GPU (RTX 3060)
   → 适合实时教练反馈系统
 ```
 
-**离线高精度分析**：
+**离线高精度分析**（后端）：
 ```
 RTMDet-m + RTMPose-l + 时序平滑
   → COCO 76.5% AP
   → 适合动作细节纠错与生物力学分析
 ```
+
+### 技术选型建议
+
+| 需求 | 推荐方案 | 理由 |
+|------|---------|------|
+| 快速演示 | MediaPipe Pose | 零配置、快速上手 |
+| 移动端 | MediaPipe Pose | 浏览器原生支持 |
+| 生产环境 | RTMPose-m/l | 高性能、高精度 |
+| 批量处理 | RTMPose + GPU | 并行处理能力强 |
+| 实时反馈 | 混合方案 | 前端预览 + 后端分析 |

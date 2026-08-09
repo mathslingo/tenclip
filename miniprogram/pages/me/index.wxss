@@ -188,20 +188,23 @@
 /* —— 快捷入口 —— */
 .quick-row {
   display: flex;
+  flex-wrap: wrap;
   gap: 12rpx;
   margin: 20rpx 20rpx 0;
 }
 
 .quick-card {
-  flex: 1;
+  flex: 1 1 calc(25% - 12rpx);
+  min-width: 140rpx;
   background: #fff;
   border-radius: 20rpx;
-  padding: 24rpx 12rpx;
+  padding: 24rpx 8rpx;
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 10rpx;
   box-shadow: 0 2rpx 10rpx rgba(0, 0, 0, 0.04);
+  box-sizing: border-box;
 }
 
 .quick-icon {

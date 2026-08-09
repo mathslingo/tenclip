@@ -1,0 +1,6 @@
+<web-view wx:if="{{url}}" src="{{url}}" binderror="onWebError" bindload="onWebLoad"></web-view>
+<view class="fallback" wx:else>
+  <text class="fallback-title">无法加载检测页</text>
+  <text class="fallback-sub">请返回后使用「复制链接」在微信中打开。</text>
+  <button class="ghost-btn" bindtap="onCopy">复制链接</button>
+</view>

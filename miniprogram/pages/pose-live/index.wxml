@@ -1,0 +1,35 @@
+<view class="live-page">
+  <!-- 原生摄像头：小程序内唯一可靠的取景方式；web-view/H5 在微信里常无法 getUserMedia -->
+  <camera
+    class="cam"
+    device-position="{{devicePosition}}"
+    flash="off"
+    resolution="medium"
+    frame-size="medium"
+    binderror="onCamError"
+    bindinitdone="onCamReady"
+  />
+
+  <!-- 检测结果叠加图（后端画好骨架后返回） -->
+  <image
+    wx:if="{{resultSrc}}"
+    class="result-img"
+    src="{{resultSrc}}"
+    mode="aspectFill"
+  />
+
+  <cover-view class="hud">
+    <cover-view class="hud-top">
+      <cover-view class="pill">{{statusText}}</cover-view>
+      <cover-view class="pill" wx:if="{{fpsText}}">{{fpsText}}</cover-view>
+    </cover-view>
+
+    <cover-view class="hud-bottom">
+      <cover-view class="btn" bindtap="onToggleDevice">翻转</cover-view>
+      <cover-view class="btn primary" bindtap="onToggleRun">
+        {{running ? '停止' : '开始检测'}}
+      </cover-view>
+      <cover-view class="btn" bindtap="onBack">返回</cover-view>
+    </cover-view>
+  </cover-view>
+</view>

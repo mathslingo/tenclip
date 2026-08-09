@@ -1,0 +1,27 @@
+.fallback {
+  padding: 80rpx 48rpx;
+  text-align: center;
+}
+
+.fallback-title {
+  display: block;
+  font-size: 34rpx;
+  font-weight: 600;
+  color: #151821;
+}
+
+.fallback-sub {
+  display: block;
+  margin: 20rpx 0 40rpx;
+  font-size: 26rpx;
+  color: #6e7582;
+  line-height: 1.55;
+}
+
+.ghost-btn {
+  margin-top: 12rpx;
+  background: #eefaf6;
+  color: #0d6b52;
+  border-radius: 999rpx;
+  font-size: 28rpx;
+}

@@ -30,7 +30,7 @@ const LOCAL_API_HOST = "http://127.0.0.1:7861";
 const PROD_API_BASE_URL = "https://clip.uchanceai.com";
 
 /** 每次上传体验版前改一下，用于确认手机跑的是新包 */
-const APP_BUILD_TAG = "2026-07-22-rec-order-fix";
+const APP_BUILD_TAG = "2026-08-09-pose-live-cam";
 
 /** 发现页：true=本地 Mock；false=请求 /api/news/feed（失败回退 Mock；空库显示空态） */
 const FEED_USE_MOCK = false;
@@ -43,6 +43,29 @@ const API_BASE_URL = LOCAL_DEV ? LOCAL_API_HOST : PROD_API_BASE_URL;
 /** web-view / 复制链接（本地调试时同样走 LOCAL_API_HOST） */
 const WEB_STROKE_URL = API_BASE_URL + "/web/stroke";
 const WEB_ANALYZE_URL = API_BASE_URL + "/web";
+/** 实时关键点检测 H5（MediaPipe）；微信内 web-view 通常无法开摄像头，优先用原生页 */
+const WEB_POSE_URL = API_BASE_URL + "/web/pose";
+
+/**
+ * 姿态检测后端（pose_server.py，默认 5000）
+ * 本地：与 LOCAL_API_HOST 同主机、端口 5000
+ * 上线：填公网 HTTPS 或与主 API 同域反代
+ */
+function poseApiBaseFromHost(apiBase) {
+  try {
+    var m = String(apiBase || "").match(/^(https?:\/\/[^/:]+)(?::(\d+))?/i);
+    if (!m) return "http://127.0.0.1:5000";
+    return m[1] + ":5000";
+  } catch (e) {
+    return "http://127.0.0.1:5000";
+  }
+}
+
+const POSE_API_BASE = LOCAL_DEV
+  ? poseApiBaseFromHost(LOCAL_API_HOST)
+  : PROD_API_BASE_URL;
+const POSE_DETECT_URL = POSE_API_BASE + "/detect";
+const POSE_HEALTH_URL = POSE_API_BASE + "/health";
 
 /** wx.uploadFile / wx.downloadFile 超时（毫秒，约 10 分钟；大视频 + 3Mbps 带宽可能仍较慢） */
 const UPLOAD_TIMEOUT_MS = 600000;
@@ -137,6 +160,10 @@ module.exports = {
   APP_BUILD_TAG,
   WEB_STROKE_URL,
   WEB_ANALYZE_URL,
+  WEB_POSE_URL,
+  POSE_API_BASE,
+  POSE_DETECT_URL,
+  POSE_HEALTH_URL,
   isApiConfigValid,
   apiConfigHint,
   apiHostForWhitelist,

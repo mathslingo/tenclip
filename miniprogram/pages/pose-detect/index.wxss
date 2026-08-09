@@ -1,0 +1,55 @@
+@import "../../styles/common.wxss";
+
+.ghost-btn {
+  margin-top: 16rpx;
+  border: none;
+  border-radius: 20rpx;
+  background: #eefaf6;
+  color: #0d6b52;
+  font-size: 28rpx;
+  font-weight: 600;
+}
+
+.tip-box {
+  margin-top: 28rpx;
+  padding: 20rpx 22rpx;
+  background: #f4f6f9;
+  border-radius: 20rpx;
+}
+
+.tip-title {
+  display: block;
+  font-size: 26rpx;
+  font-weight: 600;
+  color: #151821;
+  margin-bottom: 10rpx;
+}
+
+.tip-line {
+  display: block;
+  font-size: 22rpx;
+  color: #415360;
+  line-height: 1.65;
+}
+
+.diff-row {
+  display: flex;
+  gap: 16rpx;
+  margin-top: 16rpx;
+  align-items: flex-start;
+}
+
+.diff-label {
+  flex-shrink: 0;
+  min-width: 140rpx;
+  font-size: 24rpx;
+  font-weight: 600;
+  color: #0d6b52;
+}
+
+.diff-desc {
+  flex: 1;
+  font-size: 24rpx;
+  color: #415360;
+  line-height: 1.5;
+}

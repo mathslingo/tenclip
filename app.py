@@ -1186,6 +1186,15 @@ def create_app() -> FastAPI:
         def web_stroke_home():
             return FileResponse(stroke_web_dir / "index.html")
 
+    # 实时关键点检测 H5（MediaPipe Pose，供小程序 web-view / 复制链接打开）
+    pose_html = _REPO_ROOT / "pose" / "realtime_pose_detection.html"
+    if pose_html.exists():
+
+        @api.get("/web/pose")
+        @api.get("/web/pose/")
+        def web_pose_home():
+            return FileResponse(pose_html)
+
     news_page_dir = _REPO_ROOT / "pages" / "news_page"
     if news_page_dir.exists():
         api.mount("/news-assets", StaticFiles(directory=str(news_page_dir)), name="news-assets")

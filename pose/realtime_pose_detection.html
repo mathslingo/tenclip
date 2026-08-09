@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>实时人体关键点检测 - MMPose Demo</title>
+    <title>AceHunter实时人体关键点检测（Google MediaPipe Pose）</title>
     <style>
         * {
             margin: 0;
@@ -599,7 +599,21 @@
                 console.log('摄像头已启动');
             } catch (error) {
                 console.error('启动摄像头失败:', error);
-                alert('无法访问摄像头。请确保已授予摄像头权限，并且摄像头未被其他应用占用。');
+                const ua = navigator.userAgent || '';
+                const inWeChat = /MicroMessenger/i.test(ua);
+                if (inWeChat) {
+                    alert(
+                        '微信内置浏览器 / 小程序 web-view 通常无法调用摄像头。\n\n' +
+                        '请改用小程序「原生摄像头检测」页，或在电脑 Chrome/Edge 打开本页面。'
+                    );
+                } else {
+                    alert(
+                        '无法访问摄像头。请确保：\n' +
+                        '1. 已授予摄像头权限\n' +
+                        '2. 使用 HTTPS 或 localhost（非微信环境）\n' +
+                        '3. 摄像头未被其他应用占用'
+                    );
+                }
             }
         }
 

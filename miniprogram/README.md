@@ -6,7 +6,8 @@
 |-----|------|-----|
 | **击球剪辑** | 上传长视频，剪掉等待/换边，下载击球集锦 MP4 | `/api/mobile/stroke-extract/*` |
 | **动作分析** | 上传视频，Qwen2-VL 生成中文动作指导 | `/api/mobile/analyze-video/submit` + 任务轮询 |
-| **网页版** | `web-view` 打开 H5，绕过小程序 Cronet | `/web/stroke`、`/web` |
+| **实时关键点** | H5 摄像头骨架预览（MediaPipe） | `/web/pose`（入口：分析页 / 我） |
+| **网页版** | `web-view` 打开 H5，绕过小程序 Cronet | `/web/stroke`、`/web`、`/web/pose` |
 
 完整启动步骤见仓库根目录 **`readme.md` →「微信小程序启动」**。
 
@@ -24,6 +25,7 @@
 |------|------|
 | `https://api.uchance.tech/web/stroke` | 击球片段提取 |
 | `https://api.uchance.tech/web` | 动作分析 |
+| `{API}/web/pose` | 实时关键点检测（MediaPipe H5） |
 
 ### 可选：小程序内 web-view（需业务域名）
 

@@ -1,16 +1,58 @@
-# Flask 和基础依赖
+# ============================================
+# pose_server.py 基础依赖（必装）
+# ============================================
 flask>=2.3.0
 flask-cors>=4.0.0
 opencv-python>=4.8.0
 numpy>=1.24.0
 Pillow>=10.0.0
 
-# MMPose 完整版（可选，推荐）
-# 如需安装，请运行：
-# pip install torch torchvision --index-url https://download.pytorch.org/whl/cu118
-# pip install -U openmim
-# mim install mmengine mmcv mmdet mmpose
+# ============================================
+# PyTorch（必装，但需单独安装源）
+# ============================================
+# 不能用清华源！必须从官方安装：
+# 
+# conda 方式（推荐）：
+#   conda install pytorch torchvision torchaudio pytorch-cuda=12.1 -c pytorch -c nvidia -y
+#
+# pip 方式：
+#   pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
 
-# MediaPipe 轻量版（可选，备选方案）
-# 如需安装，请运行：
-# pip install mediapipe>=0.10.0
+# ============================================
+# MMPose 完整版（推荐，高性能）
+# ============================================
+# 用 pip + 清华源即可：
+#   pip install -i https://pypi.tuna.tsinghua.edu.cn/simple -U openmim
+#   pip install -i https://pypi.tuna.tsinghua.edu.cn/simple mmengine mmcv mmdet mmpose
+#
+# MMPose runtime 依赖：
+#   pip install -i https://pypi.tuna.tsinghua.edu.cn/simple chumpy json_tricks matplotlib munkres scipy xtcocotools
+
+# ============================================
+# MediaPipe 轻量版（可选，CPU 友好）
+# ============================================
+# 如果没有 GPU 或 MMPose 装不上，可用 MediaPipe 备选：
+#   pip install -i https://pypi.tuna.tsinghua.edu.cn/simple mediapipe>=0.10.0
+
+# ============================================
+# 快速安装命令（复制到终端）
+# ============================================
+# conda activate mmpose_gpu
+# cd ~/code/tenclip/pose
+#
+# # 1. 基础依赖
+# pip install -i https://pypi.tuna.tsinghua.edu.cn/simple flask flask-cors opencv-python numpy pillow
+#
+# # 2. PyTorch（不要用清华源）
+# conda install pytorch torchvision torchaudio pytorch-cuda=12.1 -c pytorch -c nvidia -y
+#
+# # 3. MMPose（⚠️ mmcv 必须用 mim，避免编译报错）
+# pip install -i https://pypi.tuna.tsinghua.edu.cn/simple -U openmim
+# pip install -i https://pypi.tuna.tsinghua.edu.cn/simple mmengine
+# mim install mmcv
+# pip install -i https://pypi.tuna.tsinghua.edu.cn/simple mmdet mmpose
+#
+# # 4. 验证
+# python -c "import flask, torch, mmpose; print('✓ 全部就绪', torch.cuda.is_available())"
+# python pose_server.py
+

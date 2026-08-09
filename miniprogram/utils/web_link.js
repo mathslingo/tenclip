@@ -1,7 +1,8 @@
-/** @deprecated 兼容旧包；新代码请用 config.js 的 WEB_STROKE_URL / WEB_ANALYZE_URL */
+/** @deprecated 兼容旧包；新代码请用 config.js 的 WEB_*_URL */
 var cfg = require("./config.js");
 var WEB_STROKE_URL = cfg.WEB_STROKE_URL;
 var WEB_ANALYZE_URL = cfg.WEB_ANALYZE_URL;
+var WEB_POSE_URL = cfg.WEB_POSE_URL;
 
 function copyAndHint(url, name) {
   wx.setClipboardData({
@@ -27,10 +28,16 @@ function copyAnalyzeLink() {
   copyAndHint(WEB_ANALYZE_URL, "动作分析");
 }
 
+function copyPoseLink() {
+  copyAndHint(WEB_POSE_URL, "实时关键点检测");
+}
+
 module.exports = {
   copyAndHint: copyAndHint,
   copyStrokeLink: copyStrokeLink,
   copyAnalyzeLink: copyAnalyzeLink,
+  copyPoseLink: copyPoseLink,
   WEB_STROKE_URL: WEB_STROKE_URL,
   WEB_ANALYZE_URL: WEB_ANALYZE_URL,
+  WEB_POSE_URL: WEB_POSE_URL,
 };

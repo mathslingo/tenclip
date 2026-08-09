@@ -113,6 +113,10 @@ Page({
     showChooseVideoHelp();
   },
 
+  onGoPose() {
+    wx.navigateTo({ url: "/pages/pose-detect/index" });
+  },
+
   onPerfTap(e) {
     if (this.data.busy) return;
     this.setData({ perfMode: e.currentTarget.dataset.value });

@@ -54,6 +54,10 @@
       <text class="quick-icon">◎</text>
       <text class="quick-label">动作分析</text>
     </view>
+    <view class="quick-card" bindtap="onGoPose">
+      <text class="quick-icon">◇</text>
+      <text class="quick-label">实时关键点</text>
+    </view>
     <view class="quick-card" bindtap="onGoFeed">
       <text class="quick-icon">▣</text>
       <text class="quick-label">发现资讯</text>

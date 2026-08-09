@@ -2,7 +2,24 @@
 
 本目录包含 MMPose 项目分析与实时关键点检测演示。
 
+## ⚡ 快速排障
+
+**环境缺依赖？直接看 → [`QUICKSTART.md`](QUICKSTART.md)** ⭐
+
+常见报错：
+- `No module named 'flask'` 
+- `No module named 'torch'`
+- `No module named 'mmpose'`
+
+解决方案：一键安装命令在 `QUICKSTART.md`
+
 ## 📁 文件说明
+
+### ⚡ `QUICKSTART.md` ← **从这里开始**
+**环境配置快速指南**，解决 `mmpose_gpu` 环境缺少依赖的问题：
+- 一键安装命令（复制即用）
+- 为什么 PyTorch 不能用清华源
+- 常见问题速查
 
 ### 1. `mmpose_summary.md`
 MMPose 项目的完整功能总结文档，包括：

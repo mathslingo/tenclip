@@ -1100,6 +1100,7 @@ module.exports = {
   chooseTennisVideo,
   showChooseVideoHelp,
   showChooseFail,
+  requirePrivacyIfNeeded,
   prepareVideoForUpload,
   formatUploadProgress,
   mapUploadProgressPercent,
