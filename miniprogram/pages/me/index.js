@@ -67,6 +67,7 @@ Page({
     emptySub: "",
     emptyCta: "",
     showSettings: false,
+    devMode: false,
     feedUseMock: !!FEED_USE_MOCK,
     buildTag: APP_BUILD_TAG,
     apiBase: API_BASE_URL,
@@ -78,6 +79,7 @@ Page({
   onShow() {
     this.refreshProfile();
     this.refreshMockFlag();
+    this.refreshDevMode();
     this.loadTabContent(this.data.activeTab);
   },
 
@@ -108,6 +110,11 @@ Page({
       useMock = stored === true || stored === "1";
     }
     this.setData({ feedUseMock: !!useMock });
+  },
+
+  refreshDevMode() {
+    var devMode = wx.getStorageSync("dev_mode") || false;
+    this.setData({ devMode: !!devMode });
   },
 
   loadTabContent(tab) {
@@ -224,12 +231,23 @@ Page({
     });
   },
 
+  onDevModeChange(e) {
+    var on = !!(e.detail && e.detail.value);
+    wx.setStorageSync("dev_mode", on);
+    this.setData({ devMode: on });
+    wx.showToast({
+      title: on ? "已开启开发者模式" : "已关闭开发者模式",
+      icon: "success",
+      duration: 1500,
+    });
+  },
+
   onGoStroke() {
-    wx.redirectTo({ url: "/pages/stroke-extract/index" });
+    wx.navigateTo({ url: "/pages/stroke-extract/index" });
   },
 
   onGoAnalyze() {
-    wx.redirectTo({ url: "/pages/action-analyze/index" });
+    wx.navigateTo({ url: "/pages/action-analyze/index" });
   },
 
   onGoPose() {

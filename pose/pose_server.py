@@ -145,22 +145,41 @@ def init_models():
 def init_mediapipe():
     """回退方案：使用 MediaPipe"""
     global pose_model, model_loaded
-    
+
     try:
         import mediapipe as mp
         
-        mp_pose = mp.solutions.pose
-        pose_model = mp_pose.Pose(
-            static_image_mode=False,
-            model_complexity=1,
-            min_detection_confidence=0.5,
-            min_tracking_confidence=0.5
-        )
-        model_loaded = True
-        print("✓ MediaPipe Pose 加载成功")
+        # 兼容 MediaPipe 0.10.x 和 1.0+
+        try:
+            # MediaPipe 0.10.x
+            mp_pose = mp.solutions.pose
+            pose_model = mp_pose.Pose(
+                static_image_mode=False,
+                model_complexity=1,
+                min_detection_confidence=0.5,
+                min_tracking_confidence=0.5
+            )
+            print("✓ MediaPipe Pose 加载成功 (v0.10)")
+        except AttributeError:
+            # MediaPipe 1.0+ 新 API
+            from mediapipe.tasks import python
+            from mediapipe.tasks.python import vision
+            
+            base_options = python.BaseOptions(
+                model_asset_path='pose_landmarker.task'  # 需要下载模型文件
+            )
+            options = vision.PoseLandmarkerOptions(
+                base_options=base_options,
+                running_mode=vision.RunningMode.VIDEO
+            )
+            pose_model = vision.PoseLandmarker.create_from_options(options)
+            print("✓ MediaPipe Pose 加载成功 (v1.0+)")
         
-    except ImportError:
-        print("MediaPipe 未安装。运行: pip install mediapipe")
+        model_loaded = True
+
+    except ImportError as e:
+        print(f"MediaPipe 未安装或版本不兼容: {e}")
+        print("推荐安装: pip install mediapipe==0.10.14")
         raise
 
 def is_cuda_available():

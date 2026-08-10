@@ -1,20 +1,41 @@
 {
   "pages": [
     "pages/feed/index",
+    "pages/me/index",
+    "pages/analyze/index",
     "pages/feed-detail/index",
     "pages/stroke-extract/index",
     "pages/action-analyze/index",
     "pages/pose-detect/index",
     "pages/pose-live/index",
-    "pages/pose-webview/index",
-    "pages/me/index"
+    "pages/pose-webview/index"
   ],
   "window": {
     "navigationBarTitleText": "UChance",
-    "navigationBarBackgroundColor": "#f2f3f5",
+    "navigationBarBackgroundColor": "#ffffff",
     "navigationBarTextStyle": "black",
-    "backgroundColor": "#f2f3f5",
+    "backgroundColor": "#f7f8fa",
     "backgroundTextStyle": "dark"
+  },
+  "tabBar": {
+    "color": "#8a8a8a",
+    "selectedColor": "#13d8a8",
+    "backgroundColor": "#ffffff",
+    "borderStyle": "black",
+    "list": [
+      {
+        "pagePath": "pages/analyze/index",
+        "text": "分析"
+      },
+      {
+        "pagePath": "pages/feed/index",
+        "text": "发现"
+      },
+      {
+        "pagePath": "pages/me/index",
+        "text": "我"
+      }
+    ]
   },
   "style": "v2",
   "sitemapLocation": "sitemap.json"

@@ -1,0 +1,141 @@
+.page {
+  min-height: 100vh;
+  background: #f7f8fa;
+  padding: 20rpx 24rpx 160rpx;
+}
+
+.feature-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 16rpx;
+}
+
+.feature-card {
+  background: #fff;
+  border-radius: 24rpx;
+  padding: 32rpx;
+  display: flex;
+  align-items: center;
+  gap: 24rpx;
+  box-shadow: 0 2rpx 16rpx rgba(0, 0, 0, 0.06);
+  transition: all 0.3s;
+}
+
+.feature-card:active {
+  opacity: 0.8;
+  transform: scale(0.98);
+}
+
+.feature-icon {
+  font-size: 56rpx;
+  width: 80rpx;
+  height: 80rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #f5f7fa 0%, #e8ecf1 100%);
+  border-radius: 20rpx;
+}
+
+.feature-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 8rpx;
+}
+
+.feature-title {
+  font-size: 32rpx;
+  font-weight: 600;
+  color: #1a1a1a;
+}
+
+.feature-desc {
+  font-size: 26rpx;
+  color: #8a8a8a;
+  line-height: 1.4;
+}
+
+.feature-arrow {
+  font-size: 48rpx;
+  color: #d0d0d0;
+  font-weight: 300;
+}
+
+.tips-card {
+  background: #fff;
+  border-radius: 24rpx;
+  padding: 32rpx;
+  margin-top: 24rpx;
+  box-shadow: 0 2rpx 16rpx rgba(0, 0, 0, 0.06);
+}
+
+.tips-title {
+  font-size: 28rpx;
+  font-weight: 600;
+  color: #1a1a1a;
+  display: block;
+  margin-bottom: 20rpx;
+}
+
+.tip-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 12rpx;
+  margin-bottom: 16rpx;
+}
+
+.tip-item:last-child {
+  margin-bottom: 0;
+}
+
+.tip-dot {
+  color: #13d8a8;
+  font-size: 28rpx;
+  line-height: 1.5;
+}
+
+.tip-text {
+  flex: 1;
+  font-size: 26rpx;
+  color: #666;
+  line-height: 1.6;
+}
+
+.dev-info {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-radius: 24rpx;
+  padding: 32rpx;
+  margin-top: 24rpx;
+  color: #fff;
+}
+
+.dev-title {
+  font-size: 28rpx;
+  font-weight: 600;
+  display: block;
+  margin-bottom: 20rpx;
+  opacity: 0.95;
+}
+
+.dev-text {
+  font-size: 24rpx;
+  display: block;
+  margin-bottom: 12rpx;
+  font-family: 'Monaco', 'Consolas', monospace;
+  opacity: 0.85;
+}
+
+.dev-action {
+  margin-top: 20rpx;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 16rpx;
+  padding: 16rpx 24rpx;
+  text-align: center;
+  font-size: 26rpx;
+  font-weight: 500;
+}
+
+.dev-action:active {
+  opacity: 0.7;
+}

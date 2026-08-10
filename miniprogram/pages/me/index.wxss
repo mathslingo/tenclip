@@ -383,6 +383,19 @@
   border-top: 2rpx solid #f0f3f6;
 }
 
+.dev-mode-switch {
+  padding: 24rpx;
+  background: linear-gradient(135deg, rgba(102, 126, 234, 0.08) 0%, rgba(118, 75, 162, 0.08) 100%);
+  border-radius: 16rpx;
+  margin-bottom: 24rpx;
+  border-top: none;
+}
+
+.dev-mode-switch .switch-label {
+  color: #667eea;
+  font-weight: 600;
+}
+
 .switch-text {
   flex: 1;
   min-width: 0;

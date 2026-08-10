@@ -145,7 +145,18 @@
 
   <!-- 开发设置（默认收起） -->
   <view class="settings-card" wx:if="{{showSettings}}">
-    <text class="settings-title">数据源与调试</text>
+    <text class="settings-title">开发者选项</text>
+    
+    <!-- 开发者模式开关 -->
+    <view class="switch-row dev-mode-switch">
+      <view class="switch-text">
+        <text class="switch-label">🔧 开发者模式</text>
+        <text class="switch-hint">开启后，分析页面显示调试功能和详细日志</text>
+      </view>
+      <switch checked="{{devMode}}" bindchange="onDevModeChange" color="#667eea" />
+    </view>
+
+    <text class="settings-title" style="margin-top: 32rpx;">数据源与调试</text>
     <view class="switch-row">
       <view class="switch-text">
         <text class="switch-label">资讯使用 Mock</text>
@@ -157,8 +168,6 @@
     <text class="build-tag">API {{apiBase}}{{localDev ? ' · 本机库' : ' · 线上'}}</text>
   </view>
 </view>
-
-<!-- 编辑资料弹层 -->
 <view class="edit-mask" wx:if="{{editing}}" catchtouchmove="noop">
   <view class="edit-sheet">
     <text class="edit-title">编辑资料</text>

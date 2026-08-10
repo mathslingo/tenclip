@@ -1,0 +1,61 @@
+<view class="page">
+  <!-- 功能卡片列表 -->
+  <view class="feature-grid">
+    <!-- 击球剪辑 -->
+    <view class="feature-card" bindtap="onGoStroke">
+      <view class="feature-icon">✂️</view>
+      <view class="feature-info">
+        <text class="feature-title">击球剪辑</text>
+        <text class="feature-desc">自动剪掉换边与等待，保留击球回合</text>
+      </view>
+      <text class="feature-arrow">›</text>
+    </view>
+
+    <!-- 动作分析 -->
+    <view class="feature-card" bindtap="onGoAnalyze">
+      <view class="feature-icon">🎾</view>
+      <view class="feature-info">
+        <text class="feature-title">动作分析</text>
+        <text class="feature-desc">AI 生成中文动作指导建议</text>
+      </view>
+      <text class="feature-arrow">›</text>
+    </view>
+
+    <!-- 实时关键点检测（仅开发者模式） -->
+    <view class="feature-card" bindtap="onGoPose" wx:if="{{devMode}}">
+      <view class="feature-icon">◇</view>
+      <view class="feature-info">
+        <text class="feature-title">实时关键点检测</text>
+        <text class="feature-desc">摄像头即时骨架预览（开发者功能）</text>
+      </view>
+      <text class="feature-arrow">›</text>
+    </view>
+  </view>
+
+  <!-- 使用提示 -->
+  <view class="tips-card">
+    <text class="tips-title">💡 使用提示</text>
+    <view class="tip-item">
+      <text class="tip-dot">•</text>
+      <text class="tip-text">击球剪辑：上传完整训练视频，自动提取击球片段</text>
+    </view>
+    <view class="tip-item">
+      <text class="tip-dot">•</text>
+      <text class="tip-text">动作分析：上传单个击球视频，获得技术建议</text>
+    </view>
+    <view class="tip-item" wx:if="{{devMode}}">
+      <text class="tip-dot">•</text>
+      <text class="tip-text">关键点检测：用于调试姿态识别效果</text>
+    </view>
+  </view>
+
+  <!-- 开发者信息（仅开发者模式） -->
+  <view class="dev-info" wx:if="{{devMode}}">
+    <text class="dev-title">🔧 开发者信息</text>
+    <text class="dev-text">后端状态：{{backendStatus}}</text>
+    <text class="dev-text">姿态服务：{{poseStatus}}</text>
+    <view class="dev-action" bindtap="onTestBackend">
+      <text>测试后端连接</text>
+    </view>
+  </view>
+</view>
