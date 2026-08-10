@@ -1,0 +1,138 @@
+<view class="courts-page">
+
+  <!-- 搜索栏 -->
+  <view class="search-bar">
+    <view class="search-input-wrap">
+      <text class="search-icon">🔍</text>
+      <input class="search-input" placeholder="搜索网球场名称"
+        value="{{searchKeyword}}" bindinput="onSearchInput" bindconfirm="onSearchConfirm" confirm-type="search" />
+      <text wx:if="{{searchKeyword}}" class="search-clear" bindtap="onClearSearch">✕</text>
+    </view>
+  </view>
+
+  <!-- 地图 -->
+  <view class="map-section">
+    <map id="courtMap" class="court-map"
+      latitude="31.23" longitude="121.47"
+      markers="{{markers}}" scale="{{scale}}"
+      show-location="{{true}}"
+      bindmarkertap="onMarkerTap"
+      bindregionchange="onRegionChange" />
+  </view>
+
+  <!-- 双 Tab -->
+  <view class="tab-bar">
+    <view wx:for="{{topTabs}}" wx:key="key"
+      class="tab-item {{activeTab === item.key ? 'active' : ''}}"
+      data-key="{{item.key}}" bindtap="onTabTap">{{item.label}}</view>
+  </view>
+
+  <!-- 筛选面板 -->
+  <view class="panel" wx:if="{{activeTab === 'filter'}}">
+    <view class="panel-section">
+      <text class="panel-label">场地类型</text>
+      <view class="chip-row">
+        <text class="panel-chip {{filterCourtType === 'all' ? 'on' : ''}}" data-key="all" bindtap="onTypeFilter">全部</text>
+        <text class="panel-chip {{filterCourtType === 'indoor' ? 'on' : ''}}" data-key="indoor" bindtap="onTypeFilter">室内</text>
+        <text class="panel-chip {{filterCourtType === 'outdoor' ? 'on' : ''}}" data-key="outdoor" bindtap="onTypeFilter">室外</text>
+      </view>
+    </view>
+    <view class="panel-section">
+      <text class="panel-label">价格区间</text>
+      <view class="chip-row wrap">
+        <text wx:for="{{priceOptions}}" wx:key="key"
+          class="panel-chip {{filterPrice === item.key ? 'on' : ''}}"
+          data-key="{{item.key}}" bindtap="onPriceFilter">{{item.label}}</text>
+      </view>
+    </view>
+    <view class="panel-section">
+      <text class="panel-label">排序</text>
+      <view class="chip-row">
+        <text wx:for="{{sortOptions}}" wx:key="key"
+          class="panel-chip {{sortBy === item.key ? 'on' : ''}}"
+          data-key="{{item.key}}" bindtap="onSortChange">{{item.label}}</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- 球场列表 -->
+  <scroll-view class="court-list" scroll-y enhanced show-scrollbar="{{false}}">
+
+    <!-- 提报入口（顶部） -->
+    <view class="submit-banner" bindtap="onShowForm">
+      <text class="submit-icon">➕</text>
+      <text class="submit-text">提报新球场（补充数据获积分）</text>
+    </view>
+
+    <view wx:if="{{loading}}" class="list-status"><text>正在搜索网球场…</text></view>
+
+    <view wx:elif="{{courts.length === 0}}" class="list-empty">
+      <view class="empty-icon">🎾</view>
+      <text class="empty-text">未找到符合条件的网球场</text>
+    </view>
+
+    <view wx:for="{{courts}}" wx:key="id"
+      class="court-card {{highlightId === item.id ? 'highlight' : ''}}"
+      data-id="{{item.id}}" data-index="{{index}}" bindtap="onCourtTap">
+
+      <image class="card-cover" src="{{item.photos[0]}}" mode="aspectFill" lazy-load />
+
+      <view class="card-body">
+        <view class="card-title-row">
+          <text class="card-name">{{item.name}}</text>
+          <view class="card-rating" wx:if="{{item.rating > 0}}">
+            <text wx:for="{{item.ratingStars}}" wx:key="index" class="star {{item}}">{{item === 'full' ? '★' : (item === 'half' ? '⭑' : '☆')}}</text>
+            <text class="rating-num">{{item.rating}}</text>
+          </view>
+        </view>
+        <view class="card-info-row">
+          <text wx:if="{{item.distanceText}}" class="card-dist">📍 {{item.distanceText}}</text>
+          <text wx:if="{{item.courtType}}" class="card-type">{{item.courtType}}{{item.totalCourts > 0 ? item.totalCourts + '片' : ''}}</text>
+        </view>
+        <view class="card-addr-row">
+          <text class="card-addr">📍 {{item.address}}</text>
+        </view>
+        <view class="card-info-row">
+          <text wx:if="{{item.priceRange}}" class="card-price">💰 ¥{{item.priceRange}}/h</text>
+          <text wx:if="{{item.phone}}" class="card-phone">📞 {{item.phone}}</text>
+          <text wx:if="{{item.isUserCourt}}" class="user-tag">球友提报</text>
+        </view>
+      </view>
+
+      <view class="card-nav-btn" catchtap="onNavigateTap" data-index="{{index}}">
+        <text class="nav-icon">🧭</text>
+      </view>
+    </view>
+
+    <view class="list-bottom-safe"></view>
+  </scroll-view>
+
+  <!-- 提报弹窗 -->
+  <view class="form-overlay" wx:if="{{showForm}}" bindtap="onHideForm">
+    <view class="form-panel" catchtap="">
+      <text class="form-title">提报网球场</text>
+      <form bindsubmit="onFormSubmit">
+        <view class="form-item">
+          <text class="form-label">球场名称 *</text>
+          <input class="form-input" name="name" placeholder="如：XX网球中心" />
+        </view>
+        <view class="form-item">
+          <text class="form-label">地址 *</text>
+          <input class="form-input" name="address" placeholder="如：浦东新区XX路XX号" />
+        </view>
+        <view class="form-row">
+          <view class="form-item half"><text class="form-label">室内场数</text><input class="form-input" name="indoor" type="number" placeholder="0" /></view>
+          <view class="form-item half"><text class="form-label">室外场数</text><input class="form-input" name="outdoor" type="number" placeholder="0" /></view>
+        </view>
+        <view class="form-item"><text class="form-label">参考价格（元/小时）</text><input class="form-input" name="price" placeholder="如：80-150" /></view>
+        <view class="form-item"><text class="form-label">设施（用、分隔）</text><input class="form-input" name="facilities" placeholder="如：停车、淋浴、教练" /></view>
+        <view class="form-item"><text class="form-label">电话</text><input class="form-input" name="phone" type="number" placeholder="021-XXXXXXXX" /></view>
+        <view class="form-item"><text class="form-label">营业时间</text><input class="form-input" name="hours" placeholder="如：06:00-22:00" /></view>
+        <button class="form-submit" form-type="submit">提交</button>
+      </form>
+      <view class="form-close" bindtap="onHideForm">取消</view>
+    </view>
+  </view>
+
+  <bottom-tabs active="courts" />
+</view>

@@ -1,5 +1,8 @@
 {
   "pages": [
+    "pages/login/index",
+    "pages/courts/index",
+    "pages/court-detail/index",
     "pages/feed/index",
     "pages/me/index",
     "pages/analyze/index",
@@ -10,6 +13,11 @@
     "pages/pose-live/index",
     "pages/pose-webview/index"
   ],
+  "permission": {
+    "scope.userLocation": {
+      "desc": "你的位置信息将用于查找附近的网球场"
+    }
+  },
   "window": {
     "navigationBarTitleText": "UChance",
     "navigationBarBackgroundColor": "#ffffff",

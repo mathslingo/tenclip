@@ -8,8 +8,11 @@ const {
 } = require("./utils/config");
 const { pingHealth } = require("./utils/api");
 
+const AUTH_KEY = "tenclip_auth_done";
+
 App({
   onLaunch() {
+    // 隐私授权
     if (typeof wx.onNeedPrivacyAuthorization === "function") {
       wx.onNeedPrivacyAuthorization(function (resolve) {
         wx.showModal({
@@ -31,8 +34,10 @@ App({
         });
       });
     }
+
+    // API 连通检查
     if (!isApiConfigValid()) {
-      console.error("[TenniTi] API 未配置:", API_BASE_URL);
+      console.error("[UChance] API 未配置:", API_BASE_URL);
       wx.showModal({
         title: "API 地址未配置",
         content: apiConfigHint(),
@@ -40,10 +45,10 @@ App({
       });
       return;
     }
-    console.log("[TenniTi] API_BASE_URL =", API_BASE_URL, "LOCAL_DEV =", LOCAL_DEV);
+    console.log("[UChance] API_BASE_URL =", API_BASE_URL, "LOCAL_DEV =", LOCAL_DEV);
     pingHealth()
       .then(function () {
-        console.log("[TenniTi] 后端连通正常");
+        console.log("[UChance] 后端连通正常");
         if (LOCAL_DEV) {
           wx.showToast({
             title: "本地调试 · API 已连通",
@@ -54,7 +59,7 @@ App({
       })
       .catch(function (err) {
         var msg = (err && err.message) || "无法连接后端";
-        console.warn("[TenniTi] 后端探活失败:", msg);
+        console.warn("[UChance] 后端探活失败:", msg);
         if (LOCAL_DEV) {
           wx.showModal({
             title: "本地 API 未连通",
@@ -74,7 +79,23 @@ App({
           });
           return;
         }
-        // 正式版不在启动时打扰用户；上传失败时页面会提示
       });
+  },
+
+  // 检查是否已完成登录授权
+  isAuthDone() {
+    try {
+      return !!wx.getStorageSync(AUTH_KEY);
+    } catch (e) {
+      return false;
+    }
+  },
+
+  // 清除登录状态（退出登录）
+  clearAuth() {
+    try {
+      wx.removeStorageSync(AUTH_KEY);
+      wx.removeStorageSync("tenclip_user_profile");
+    } catch (e) {}
   },
 });

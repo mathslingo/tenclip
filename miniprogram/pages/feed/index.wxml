@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 <!-- feed m0 -->
 <view class="feed-page">
   <view class="top-tabs">
@@ -105,3 +106,109 @@
 </view>
 
 
+=======
+<!-- feed - 发现页 -->
+<view class="feed-page">
+  <!-- 顶部三 Tab -->
+  <view class="top-tabs">
+    <view class="top-tab active" bindtap="onTabInfo">资讯</view>
+    <view class="top-tab" bindtap="onTabStroke">视频剪辑</view>
+    <view class="top-tab" bindtap="onTabCoach">AI 教练</view>
+  </view>
+
+  <view class="waterfall" wx:if="{{leftList.length || rightList.length}}">
+    <view class="col">
+      <view
+        class="note-card"
+        wx:for="{{leftList}}"
+        wx:key="id"
+        data-id="{{item.id}}"
+        bindtap="onOpenDetail"
+      >
+        <view class="cover-wrap" style="padding-bottom: {{item.cover_ratio * 100}}%;">
+          <image
+            wx:if="{{!item.coverFailed}}"
+            class="cover"
+            src="{{item.cover}}"
+            mode="aspectFill"
+            lazy-load
+            data-id="{{item.id}}"
+            data-col="left"
+            binderror="onCoverError"
+          />
+          <view wx:else class="cover-fallback">
+            <text class="fallback-letter">{{item.author_initial}}</text>
+          </view>
+            <view class="play-badge" wx:if="{{item.media_type === 'video'}}">▶</view>
+            <view class="tour-badge" wx:if="{{item.tour_badge}}">{{item.tour_badge}}</view>
+          </view>
+        <view class="note-body">
+          <text class="note-title">{{item.title}}</text>
+          <view class="note-meta">
+            <view class="author">
+              <view class="avatar">{{item.author_initial}}</view>
+              <text class="author-name">{{item.author_name}}</text>
+            </view>
+            <view class="likes">
+              <text class="heart">♡</text>
+              <text>{{item.like_count}}</text>
+            </view>
+          </view>
+        </view>
+      </view>
+    </view>
+    <view class="col">
+      <view
+        class="note-card"
+        wx:for="{{rightList}}"
+        wx:key="id"
+        data-id="{{item.id}}"
+        bindtap="onOpenDetail"
+      >
+        <view class="cover-wrap" style="padding-bottom: {{item.cover_ratio * 100}}%;">
+          <image
+            wx:if="{{!item.coverFailed}}"
+            class="cover"
+            src="{{item.cover}}"
+            mode="aspectFill"
+            lazy-load
+            data-id="{{item.id}}"
+            data-col="right"
+            binderror="onCoverError"
+          />
+          <view wx:else class="cover-fallback">
+            <text class="fallback-letter">{{item.author_initial}}</text>
+          </view>
+            <view class="play-badge" wx:if="{{item.media_type === 'video'}}">▶</view>
+            <view class="tour-badge" wx:if="{{item.tour_badge}}">{{item.tour_badge}}</view>
+          </view>
+        <view class="note-body">
+          <text class="note-title">{{item.title}}</text>
+          <view class="note-meta">
+            <view class="author">
+              <view class="avatar">{{item.author_initial}}</view>
+              <text class="author-name">{{item.author_name}}</text>
+            </view>
+            <view class="likes">
+              <text class="heart">♡</text>
+              <text>{{item.like_count}}</text>
+            </view>
+          </view>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <view class="feed-empty" wx:if="{{!loading && !leftList.length && !rightList.length}}">
+    <text>暂无内容</text>
+  </view>
+  <view class="feed-footer">
+    <text wx:if="{{loading}}">加载中…</text>
+    <text wx:elif="{{emptyHint}}">{{emptyHint}}</text>
+    <text wx:elif="{{reachedEnd}}">已经到底了 · {{sourceLabel}}</text>
+    <text wx:else>{{sourceLabel}}</text>
+  </view>
+</view>
+
+<bottom-tabs active="feed" />
+>>>>>>> 4a0a2ffadb2d75f51fe4540b86dce27b3ed784a2
