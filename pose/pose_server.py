@@ -257,8 +257,26 @@ def detect_pose_mediapipe(image):
                     'confidence': landmark.visibility
                 })
         
-        # 绘制关键点
-        vis_image = draw_keypoints(image.copy(), keypoints)
+        # 绘制关键点 + 骨架连线
+        vis_image = image.copy()
+        if results.pose_landmarks:
+            try:
+                import mediapipe as mp
+                mp.solutions.drawing_utils.draw_landmarks(
+                    vis_image,
+                    results.pose_landmarks,
+                    mp.solutions.pose.POSE_CONNECTIONS,
+                    landmark_drawing_spec=mp.solutions.drawing_utils.DrawingSpec(
+                        color=(0, 255, 0), thickness=2, circle_radius=3
+                    ),
+                    connection_drawing_spec=mp.solutions.drawing_utils.DrawingSpec(
+                        color=(0, 255, 255), thickness=2
+                    ),
+                )
+            except Exception:
+                vis_image = draw_keypoints(vis_image, keypoints)
+        else:
+            vis_image = draw_keypoints(vis_image, keypoints)
         
         return {
             'keypoints': keypoints,
@@ -270,13 +288,48 @@ def detect_pose_mediapipe(image):
         print(f"MediaPipe 检测出错: {e}")
         return {'error': str(e), 'keypoints': []}
 
-def draw_keypoints(image, keypoints, radius=5):
-    """在图像上绘制关键点"""
+# MediaPipe Pose 33 点骨架连线（与 POSE_CONNECTIONS 一致，作 fallback）
+MEDIAPIPE_POSE_CONNECTIONS = [
+    (0, 1), (1, 2), (2, 3), (3, 7),
+    (0, 4), (4, 5), (5, 6), (6, 8),
+    (9, 10),
+    (11, 12), (11, 13), (13, 15), (15, 17), (15, 19), (15, 21), (17, 19),
+    (12, 14), (14, 16), (16, 18), (16, 20), (16, 22), (18, 20),
+    (11, 23), (12, 24), (23, 24),
+    (23, 25), (24, 26), (25, 27), (26, 28),
+    (27, 29), (28, 30), (29, 31), (30, 32), (27, 31), (28, 32),
+]
+
+# COCO-17（MMPose 常见）
+COCO17_CONNECTIONS = [
+    (0, 1), (0, 2), (1, 3), (2, 4),
+    (5, 6), (5, 7), (7, 9), (6, 8), (8, 10),
+    (5, 11), (6, 12), (11, 12),
+    (11, 13), (13, 15), (12, 14), (14, 16),
+]
+
+def draw_keypoints(image, keypoints, radius=5, conf_thresh=0.5):
+    """在图像上绘制关键点与骨架连线"""
+    by_id = {}
     for kpt in keypoints:
-        if kpt['confidence'] > 0.5:
-            x, y = int(kpt['x']), int(kpt['y'])
-            cv2.circle(image, (x, y), radius, (0, 255, 0), -1)
-            cv2.circle(image, (x, y), radius + 2, (255, 255, 255), 2)
+        if kpt.get('confidence', 0) > conf_thresh:
+            by_id[int(kpt['id'])] = (int(kpt['x']), int(kpt['y']))
+
+    n = len(keypoints)
+    if n >= 33:
+        connections = MEDIAPIPE_POSE_CONNECTIONS
+    elif n >= 17:
+        connections = COCO17_CONNECTIONS
+    else:
+        connections = []
+
+    for a, b in connections:
+        if a in by_id and b in by_id:
+            cv2.line(image, by_id[a], by_id[b], (0, 255, 255), 2)
+
+    for x, y in by_id.values():
+        cv2.circle(image, (x, y), radius, (0, 255, 0), -1)
+        cv2.circle(image, (x, y), radius + 2, (255, 255, 255), 2)
     return image
 
 @app.route('/')
