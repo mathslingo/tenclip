@@ -1,11 +1,4 @@
 <view class="page">
-  <!-- 顶部三 Tab -->
-  <view class="top-tabs">
-    <view class="top-tab" bindtap="onTabInfo">资讯</view>
-    <view class="top-tab active" bindtap="onTabStroke">视频剪辑</view>
-    <view class="top-tab" bindtap="onTabCoach">AI 教练</view>
-  </view>
-
   <view class="hero">
     <text class="hero-title">UChance 击球剪辑</text>
     <text class="hero-sub">上传网球视频，自动剪掉换边与等待，保留击球/回合画面。</text>
@@ -86,8 +79,6 @@
     </view>
   </view>
 </view>
-
-<bottom-tabs active="feed" />
 
 <view class="upload-overlay" wx:if="{{busy}}" catchtouchmove="true">
   <view class="upload-overlay-panel">

@@ -1,31 +1,7 @@
 @import "../../styles/common.wxss";
 
-.pose-entry {
-  display: flex;
-  align-items: center;
-  gap: 16rpx;
-  padding-top: 24rpx;
-  padding-bottom: 24rpx;
-}
-
-.pose-entry-main {
-  flex: 1;
-  min-width: 0;
-}
-
-.pose-entry .card-title {
-  font-size: 30rpx;
-}
-
-.pose-entry .card-sub {
-  margin-top: 6rpx;
-}
-
-.pose-entry-arrow {
-  flex-shrink: 0;
-  font-size: 40rpx;
-  color: #13d8a8;
-  line-height: 1;
+.page {
+  padding-bottom: calc(48rpx + env(safe-area-inset-bottom));
 }
 
 .guidance-head {

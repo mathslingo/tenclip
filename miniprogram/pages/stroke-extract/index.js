@@ -71,18 +71,6 @@ Page({
     }
   },
 
-  onTabInfo() {
-    wx.redirectTo({ url: "/pages/feed/index" });
-  },
-
-  onTabStroke() {
-    // 当前已在视频剪辑
-  },
-
-  onTabCoach() {
-    wx.redirectTo({ url: "/pages/action-analyze/index" });
-  },
-
   _stopPoll() {
     if (this._stopPollFn) {
       this._stopPollFn();

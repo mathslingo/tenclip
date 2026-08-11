@@ -1,5 +1,10 @@
 @import "../../styles/common.wxss";
 
+/* 子页无底部 Tab，收紧底边距 */
+.page {
+  padding-bottom: calc(48rpx + env(safe-area-inset-bottom));
+}
+
 .switch-row {
   display: flex;
   align-items: center;

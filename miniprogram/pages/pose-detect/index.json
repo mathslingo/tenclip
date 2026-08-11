@@ -2,8 +2,5 @@
   "navigationBarTitleText": "实时关键点",
   "navigationBarBackgroundColor": "#f2f3f5",
   "navigationBarTextStyle": "black",
-  "backgroundColor": "#f2f3f5",
-  "usingComponents": {
-    "bottom-tabs": "/components/bottom-tabs/index"
-  }
+  "backgroundColor": "#f2f3f5"
 }

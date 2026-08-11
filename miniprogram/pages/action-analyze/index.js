@@ -84,18 +84,6 @@ Page({
     }
   },
 
-  onTabInfo() {
-    wx.redirectTo({ url: "/pages/feed/index" });
-  },
-
-  onTabStroke() {
-    wx.redirectTo({ url: "/pages/stroke-extract/index" });
-  },
-
-  onTabCoach() {
-    // 当前已在 AI 教练
-  },
-
   _stopPoll() {
     if (this._stopPollFn) {
       this._stopPollFn();
@@ -136,10 +124,6 @@ Page({
 
   onShowChooseHelp() {
     showChooseVideoHelp();
-  },
-
-  onGoPose() {
-    wx.navigateTo({ url: "/pages/pose-detect/index" });
   },
 
   onPerfTap(e) {

@@ -1,6 +1,3 @@
 {
-  "navigationBarTitleText": "击球剪辑",
-  "usingComponents": {
-    "bottom-tabs": "/components/bottom-tabs/index"
-  }
+  "navigationBarTitleText": "击球剪辑"
 }

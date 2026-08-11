@@ -36,5 +36,3 @@
     <button class="ghost-btn" bindtap="onGoAnalyze">去动作分析</button>
   </view>
 </view>
-
-<bottom-tabs active="analyze" />

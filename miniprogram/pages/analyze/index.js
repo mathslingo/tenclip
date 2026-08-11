@@ -34,12 +34,12 @@ Page({
   },
 
   onGoPose() {
-    wx.navigateTo({ url: "/pages/pose-detect/index" });
+    wx.navigateTo({ url: "/pages/pose-live/index" });
   },
 
   checkBackendStatus() {
     wx.request({
-      url: cfg.API_BASE_URL + "/api/health",
+      url: cfg.API_BASE_URL + "/api/mobile/health",
       timeout: 5000,
       success: (res) => {
         this.setData({
@@ -55,8 +55,12 @@ Page({
       url: cfg.POSE_HEALTH_URL,
       timeout: 5000,
       success: (res) => {
+        const ok =
+          res.statusCode === 200 &&
+          res.data &&
+          (res.data.status === "ok" || res.data.ok === true);
         this.setData({
-          poseStatus: res.statusCode === 200 ? "✓ 正常" : `✗ 错误 ${res.statusCode}`,
+          poseStatus: ok ? "✓ 正常" : `✗ 异常 ${res.statusCode}`,
         });
       },
       fail: () => {
