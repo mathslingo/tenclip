@@ -1,0 +1,16 @@
+<view class="custom-tab-bar {{safeArea}}">
+  <view class="tab-bar-wrap">
+    <view
+      wx:for="{{list}}"
+      wx:key="index"
+      class="tab-item {{item.type === 'action' ? 'tab-action' : ''}} {{item.active ? 'active' : ''}}"
+      data-path="{{item.pagePath}}"
+      data-index="{{index}}"
+      data-type="{{item.type}}"
+      bindtap="onTap"
+    >
+      <text class="tab-icon {{item.type === 'action' ? 'action-icon' : ''}}">{{item.icon}}</text>
+      <text class="tab-text" wx:if="{{item.text}}">{{item.text}}</text>
+    </view>
+  </view>
+</view>

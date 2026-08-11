@@ -69,6 +69,13 @@ Page({
     this._loadCourts();
   },
 
+  onShow: function () {
+    const tabBar = this.getTabBar && this.getTabBar();
+    if (tabBar && tabBar.updateSelected) {
+      tabBar.updateSelected();
+    }
+  },
+
   // ── Tab ──
 
   onTabTap: function (e) {

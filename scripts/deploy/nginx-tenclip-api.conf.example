@@ -1,5 +1,7 @@
 # api.uchance.tech → 127.0.0.1:7861
-# certbot 之后请确认本文件仍含 client_body_timeout / client_max_body_size
+# 部署说明：scripts/deploy/DEPLOY_UCHANCE_TECH.md（阿里云 8.133.67.191）
+# certbot / 宝塔申请证书后请确认仍含 client_body_timeout / client_max_body_size
+# 微信 uploadFile：勿开 http2 / quic；保持 proxy_request_buffering on
 
 server {
     listen 80;

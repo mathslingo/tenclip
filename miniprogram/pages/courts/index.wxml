@@ -133,6 +133,4 @@
       <view class="form-close" bindtap="onHideForm">取消</view>
     </view>
   </view>
-
-  <bottom-tabs active="courts" />
 </view>

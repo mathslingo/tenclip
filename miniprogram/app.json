@@ -1,11 +1,11 @@
 {
   "pages": [
-    "pages/login/index",
-    "pages/courts/index",
-    "pages/court-detail/index",
     "pages/feed/index",
-    "pages/me/index",
+    "pages/courts/index",
     "pages/analyze/index",
+    "pages/me/index",
+    "pages/login/index",
+    "pages/court-detail/index",
     "pages/feed-detail/index",
     "pages/stroke-extract/index",
     "pages/action-analyze/index",
@@ -26,22 +26,27 @@
     "backgroundTextStyle": "dark"
   },
   "tabBar": {
+    "custom": true,
     "color": "#8a8a8a",
     "selectedColor": "#13d8a8",
     "backgroundColor": "#ffffff",
     "borderStyle": "black",
     "list": [
       {
-        "pagePath": "pages/analyze/index",
-        "text": "分析"
+        "pagePath": "pages/courts/index",
+        "text": "找球场"
       },
       {
         "pagePath": "pages/feed/index",
         "text": "发现"
       },
       {
+        "pagePath": "pages/analyze/index",
+        "text": "分析"
+      },
+      {
         "pagePath": "pages/me/index",
-        "text": "我"
+        "text": "我的"
       }
     ]
   },

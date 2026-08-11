@@ -19,6 +19,10 @@ Page({
   onShow() {
     const devMode = wx.getStorageSync("dev_mode") || false;
     this.setData({ devMode });
+    const tabBar = this.getTabBar && this.getTabBar();
+    if (tabBar && tabBar.updateSelected) {
+      tabBar.updateSelected();
+    }
   },
 
   onGoStroke() {
