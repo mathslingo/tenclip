@@ -21,7 +21,7 @@
  */
 
 /** true=读本机 news_feed.db（经 /api/news/feed）；false=读线上 api.uchance.tech */
-const LOCAL_DEV = true;
+const LOCAL_DEV = false;
 
 /** 本地后端；WSL 里 hostname -I 取 IP，例如 http://172.22.123.45:7861
  *  Win11 镜像网络可用 127.0.0.1；模拟器不通时改成 WSL eth0 IP */

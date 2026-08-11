@@ -187,14 +187,57 @@ curl -s 'http://127.0.0.1:7861/api/news/feed?limit=5'
 
 ---
 
-## 7. 姿态检测 pose_server（可选，默认先不上）
+## 7. 姿态检测 pose_server（小程序「实时关键点」需要）
 
-`pose_server.py` 默认 **5000**，与主 API 分离。2G 机建议：
+小程序生产配置打到：
 
-- 开发者模式才开；或
-- 同域 Nginx `location /detect` / `/health` 反代 `127.0.0.1:5000`，并装 MediaPipe CPU 版
+- `GET  https://api.uchance.tech/health`
+- `POST https://api.uchance.tech/detect`
 
-主路径小程序功能不依赖它。
+主 API（7861）**没有**这两条路由，必须另起 `pose_server.py`（推荐 MediaPipe CPU）并用 Nginx 反代。
+
+### 7.1 依赖（tenclip 环境）
+
+```bash
+conda activate tenclip
+pip install flask flask-cors opencv-python-headless pillow
+pip install 'mediapipe==0.10.14'   # 与 pose_server 兼容；勿装 1.0+
+```
+
+### 7.2 启动
+
+```bash
+cd /root/code/tenclip
+sudo cp scripts/deploy/tenclip-pose.service /etc/systemd/system/
+# 核对 PATH / WorkingDirectory
+sudo systemctl daemon-reload
+sudo systemctl enable --now tenclip-pose
+curl -s http://127.0.0.1:5000/health
+# 期望: {"status":"ok","backend":"MediaPipe",...}
+```
+
+手动试跑：
+
+```bash
+cd /root/code/tenclip/pose
+HOST=127.0.0.1 PORT=5000 python pose_server.py
+```
+
+### 7.3 Nginx
+
+把 `scripts/deploy/nginx-pose-locations.conf.example` 中的三个 `location` 粘进 `api.uchance.tech` 的 **443 server**（放在 `location /` 之前），然后：
+
+```bash
+nginx -t && nginx -s reload
+# 宝塔: /www/server/nginx/sbin/nginx -t && /www/server/nginx/sbin/nginx -s reload
+curl -s https://api.uchance.tech/health
+```
+
+### 7.4 小程序
+
+- `config.js`：`LOCAL_DEV=false` 时已指向 `PROD_API_BASE_URL` 的 `/detect`、`/health`（无需再改）
+- 「分析」页里关键点入口需在「我的」打开 **开发者模式**
+- 「我的」快捷入口「实时关键点」也可进；请用**真机**（模拟器摄像头能力弱）
 
 ---
 

@@ -664,16 +664,17 @@ def main():
         print("或安装 MediaPipe: pip install mediapipe")
         return
     
-    # 启动服务
+    # 启动服务（生产建议 HOST=127.0.0.1，由 Nginx 反代）
+    host = os.environ.get('HOST', '0.0.0.0')
     port = int(os.environ.get('PORT', 5000))
-    print(f"\n🚀 服务已启动: http://localhost:{port}")
-    print(f"📊 健康检查: http://localhost:{port}/health")
-    print(f"🎮 GPU 信息: http://localhost:{port}/gpu_info")
-    print(f"🎨 演示页面: http://localhost:{port}")
+    print(f"\n🚀 服务已启动: http://{host}:{port}")
+    print(f"📊 健康检查: http://{host}:{port}/health")
+    print(f"🎮 GPU 信息: http://{host}:{port}/gpu_info")
+    print(f"🎨 演示页面: http://{host}:{port}")
     print(f"\n按 Ctrl+C 停止服务\n")
     
     app.run(
-        host='0.0.0.0',
+        host=host,
         port=port,
         debug=False,
         threaded=True

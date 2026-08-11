@@ -1,0 +1,36 @@
+# 追加到 api.uchance.tech 的 HTTPS server {} 内（宝塔站点配置）
+# 小程序生产配置：POSE_* → https://api.uchance.tech/detect|/health
+#
+# 验证：
+#   curl -s https://api.uchance.tech/health
+#   # 应含 "status":"ok" 与 backend MediaPipe/MMPose
+
+    # 姿态检测（pose_server.py → 127.0.0.1:5000）
+    location = /health {
+        proxy_pass http://127.0.0.1:5000;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_connect_timeout 10s;
+        proxy_read_timeout 60s;
+    }
+
+    location = /detect {
+        proxy_pass http://127.0.0.1:5000;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        client_max_body_size 16m;
+        proxy_connect_timeout 10s;
+        proxy_read_timeout 60s;
+    }
+
+    location = /gpu_info {
+        proxy_pass http://127.0.0.1:5000;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+    }
