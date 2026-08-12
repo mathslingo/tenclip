@@ -83,12 +83,24 @@ Page({
 
     if (channel.type === "miniprogram") {
       if (!channel.appId) {
-        wx.showModal({
-          title: channel.name,
-          content: "暂未配置「" + channel.name + "」的跳转信息，请先用电话预约。",
-          showCancel: false,
-          confirmText: "知道了",
-        });
+        var phoneFallback = (this.data.court && this.data.court.phone) || "";
+        if (phoneFallback) {
+          wx.showModal({
+            title: channel.name,
+            content: "在线预约暂未开通，是否拨打 " + phoneFallback + " 电话预约？",
+            confirmText: "拨打",
+            success: function (res) {
+              if (res.confirm) wx.makePhoneCall({ phoneNumber: phoneFallback });
+            },
+          });
+        } else {
+          wx.showModal({
+            title: channel.name,
+            content: "在线预约暂未开通，请使用页面上的电话或导航到店预约。",
+            showCancel: false,
+            confirmText: "知道了",
+          });
+        }
         return;
       }
       wx.navigateToMiniProgram({
@@ -134,7 +146,7 @@ Page({
     if (!jump || !jump.appId) {
       // 无 AppID 时提示在对应平台搜索
       wx.showModal({
-        title: "在「' + source.name + '」中查看",
+        title: "在「" + source.name + "」中查看",
         content: "请打开「" + source.name + "」，搜索「" + (source.keyword || court.name) + "」查看评价。",
         showCancel: false,
         confirmText: "知道了",

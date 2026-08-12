@@ -1,0 +1,41 @@
+<view class="page">
+  <view class="card">
+    <input
+      class="title-input"
+      placeholder="标题（可选）"
+      maxlength="40"
+      value="{{title}}"
+      bindinput="onTitle"
+    />
+    <textarea
+      class="body-input"
+      placeholder="分享你的网球日常、训练心得…"
+      maxlength="1000"
+      value="{{body}}"
+      bindinput="onBody"
+      auto-height
+      show-confirm-bar="{{false}}"
+    />
+    <text class="count">{{body.length}}/1000</text>
+  </view>
+
+  <view class="card">
+    <view class="section-head">
+      <text class="section-title">图片</text>
+      <text class="section-hint">最多 9 张</text>
+    </view>
+    <view class="img-grid">
+      <view class="img-cell" wx:for="{{images}}" wx:key="*this">
+        <image class="img" src="{{item}}" mode="aspectFill" data-index="{{index}}" bindtap="onPreview" />
+        <view class="img-del" data-index="{{index}}" catchtap="onRemoveImage">×</view>
+      </view>
+      <view class="img-add" bindtap="onAddImages" wx:if="{{images.length < 9}}">
+        <text class="add-plus">＋</text>
+        <text class="add-text">添加</text>
+      </view>
+    </view>
+  </view>
+
+  <button class="publish-btn" loading="{{busy}}" disabled="{{busy}}" bindtap="onPublish">发布</button>
+  <text class="tip">笔记保存在本机「我的 · 作品」，仅自己可见。</text>
+</view>

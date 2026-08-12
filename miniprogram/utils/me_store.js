@@ -1,9 +1,10 @@
 /**
- * 个人页本地资料 / 赞过 / 收藏（未接微信登录前用 storage）
+ * 个人页本地资料 / 赞过 / 收藏 / 作品笔记（未接服务端前用 storage + USER_DATA_PATH）
  */
 var PROFILE_KEY = "tenclip_me_profile";
 var LIKES_KEY = "tenclip_me_likes";
 var BOOKMARKS_KEY = "tenclip_me_bookmarks";
+var NOTES_KEY = "tenclip_me_notes";
 
 function defaultProfile() {
   return {
@@ -153,6 +154,171 @@ function statsFromLists(profile) {
   };
 }
 
+function listNotes() {
+  var list = readJson(NOTES_KEY, []);
+  if (!Array.isArray(list)) return [];
+  return list.slice().sort(function (a, b) {
+    return (b.createdAt || 0) - (a.createdAt || 0);
+  });
+}
+
+function getNoteById(id) {
+  var sid = String(id || "");
+  if (!sid) return null;
+  var list = listNotes();
+  for (var i = 0; i < list.length; i++) {
+    if (String(list[i].id) === sid) return list[i];
+  }
+  return null;
+}
+
+function ensureDir(dirPath) {
+  return new Promise(function (resolve) {
+    var fs = wx.getFileSystemManager();
+    try {
+      fs.accessSync(dirPath);
+      resolve(dirPath);
+    } catch (e) {
+      try {
+        fs.mkdirSync(dirPath, true);
+      } catch (e2) {}
+      resolve(dirPath);
+    }
+  });
+}
+
+function saveImageToUserData(tempPath, noteId, index) {
+  return new Promise(function (resolve) {
+    if (!tempPath) {
+      resolve("");
+      return;
+    }
+    var root = (wx.env && wx.env.USER_DATA_PATH) || "";
+    if (!root) {
+      resolve(tempPath);
+      return;
+    }
+    var noteDir = root + "/notes/" + noteId;
+    ensureDir(root + "/notes")
+      .then(function () {
+        return ensureDir(noteDir);
+      })
+      .then(function () {
+        var ext = ".jpg";
+        var m = String(tempPath).match(/(\.[a-zA-Z0-9]+)(\?|$)/);
+        if (m && m[1]) ext = m[1].toLowerCase();
+        if (ext !== ".jpg" && ext !== ".jpeg" && ext !== ".png" && ext !== ".webp") {
+          ext = ".jpg";
+        }
+        var dest = noteDir + "/" + index + ext;
+        wx.getFileSystemManager().saveFile({
+          tempFilePath: tempPath,
+          filePath: dest,
+          success: function (res) {
+            resolve(res.savedFilePath || dest);
+          },
+          fail: function () {
+            wx.getFileSystemManager().saveFile({
+              tempFilePath: tempPath,
+              success: function (res2) {
+                resolve(res2.savedFilePath || tempPath);
+              },
+              fail: function () {
+                resolve(tempPath);
+              },
+            });
+          },
+        });
+      });
+  });
+}
+
+/**
+ * @param {{ title?: string, body: string, imagePaths: string[] }} payload
+ */
+function addNote(payload) {
+  var title = String((payload && payload.title) || "").trim();
+  var body = String((payload && payload.body) || "").trim();
+  var temps = (payload && payload.imagePaths) || [];
+  if (!Array.isArray(temps)) temps = [];
+  temps = temps.filter(Boolean).slice(0, 9);
+
+  if (!body && !temps.length) {
+    return Promise.reject(new Error("请填写正文或添加图片"));
+  }
+
+  var id = "n" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+  var tasks = temps.map(function (p, i) {
+    return saveImageToUserData(p, id, i);
+  });
+
+  return Promise.all(tasks).then(function (savedPaths) {
+    savedPaths = (savedPaths || []).filter(Boolean);
+    var note = {
+      id: id,
+      title: title || (body ? body.slice(0, 24) : "未命名笔记"),
+      body: body,
+      images: savedPaths,
+      cover: savedPaths[0] || "",
+      cover_ratio: 1.25,
+      createdAt: Date.now(),
+    };
+    var list = listNotes();
+    list.unshift(note);
+    writeJson(NOTES_KEY, list);
+    try {
+      wx.setStorageSync("tenclip_me_open_works", "1");
+    } catch (e) {}
+    return note;
+  });
+}
+
+function deleteNote(id) {
+  var sid = String(id || "");
+  if (!sid) return false;
+  var list = listNotes();
+  var next = [];
+  var removed = null;
+  list.forEach(function (n) {
+    if (String(n.id) === sid) removed = n;
+    else next.push(n);
+  });
+  if (!removed) return false;
+  writeJson(NOTES_KEY, next);
+
+  var root = (wx.env && wx.env.USER_DATA_PATH) || "";
+  if (root) {
+    try {
+      wx.getFileSystemManager().rmdir({
+        dirPath: root + "/notes/" + sid,
+        recursive: true,
+      });
+    } catch (e) {}
+  }
+  (removed.images || []).forEach(function (p) {
+    try {
+      wx.getFileSystemManager().unlink({ filePath: p });
+    } catch (e2) {}
+  });
+  return true;
+}
+
+function notesAsFeedItems(notes) {
+  return (notes || []).map(function (n) {
+    return {
+      id: n.id,
+      title: n.title || "笔记",
+      cover: n.cover || (n.images && n.images[0]) || "",
+      cover_ratio: n.cover_ratio || 1.25,
+      coverFailed: !!(!(n.cover || (n.images && n.images[0]))),
+      author_initial: "我",
+      author_name: "我",
+      like_count: 0,
+      isLocalNote: true,
+    };
+  });
+}
+
 module.exports = {
   getProfile: getProfile,
   saveProfile: saveProfile,
@@ -164,4 +330,9 @@ module.exports = {
   toggleLike: toggleLike,
   toggleBookmark: toggleBookmark,
   statsFromLists: statsFromLists,
+  listNotes: listNotes,
+  getNoteById: getNoteById,
+  addNote: addNote,
+  deleteNote: deleteNote,
+  notesAsFeedItems: notesAsFeedItems,
 };

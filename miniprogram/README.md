@@ -4,6 +4,7 @@
 
 ## 快速链接
 
+- **[第一版上线检查清单](SHIP_V1.md)** - 提审前必做
 - **[Tab Bar 使用指南](TABBAR_GUIDE.md)** - 小红书风格 5 项 Tab 栏 (找球场|发现|+|分析|我的)
 - **[UI 重构说明](UI_REFACTOR.md)** - 开发者模式、分析页面等
 - **[地图模块架构](MAP_MODULE_ARCHITECTURE.md)** - 找球场模块设计文档

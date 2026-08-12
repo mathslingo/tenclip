@@ -31,8 +31,6 @@
     </view>
   </view>
 
-  <text class="location-note">📍 位置信息将在使用找球场功能时按需获取</text>
-
   <!-- 进入按钮 -->
   <button class="enter-btn {{hasUserInfo ? 'ready' : ''}}" bindtap="onEnter">进入 UChance</button>
 

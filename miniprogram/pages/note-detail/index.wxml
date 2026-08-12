@@ -1,0 +1,24 @@
+<view class="page" wx:if="{{note}}">
+  <swiper
+    wx:if="{{note.images.length}}"
+    class="swiper"
+    indicator-dots
+    indicator-active-color="#13d8a8"
+  >
+    <swiper-item wx:for="{{note.images}}" wx:key="*this">
+      <image class="slide" src="{{item}}" mode="aspectFill" data-src="{{item}}" bindtap="onPreview" />
+    </swiper-item>
+  </swiper>
+
+  <view class="body-card">
+    <text class="title">{{note.title}}</text>
+    <text class="meta">{{timeText}}</text>
+    <text class="body" selectable>{{note.body}}</text>
+  </view>
+
+  <button class="danger-btn" bindtap="onDelete">删除笔记</button>
+</view>
+
+<view class="empty" wx:else>
+  <text>笔记不存在或已删除</text>
+</view>

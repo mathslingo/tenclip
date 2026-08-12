@@ -9,15 +9,12 @@
     "pages/feed-detail/index",
     "pages/stroke-extract/index",
     "pages/action-analyze/index",
+    "pages/note-compose/index",
+    "pages/note-detail/index",
     "pages/pose-detect/index",
     "pages/pose-live/index",
     "pages/pose-webview/index"
   ],
-  "permission": {
-    "scope.userLocation": {
-      "desc": "你的位置信息将用于查找附近的网球场"
-    }
-  },
   "window": {
     "navigationBarTitleText": "UChance",
     "navigationBarBackgroundColor": "#ffffff",

@@ -24,11 +24,11 @@
     </view>
 
     <view class="stats-row">
-      <view class="stat">
+      <view class="stat" bindtap="onTapFollowing">
         <text class="stat-num">{{stats.following}}</text>
         <text class="stat-label">关注</text>
       </view>
-      <view class="stat">
+      <view class="stat" bindtap="onTapFollowers">
         <text class="stat-num">{{stats.followers}}</text>
         <text class="stat-label">粉丝</text>
       </view>
@@ -156,16 +156,18 @@
       <switch checked="{{devMode}}" bindchange="onDevModeChange" color="#667eea" />
     </view>
 
-    <text class="settings-title" style="margin-top: 32rpx;">数据源与调试</text>
-    <view class="switch-row">
-      <view class="switch-text">
-        <text class="switch-label">资讯使用 Mock</text>
-        <text class="switch-hint">关闭后请求本机 /api/news/feed；失败回退 Mock。</text>
+    <block wx:if="{{localDev}}">
+      <text class="settings-title" style="margin-top: 32rpx;">数据源与调试</text>
+      <view class="switch-row">
+        <view class="switch-text">
+          <text class="switch-label">资讯使用 Mock</text>
+          <text class="switch-hint">关闭后请求本机 /api/news/feed；失败回退 Mock。</text>
+        </view>
+        <switch checked="{{feedUseMock}}" bindchange="onMockChange" color="#13d8a8" />
       </view>
-      <switch checked="{{feedUseMock}}" bindchange="onMockChange" color="#13d8a8" />
-    </view>
-    <text class="build-tag">Build {{buildTag}}</text>
-    <text class="build-tag">API {{apiBase}}{{localDev ? ' · 本机库' : ' · 线上'}}</text>
+      <text class="build-tag">Build {{buildTag}}</text>
+      <text class="build-tag">API {{apiBase}} · 本机库</text>
+    </block>
   </view>
 </view>
 

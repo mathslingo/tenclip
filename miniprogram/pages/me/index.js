@@ -5,6 +5,8 @@ const {
   statsFromLists,
   getLikedIds,
   getBookmarkedIds,
+  listNotes,
+  notesAsFeedItems,
 } = require("../../utils/me_store");
 const { getFeedItemById } = require("../../utils/feed_api");
 
@@ -52,8 +54,8 @@ function emptyCopy(tab) {
   if (tab === "works") {
     return {
       emptyTitle: "还没有作品",
-      emptySub: "上传击球视频，生成你的第一条剪辑",
-      emptyCta: "去剪辑",
+      emptySub: "发一条网球笔记，记录训练与球场瞬间",
+      emptyCta: "去发笔记",
     };
   }
   if (tab === "likes") {
@@ -80,7 +82,7 @@ Page({
       { key: "bookmarks", label: "收藏", count: 0 },
       { key: "likes", label: "赞过", count: 0 },
     ],
-    activeTab: "bookmarks",
+    activeTab: "works",
     leftList: [],
     rightList: [],
     emptyTitle: "",
@@ -97,6 +99,12 @@ Page({
   },
 
   onShow() {
+    try {
+      if (wx.getStorageSync("tenclip_me_open_works") === "1") {
+        wx.removeStorageSync("tenclip_me_open_works");
+        this.setData({ activeTab: "works" });
+      }
+    } catch (e) {}
     this.refreshProfile();
     this.refreshMockFlag();
     this.refreshDevMode();
@@ -113,12 +121,13 @@ Page({
     var letter = (profile.nickname || "U").trim().charAt(0) || "U";
     var likeN = getLikedIds().length;
     var bmN = getBookmarkedIds().length;
+    var noteN = listNotes().length;
     this.setData({
       profile: profile,
       avatarLetter: letter,
       stats: stats,
       tabs: [
-        { key: "works", label: "作品", count: 0 },
+        { key: "works", label: "作品", count: noteN },
         { key: "bookmarks", label: "收藏", count: bmN },
         { key: "likes", label: "赞过", count: likeN },
       ],
@@ -145,14 +154,26 @@ Page({
     var that = this;
     var copy = emptyCopy(tab);
     if (tab === "works") {
+      var notes = notesAsFeedItems(listNotes());
+      if (!notes.length) {
+        this.setData(
+          Object.assign(
+            {
+              leftList: [],
+              rightList: [],
+            },
+            copy
+          )
+        );
+        return;
+      }
+      var cols = splitWaterfall(notes);
       this.setData(
-        Object.assign(
-          {
-            leftList: [],
-            rightList: [],
-          },
-          copy
-        )
+        Object.assign(cols, {
+          emptyTitle: "",
+          emptySub: "",
+          emptyCta: "",
+        })
       );
       return;
     }
@@ -279,12 +300,20 @@ Page({
   },
 
   onGoFeed() {
-    wx.redirectTo({ url: "/pages/feed/index" });
+    wx.switchTab({ url: "/pages/feed/index" });
+  },
+
+  onTapFollowing() {
+    wx.showToast({ title: "关注功能即将上线", icon: "none" });
+  },
+
+  onTapFollowers() {
+    wx.showToast({ title: "关注功能即将上线", icon: "none" });
   },
 
   onEmptyCta() {
     if (this.data.activeTab === "works") {
-      this.onGoStroke();
+      wx.navigateTo({ url: "/pages/note-compose/index" });
     } else {
       this.onGoFeed();
     }
@@ -293,6 +322,12 @@ Page({
   onOpenDetail(e) {
     var id = e.currentTarget.dataset.id;
     if (!id) return;
+    if (this.data.activeTab === "works") {
+      wx.navigateTo({
+        url: "/pages/note-detail/index?id=" + encodeURIComponent(id),
+      });
+      return;
+    }
     wx.navigateTo({
       url: "/pages/feed-detail/index?id=" + encodeURIComponent(id),
     });

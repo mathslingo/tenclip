@@ -1,0 +1,63 @@
+.page {
+  min-height: 100vh;
+  padding-bottom: calc(48rpx + env(safe-area-inset-bottom));
+  background: #f7f8fa;
+  box-sizing: border-box;
+}
+
+.swiper {
+  width: 100%;
+  height: 720rpx;
+  background: #111;
+}
+
+.slide {
+  width: 100%;
+  height: 100%;
+}
+
+.body-card {
+  margin: 24rpx;
+  padding: 28rpx;
+  background: #fff;
+  border-radius: 24rpx;
+}
+
+.title {
+  display: block;
+  font-size: 36rpx;
+  font-weight: 700;
+  color: #151821;
+  margin-bottom: 12rpx;
+}
+
+.meta {
+  display: block;
+  font-size: 22rpx;
+  color: #9aa3ad;
+  margin-bottom: 20rpx;
+}
+
+.body {
+  display: block;
+  font-size: 28rpx;
+  color: #333;
+  line-height: 1.65;
+  white-space: pre-wrap;
+}
+
+.danger-btn {
+  margin: 8rpx 24rpx 0;
+  background: #fff;
+  color: #b42318;
+  border-radius: 999rpx;
+  border: 2rpx solid rgba(180, 35, 24, 0.25);
+  font-size: 28rpx;
+}
+
+.empty {
+  padding: 120rpx 40rpx;
+  text-align: center;
+  color: #8a8a8a;
+  font-size: 28rpx;
+}

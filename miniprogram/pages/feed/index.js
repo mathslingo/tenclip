@@ -1,5 +1,5 @@
 const { fetchFeedPage } = require("../../utils/feed_api");
-const { API_BASE_URL, LOCAL_DEV } = require("../../utils/config");
+const { LOCAL_DEV } = require("../../utils/config");
 const { pickMockCover } = require("../../utils/feed_mock");
 
 const PAGE_SIZE = 6;
@@ -63,12 +63,15 @@ Page({
   },
 
   _sourceLabel(source) {
-    var hostHint = LOCAL_DEV ? "本机库" : "线上";
+    // 生产环境不向用户暴露 Mock / 数据源调试信息
+    if (!LOCAL_DEV) return "";
+    var hostHint = "本机库";
     if (source === "api") return "数据源：新闻库 · " + hostHint;
-    if (source === "api-empty") return "数据源：新闻库空 · " + hostHint + " · " + API_BASE_URL;
-    if (source === "mock-fallback") return "数据源：Mock（接口失败 · " + API_BASE_URL + "）";
+    if (source === "api-empty") return "数据源：新闻库空 · " + hostHint;
+    if (source === "mock-fallback") return "数据源：Mock（接口失败）";
     return "数据源：Mock";
   },
+
 
   loadMore() {
     var that = this;
@@ -99,11 +102,14 @@ Page({
           !left.length &&
           !right.length
         ) {
-          emptyHint =
-            "新闻库暂无内容。请在 WSL 启动后端并执行 python -m tennis_news.ingest，或到「我」打开 Mock。";
+          emptyHint = LOCAL_DEV
+            ? "新闻库暂无内容。请启动后端并执行新闻抓取。"
+            : "暂时没有新内容，稍后再来看看。";
         }
         if (page.source === "mock-fallback" && !left.length && !right.length) {
-          emptyHint = "无法连接 " + API_BASE_URL + "，请启动 run-wsl.sh 并勾选不校验合法域名。";
+          emptyHint = LOCAL_DEV
+            ? "无法连接本机后端，请启动服务并勾选不校验合法域名。"
+            : "网络繁忙，请稍后下拉刷新重试。";
         }
         that.setData({
           leftList: left,
