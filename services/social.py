@@ -381,20 +381,20 @@ def register_social_routes(api) -> None:
     from pydantic import BaseModel, Field
 
     class UserUpsert(BaseModel):
-        user_id: str
+        user_id: str = Field(..., min_length=1)
         nickname: str = ""
         avatar_url: str = ""
         bio: str = ""
 
     class NoteCreate(BaseModel):
-        user_id: str
+        user_id: str = Field(..., min_length=1)
         title: str = ""
         body: str = ""
         image_urls: list[str] = Field(default_factory=list)
 
     class FollowBody(BaseModel):
-        follower_id: str
-        followee_id: str
+        follower_id: str = Field(..., min_length=1)
+        followee_id: str = Field(..., min_length=1)
 
     @api.post("/api/social/users/upsert")
     def api_upsert_user(body: UserUpsert):

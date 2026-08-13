@@ -12,12 +12,18 @@ function absUrl(path) {
 }
 
 function request(opts) {
+  var data = opts.data;
+  var header = opts.header || { "content-type": "application/json" };
+  // 明确用 JSON 字符串，避免微信自动编码成 form-urlencoded 导致 FastAPI 422
+  if (data && typeof data === "object" && String(header["content-type"] || "") === "application/json") {
+    data = JSON.stringify(data);
+  }
   return new Promise(function (resolve, reject) {
     wx.request({
       url: opts.url,
       method: opts.method || "GET",
-      data: opts.data,
-      header: opts.header || { "content-type": "application/json" },
+      data: data,
+      header: header,
       timeout: opts.timeout || 20000,
       success: function (res) {
         if (res.statusCode >= 200 && res.statusCode < 300) {
@@ -36,16 +42,25 @@ function request(opts) {
   });
 }
 
+function ensureUserId() {
+  var uid = getUserId();
+  if (!uid) {
+    throw new Error("用户 ID 未初始化，请先到「我的」页面");
+  }
+  return uid;
+}
+
 function upsertMe() {
   var p = getLocalProfile();
+  var uid = ensureUserId();
   return request({
     url: API_BASE_URL + "/api/social/users/upsert",
     method: "POST",
     data: {
-      user_id: p.user_id,
-      nickname: p.nickname,
-      avatar_url: p.avatar_url,
-      bio: p.bio,
+      user_id: uid,
+      nickname: p.nickname || "网球爱好者",
+      avatar_url: p.avatar_url || "",
+      bio: p.bio || "",
     },
   });
 }
@@ -58,18 +73,20 @@ function fetchUser(userId, viewerId) {
 }
 
 function follow(followeeId) {
+  var uid = ensureUserId();
   return request({
     url: API_BASE_URL + "/api/social/follow",
     method: "POST",
-    data: { follower_id: getUserId(), followee_id: followeeId },
+    data: { follower_id: uid, followee_id: followeeId },
   });
 }
 
 function unfollow(followeeId) {
+  var uid = ensureUserId();
   return request({
     url: API_BASE_URL + "/api/social/unfollow",
     method: "POST",
-    data: { follower_id: getUserId(), followee_id: followeeId },
+    data: { follower_id: uid, followee_id: followeeId },
   });
 }
 
@@ -113,6 +130,7 @@ function uploadNoteImage(filePath, index, key) {
 }
 
 function publishNote(payload) {
+  var uid = ensureUserId();
   var images = payload.imagePaths || [];
   var key = "u" + Date.now().toString(36);
   var chain = Promise.resolve([]);
@@ -129,9 +147,9 @@ function publishNote(payload) {
       url: API_BASE_URL + "/api/social/notes",
       method: "POST",
       data: {
-        user_id: getUserId(),
-        title: payload.title || "",
-        body: payload.body || "",
+        user_id: uid,
+        title: (payload.title || "").trim(),
+        body: (payload.body || "").trim(),
         image_urls: urls,
       },
     });
@@ -154,13 +172,14 @@ function getNote(noteId) {
 }
 
 function deleteNote(noteId) {
+  var uid = ensureUserId();
   return request({
     url:
       API_BASE_URL +
       "/api/social/notes/" +
       encodeURIComponent(noteId) +
       "?user_id=" +
-      encodeURIComponent(getUserId()),
+      encodeURIComponent(uid),
     method: "DELETE",
   });
 }
