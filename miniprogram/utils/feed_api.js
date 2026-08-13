@@ -207,4 +207,7 @@ module.exports = {
   isFeedMockEnabled,
   fetchFeedPage,
   getFeedItemById,
+  mapApiItem,
+  inferChannel,
+  inferCoverRatio,
 };

@@ -3,7 +3,7 @@
     <text class="search-icon">🔍</text>
     <input
       class="search-input"
-      placeholder="搜索笔记标题"
+      placeholder="搜索笔记、资讯"
       value="{{keyword}}"
       focus="{{true}}"
       confirm-type="search"
@@ -97,8 +97,8 @@
   </view>
 
   <view class="empty" wx:if="{{!loading && !leftList.length && !rightList.length}}">
-    <text wx:if="{{keyword}}">未找到「{{keyword}}」相关笔记</text>
-    <text wx:else>输入关键词搜索笔记</text>
+    <text wx:if="{{keyword}}">未找到「{{keyword}}」相关结果</text>
+    <text wx:else>输入关键词搜索笔记、资讯</text>
   </view>
 
   <view class="loading" wx:if="{{loading}}">

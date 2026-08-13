@@ -1,4 +1,5 @@
-const { searchNotes } = require("../../utils/social_api");
+const { searchFeed } = require("../../utils/social_api");
+const { mapApiItem } = require("../../utils/feed_api");
 
 Page({
   data: {
@@ -28,9 +29,10 @@ Page({
   _search(keyword) {
     var that = this;
     this.setData({ loading: true, leftList: [], rightList: [] });
-    searchNotes(keyword)
+    searchFeed(keyword)
       .then(function (items) {
-        var cols = that._split(items || []);
+        var mapped = (items || []).map(mapApiItem);
+        var cols = that._split(mapped);
         that.setData({
           leftList: cols.left,
           rightList: cols.right,
@@ -67,9 +69,11 @@ Page({
   onOpenDetail(e) {
     var id = e.currentTarget.dataset.id;
     if (!id) return;
-    wx.navigateTo({
-      url: "/pages/note-detail/index?id=" + encodeURIComponent(id),
-    });
+    var url =
+      String(id).indexOf("note-") === 0
+        ? "/pages/note-detail/index?id=" + encodeURIComponent(id)
+        : "/pages/feed-detail/index?id=" + encodeURIComponent(id);
+    wx.navigateTo({ url: url });
   },
 
   onCoverError(e) {

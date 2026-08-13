@@ -5,6 +5,7 @@ import json
 import sqlite3
 import time
 import uuid
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -14,6 +15,7 @@ from pydantic import BaseModel, Field
 
 _REPO_ROOT = Path(__file__).resolve().parent.parent
 DB_PATH = _REPO_ROOT / "data" / "social.db"
+NEWS_DB_PATH = _REPO_ROOT / "data" / "news_feed.db"
 NOTE_UPLOAD_DIR = _REPO_ROOT / "data" / "note_uploads"
 
 
@@ -351,6 +353,92 @@ def search_notes(q: str, limit: int = 40, offset: int = 0) -> list[dict[str, Any
     ]
 
 
+def _news_conn() -> sqlite3.Connection | None:
+    if not NEWS_DB_PATH.exists():
+        return None
+    try:
+        conn = sqlite3.connect(str(NEWS_DB_PATH))
+        conn.row_factory = sqlite3.Row
+        return conn
+    except Exception:
+        return None
+
+
+def _news_to_item(row: sqlite3.Row) -> dict[str, Any]:
+    tags = [t.strip() for t in (row["tags_csv"] or "").split(",") if t.strip()]
+    return {
+        "id": str(row["id"]),
+        "kind": "news",
+        "title": row["title"] or "",
+        "summary": row["summary"] or "",
+        "body": row["summary"] or "",
+        "url": (row["url"] or "").strip(),
+        "image_url": (row["image_url"] or "").strip(),
+        "images": [row["image_url"]] if row["image_url"] else [],
+        "tags": tags,
+        "tags_csv": row["tags_csv"] or "",
+        "source": row["source"] or "资讯",
+        "author_name": row["source"] or "资讯",
+        "author_avatar": "",
+        "published_at": row["published_at"] or "",
+        "popularity": float(row["popularity"] or 0),
+        "score": 160.0,
+        "channel": "推荐",
+    }
+
+
+def search_news_articles(q: str, limit: int = 40, offset: int = 0) -> list[dict[str, Any]]:
+    keyword = (q or "").strip()
+    if not keyword:
+        return []
+    limit = max(1, min(int(limit), 80))
+    offset = max(0, int(offset))
+    conn = _news_conn()
+    if not conn:
+        return []
+    try:
+        with conn:
+            rows = conn.execute(
+                """
+                SELECT id, source, source_domain, source_tier, title, summary, url,
+                       image_url, tags_csv, published_at, popularity
+                FROM news_articles
+                WHERE title LIKE ? OR summary LIKE ?
+                ORDER BY datetime(published_at) DESC
+                LIMIT ? OFFSET ?
+                """,
+                (f"%{keyword}%", f"%{keyword}%", limit, offset),
+            ).fetchall()
+    except Exception:
+        return []
+    return [_news_to_item(r) for r in rows]
+
+
+def _search_time_key(item: dict[str, Any]) -> float:
+    raw = item.get("published_at") or item.get("created_at") or 0
+    if isinstance(raw, (int, float)):
+        return float(raw)
+    try:
+        return datetime.fromisoformat(str(raw)).timestamp()
+    except Exception:
+        return 0.0
+
+
+def search_universal(q: str, limit: int = 40, offset: int = 0) -> list[dict[str, Any]]:
+    """同时搜索用户笔记和新闻资讯，按时间倒序合并。"""
+    keyword = (q or "").strip()
+    if not keyword:
+        return []
+    limit = max(1, min(int(limit), 80))
+    offset = max(0, int(offset))
+    # 各自多取一些，避免合并后再分页导致某一类过少
+    fetch_limit = max(limit, 40)
+    notes = search_notes(q, limit=fetch_limit, offset=offset)
+    news = search_news_articles(q, limit=fetch_limit, offset=offset)
+    merged = sorted(notes + news, key=_search_time_key, reverse=True)
+    return merged[:limit]
+
+
 def list_notes(*, user_id: str | None = None, limit: int = 40, offset: int = 0) -> list[dict[str, Any]]:
     limit = max(1, min(int(limit), 80))
     offset = max(0, int(offset))
@@ -503,6 +591,14 @@ def register_social_routes(api) -> None:
         offset: int = Query(0, ge=0),
     ):
         return {"items": search_notes(q, limit=limit, offset=offset)}
+
+    @api.get("/api/feed/search")
+    def api_search_feed(
+        q: str = Query(..., min_length=1),
+        limit: int = Query(40, ge=1, le=80),
+        offset: int = Query(0, ge=0),
+    ):
+        return {"items": search_universal(q, limit=limit, offset=offset)}
 
     @api.get("/api/social/notes")
     def api_list_notes(

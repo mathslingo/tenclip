@@ -176,6 +176,18 @@ function searchNotes(keyword) {
   });
 }
 
+function searchFeed(keyword) {
+  /* 同时搜索笔记和资讯，返回原始条目（需配合 feed_api.mapApiItem 渲染）。 */
+  return request({
+    url:
+      API_BASE_URL +
+      "/api/feed/search?q=" +
+      encodeURIComponent((keyword || "").trim()),
+  }).then(function (body) {
+    return (body && body.items) || [];
+  });
+}
+
 function getNote(noteId) {
   return request({
     url: API_BASE_URL + "/api/social/notes/" + encodeURIComponent(noteId),
@@ -223,6 +235,7 @@ module.exports = {
   publishNote: publishNote,
   listNotes: listNotes,
   searchNotes: searchNotes,
+  searchFeed: searchFeed,
   getNote: getNote,
   deleteNote: deleteNote,
   normalizeNote: normalizeNote,
