@@ -326,6 +326,31 @@ def get_note(note_id: str) -> dict[str, Any] | None:
         return _note_public(row, author)
 
 
+def search_notes(q: str, limit: int = 40, offset: int = 0) -> list[dict[str, Any]]:
+    keyword = (q or "").strip()
+    if not keyword:
+        return []
+    limit = max(1, min(int(limit), 80))
+    offset = max(0, int(offset))
+    with _conn() as conn:
+        rows = conn.execute(
+            """
+            SELECT n.*, u.nickname, u.avatar_url
+            FROM notes n LEFT JOIN users u ON u.user_id = n.user_id
+            WHERE n.title LIKE ? OR n.body LIKE ?
+            ORDER BY n.created_at DESC
+            LIMIT ? OFFSET ?
+            """,
+            (f"%{keyword}%", f"%{keyword}%", limit, offset),
+        ).fetchall()
+    return [
+        _note_public(
+            r, {"nickname": r["nickname"], "avatar_url": r["avatar_url"]}
+        )
+        for r in rows
+    ]
+
+
 def list_notes(*, user_id: str | None = None, limit: int = 40, offset: int = 0) -> list[dict[str, Any]]:
     limit = max(1, min(int(limit), 80))
     offset = max(0, int(offset))
@@ -470,6 +495,14 @@ def register_social_routes(api) -> None:
             )
         except ValueError as e:
             raise HTTPException(status_code=400, detail=str(e)) from e
+
+    @api.get("/api/social/notes/search")
+    def api_search_notes(
+        q: str = Query(..., min_length=1),
+        limit: int = Query(40, ge=1, le=80),
+        offset: int = Query(0, ge=0),
+    ):
+        return {"items": search_notes(q, limit=limit, offset=offset)}
 
     @api.get("/api/social/notes")
     def api_list_notes(

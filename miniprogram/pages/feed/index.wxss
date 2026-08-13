@@ -5,6 +5,27 @@
   background: #f5f5f5;
 }
 
+.search-bar {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+  margin: 16rpx 12rpx 16rpx;
+  padding: 18rpx 24rpx;
+  background: #fff;
+  border-radius: 999rpx;
+  color: #9aa3ad;
+  font-size: 28rpx;
+  box-shadow: 0 2rpx 10rpx rgba(0,0,0,0.04);
+}
+
+.search-icon {
+  font-size: 28rpx;
+}
+
+.search-placeholder {
+  flex: 1;
+}
+
 /* 顶部「我的」栏已注释，样式保留备查
 .feed-header {
   display: flex;

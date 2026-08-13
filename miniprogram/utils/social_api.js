@@ -165,6 +165,17 @@ function listNotes(userId) {
   });
 }
 
+function searchNotes(keyword) {
+  return request({
+    url:
+      API_BASE_URL +
+      "/api/social/notes/search?q=" +
+      encodeURIComponent((keyword || "").trim()),
+  }).then(function (body) {
+    return ((body && body.items) || []).map(normalizeNote);
+  });
+}
+
 function getNote(noteId) {
   return request({
     url: API_BASE_URL + "/api/social/notes/" + encodeURIComponent(noteId),
@@ -211,6 +222,7 @@ module.exports = {
   fetchFollowList: fetchFollowList,
   publishNote: publishNote,
   listNotes: listNotes,
+  searchNotes: searchNotes,
   getNote: getNote,
   deleteNote: deleteNote,
   normalizeNote: normalizeNote,

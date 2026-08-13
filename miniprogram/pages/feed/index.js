@@ -48,6 +48,10 @@ Page({
     this.reload();
   },
 
+  onGoSearch() {
+    wx.navigateTo({ url: "/pages/feed-search/index" });
+  },
+
   reload() {
     this._leftH = 0;
     this._rightH = 0;

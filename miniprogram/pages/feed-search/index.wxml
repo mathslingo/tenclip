@@ -1,0 +1,107 @@
+<view class="search-page">
+  <view class="search-bar">
+    <text class="search-icon">🔍</text>
+    <input
+      class="search-input"
+      placeholder="搜索笔记标题"
+      value="{{keyword}}"
+      focus="{{true}}"
+      confirm-type="search"
+      bindinput="onInput"
+      bindconfirm="onSearch"
+    />
+    <text class="search-btn" bindtap="onSearch">搜索</text>
+  </view>
+
+  <view class="waterfall" wx:if="{{leftList.length || rightList.length}}">
+    <view class="col">
+      <view
+        class="note-card"
+        wx:for="{{leftList}}"
+        wx:key="id"
+        data-id="{{item.id}}"
+        bindtap="onOpenDetail"
+      >
+        <view class="cover-wrap" style="padding-bottom: {{item.cover_ratio * 100}}%;">
+          <image
+            wx:if="{{!item.coverFailed}}"
+            class="cover"
+            src="{{item.cover}}"
+            mode="aspectFill"
+            lazy-load
+            data-id="{{item.id}}"
+            data-col="left"
+            binderror="onCoverError"
+          />
+          <view wx:else class="cover-fallback">
+            <text class="fallback-letter">{{item.author_initial}}</text>
+          </view>
+          <view class="play-badge" wx:if="{{item.media_type === 'video'}}">▶</view>
+          <view class="tour-badge" wx:if="{{item.tour_badge}}">{{item.tour_badge}}</view>
+        </view>
+        <view class="note-body">
+          <text class="note-title">{{item.title}}</text>
+          <view class="note-meta">
+            <view class="author">
+              <view class="avatar">{{item.author_initial}}</view>
+              <text class="author-name">{{item.author_name}}</text>
+            </view>
+            <view class="likes">
+              <text class="heart">♡</text>
+              <text>{{item.like_count}}</text>
+            </view>
+          </view>
+        </view>
+      </view>
+    </view>
+    <view class="col">
+      <view
+        class="note-card"
+        wx:for="{{rightList}}"
+        wx:key="id"
+        data-id="{{item.id}}"
+        bindtap="onOpenDetail"
+      >
+        <view class="cover-wrap" style="padding-bottom: {{item.cover_ratio * 100}}%;">
+          <image
+            wx:if="{{!item.coverFailed}}"
+            class="cover"
+            src="{{item.cover}}"
+            mode="aspectFill"
+            lazy-load
+            data-id="{{item.id}}"
+            data-col="right"
+            binderror="onCoverError"
+          />
+          <view wx:else class="cover-fallback">
+            <text class="fallback-letter">{{item.author_initial}}</text>
+          </view>
+          <view class="play-badge" wx:if="{{item.media_type === 'video'}}">▶</view>
+          <view class="tour-badge" wx:if="{{item.tour_badge}}">{{item.tour_badge}}</view>
+        </view>
+        <view class="note-body">
+          <text class="note-title">{{item.title}}</text>
+          <view class="note-meta">
+            <view class="author">
+              <view class="avatar">{{item.author_initial}}</view>
+              <text class="author-name">{{item.author_name}}</text>
+            </view>
+            <view class="likes">
+              <text class="heart">♡</text>
+              <text>{{item.like_count}}</text>
+            </view>
+          </view>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <view class="empty" wx:if="{{!loading && !leftList.length && !rightList.length}}">
+    <text wx:if="{{keyword}}">未找到「{{keyword}}」相关笔记</text>
+    <text wx:else>输入关键词搜索笔记</text>
+  </view>
+
+  <view class="loading" wx:if="{{loading}}">
+    <text>搜索中…</text>
+  </view>
+</view>

@@ -1,15 +1,9 @@
 <!-- feed m0 -->
 <view class="feed-page">
-  <!-- 顶部「我的」入口已移到底部 Tab，此栏暂时注释
-  <view class="feed-header">
-    <view class="header-avatar" bindtap="onGoMe">
-      <image wx:if="{{avatarUrl}}" class="h-avatar-img" src="{{avatarUrl}}" mode="aspectFill" />
-      <view wx:else class="h-avatar-fallback">{{avatarLetter}}</view>
-    </view>
-    <text class="header-title">发现</text>
-    <view class="header-placeholder"></view>
+  <view class="search-bar" bindtap="onGoSearch">
+    <text class="search-icon">🔍</text>
+    <text class="search-placeholder">搜索笔记</text>
   </view>
-  -->
 
   <view class="top-tabs">
     <view
