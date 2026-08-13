@@ -62,6 +62,7 @@ from rec import (
     set_user_profile,
     suggest_tags,
 )
+from services.social import init_social_db, list_notes, register_social_routes
 
 logging.basicConfig(level=logging.INFO)
 os.environ["GRADIO_ANALYTICS_ENABLED"] = "False"
@@ -804,6 +805,7 @@ def create_app() -> FastAPI:
     init_news_db()
     init_analysis_db()
     init_stroke_db()
+    init_social_db()
     _ensure_analysis_worker_started()
     ensure_stroke_worker_started()
     try:
@@ -1131,6 +1133,12 @@ def create_app() -> FastAPI:
                 user_id=user_id.strip() or None,
             )
         )
+        # 用户笔记混入发现流（推荐 tab 可见；赛事/教学由前端过滤）
+        if offset == 0:
+            notes = list_notes(limit=min(12, limit))
+            merged = notes + items
+            merged.sort(key=lambda x: float(x.get("score") or 0), reverse=True)
+            items = merged[:limit]
         return {"items": items, "next_offset": offset + len(items)}
 
     @api.get("/api/news/admin/overview")
@@ -1156,6 +1164,8 @@ def create_app() -> FastAPI:
             "analysis_queue_size": ANALYSIS_QUEUE.qsize(),
             "stroke_queue_size": STROKE_QUEUE.qsize(),
         }
+
+    register_social_routes(api)
 
     front_page_dir = _REPO_ROOT / "pages" / "front_page"
     if front_page_dir.exists():

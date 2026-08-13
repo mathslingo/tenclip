@@ -1,0 +1,24 @@
+<view class="page">
+  <view class="tabs">
+    <view class="tab {{kind === 'following' ? 'on' : ''}}" data-kind="following" bindtap="onKind">关注</view>
+    <view class="tab {{kind === 'followers' ? 'on' : ''}}" data-kind="followers" bindtap="onKind">粉丝</view>
+  </view>
+
+  <view class="row" wx:for="{{items}}" wx:key="user_id">
+    <view class="avatar">{{item.nickname[0] || '球'}}</view>
+    <view class="meta">
+      <text class="name">{{item.nickname}}</text>
+      <text class="bio" wx:if="{{item.bio}}">{{item.bio}}</text>
+    </view>
+    <view
+      class="follow-btn {{item.is_following ? 'on' : ''}}"
+      data-id="{{item.user_id}}"
+      bindtap="onToggle"
+      wx:if="{{item.user_id !== meId}}"
+    >{{item.is_following ? '已关注' : '关注'}}</view>
+  </view>
+
+  <view class="empty" wx:if="{{!loading && !items.length}}">
+    <text>{{kind === 'followers' ? '还没有粉丝' : '还没有关注任何人'}}</text>
+  </view>
+</view>

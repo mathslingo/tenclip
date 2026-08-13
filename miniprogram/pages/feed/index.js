@@ -148,8 +148,10 @@ Page({
   onOpenDetail(e) {
     var id = e.currentTarget.dataset.id;
     if (!id) return;
-    wx.navigateTo({
-      url: "/pages/feed-detail/index?id=" + encodeURIComponent(id),
-    });
+    var url =
+      String(id).indexOf("note-") === 0
+        ? "/pages/note-detail/index?id=" + encodeURIComponent(id)
+        : "/pages/feed-detail/index?id=" + encodeURIComponent(id);
+    wx.navigateTo({ url: url });
   },
 });

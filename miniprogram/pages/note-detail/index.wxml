@@ -10,15 +10,27 @@
     </swiper-item>
   </swiper>
 
-  <view class="body-card">
-    <text class="title">{{note.title}}</text>
-    <text class="meta">{{timeText}}</text>
-    <text class="body" selectable>{{note.body}}</text>
+  <view class="author-row" wx:if="{{note.user_id}}">
+    <view class="avatar">{{note.author_initial}}</view>
+    <view class="author-meta">
+      <text class="author-name">{{note.author_name}}</text>
+      <text class="time">{{timeText}}</text>
+    </view>
+    <view
+      class="follow-btn {{following ? 'on' : ''}}"
+      bindtap="onToggleFollow"
+      wx:if="{{!isMine}}"
+    >{{following ? '已关注' : '关注'}}</view>
   </view>
 
-  <button class="danger-btn" bindtap="onDelete">删除笔记</button>
+  <view class="body-card">
+    <text class="title">{{note.title}}</text>
+    <text class="body" selectable>{{note.body || note.summary}}</text>
+  </view>
+
+  <button class="danger-btn" bindtap="onDelete" wx:if="{{isMine}}">删除笔记</button>
 </view>
 
 <view class="empty" wx:else>
-  <text>笔记不存在或已删除</text>
+  <text>{{errorText || '笔记不存在或已删除'}}</text>
 </view>

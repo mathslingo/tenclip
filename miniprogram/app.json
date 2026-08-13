@@ -11,6 +11,7 @@
     "pages/action-analyze/index",
     "pages/note-compose/index",
     "pages/note-detail/index",
+    "pages/follow-list/index",
     "pages/pose-detect/index",
     "pages/pose-live/index",
     "pages/pose-webview/index"

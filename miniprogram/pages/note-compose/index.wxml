@@ -37,5 +37,5 @@
   </view>
 
   <button class="publish-btn" loading="{{busy}}" disabled="{{busy}}" bindtap="onPublish">发布</button>
-  <text class="tip">笔记保存在本机「我的 · 作品」，仅自己可见。</text>
+  <text class="tip">笔记保存在服务器，会出现在「发现」和「我的 · 作品」。</text>
 </view>

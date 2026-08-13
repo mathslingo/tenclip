@@ -16,6 +16,61 @@
   height: 100%;
 }
 
+.author-row {
+  margin: 24rpx 24rpx 0;
+  padding: 20rpx 24rpx;
+  background: #fff;
+  border-radius: 24rpx;
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+}
+
+.avatar {
+  width: 72rpx;
+  height: 72rpx;
+  border-radius: 50%;
+  background: #d4fff4;
+  color: #0d3d32;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 28rpx;
+}
+
+.author-meta {
+  flex: 1;
+  min-width: 0;
+}
+
+.author-name {
+  display: block;
+  font-size: 28rpx;
+  font-weight: 600;
+  color: #151821;
+}
+
+.time {
+  display: block;
+  margin-top: 4rpx;
+  font-size: 22rpx;
+  color: #9aa3ad;
+}
+
+.follow-btn {
+  padding: 10rpx 24rpx;
+  border-radius: 999rpx;
+  background: #13d8a8;
+  color: #fff;
+  font-size: 24rpx;
+}
+
+.follow-btn.on {
+  background: #eef1f4;
+  color: #5c6570;
+}
+
 .body-card {
   margin: 24rpx;
   padding: 28rpx;

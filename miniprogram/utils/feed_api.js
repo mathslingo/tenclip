@@ -6,6 +6,7 @@ const {
   FALLBACK_COVER,
   pickMockCover,
 } = require("./feed_mock");
+const { getNote, absUrl, normalizeNote } = require("./social_api");
 
 const MOCK_KEY = "tenclip_feed_use_mock";
 
@@ -60,6 +61,12 @@ function inferCoverRatio(imageUrl) {
 }
 
 function mapApiItem(row) {
+  if (row && (row.kind === "note" || String(row.id).indexOf("note-") === 0)) {
+    var note = normalizeNote(row);
+    note.channel = "推荐";
+    note.score = row.score != null ? Number(row.score) : 160;
+    return note;
+  }
   var channel = inferChannel(row);
   var tags = row.tags || (row.tags_csv ? String(row.tags_csv).split(",") : []);
   tags = tags
@@ -75,7 +82,7 @@ function mapApiItem(row) {
   } else if (tags.indexOf("WTA") !== -1) {
     tourBadge = "WTA";
   }
-  var imageUrl = (row.image_url || "").trim();
+  var imageUrl = absUrl((row.image_url || "").trim());
   var coverIsMock = false;
   var coverRatio = inferCoverRatio(imageUrl);
   if (!imageUrl) {
@@ -181,6 +188,11 @@ function fetchFeedPage(opts) {
 function getFeedItemById(id) {
   if (isFeedMockEnabled() || String(id).indexOf("mock-") === 0) {
     return Promise.resolve(getMockById(id));
+  }
+  if (String(id).indexOf("note-") === 0) {
+    return getNote(id).catch(function () {
+      return null;
+    });
   }
   return fetchFeedPage({ tab: "推荐", offset: 0, limit: 40 }).then(function (page) {
     for (var i = 0; i < page.items.length; i++) {

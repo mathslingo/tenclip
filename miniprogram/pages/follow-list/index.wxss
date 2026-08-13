@@ -1,0 +1,92 @@
+.page {
+  min-height: 100vh;
+  background: #f7f8fa;
+  padding-bottom: calc(48rpx + env(safe-area-inset-bottom));
+}
+
+.tabs {
+  display: flex;
+  margin: 20rpx 24rpx;
+  background: #fff;
+  border-radius: 999rpx;
+  padding: 8rpx;
+}
+
+.tab {
+  flex: 1;
+  text-align: center;
+  padding: 16rpx 0;
+  font-size: 28rpx;
+  color: #6e7582;
+  border-radius: 999rpx;
+}
+
+.tab.on {
+  background: #d4fff4;
+  color: #0d3d32;
+  font-weight: 700;
+}
+
+.row {
+  margin: 0 24rpx 16rpx;
+  padding: 20rpx 24rpx;
+  background: #fff;
+  border-radius: 20rpx;
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+}
+
+.avatar {
+  width: 72rpx;
+  height: 72rpx;
+  border-radius: 50%;
+  background: #d4fff4;
+  color: #0d3d32;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.meta {
+  flex: 1;
+  min-width: 0;
+}
+
+.name {
+  display: block;
+  font-size: 28rpx;
+  font-weight: 600;
+  color: #151821;
+}
+
+.bio {
+  display: block;
+  margin-top: 4rpx;
+  font-size: 22rpx;
+  color: #9aa3ad;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.follow-btn {
+  padding: 10rpx 24rpx;
+  border-radius: 999rpx;
+  background: #13d8a8;
+  color: #fff;
+  font-size: 24rpx;
+}
+
+.follow-btn.on {
+  background: #eef1f4;
+  color: #5c6570;
+}
+
+.empty {
+  padding: 80rpx 40rpx;
+  text-align: center;
+  color: #8a8a8a;
+  font-size: 28rpx;
+}

@@ -5,10 +5,10 @@ const {
   statsFromLists,
   getLikedIds,
   getBookmarkedIds,
-  listNotes,
-  notesAsFeedItems,
 } = require("../../utils/me_store");
 const { getFeedItemById } = require("../../utils/feed_api");
+const { listNotes, upsertMe, fetchUser } = require("../../utils/social_api");
+const { getUserId } = require("../../utils/user_id");
 
 const MOCK_KEY = "tenclip_feed_use_mock";
 const USER_KEY = "tenclip_user_profile";
@@ -105,6 +105,17 @@ Page({
         this.setData({ activeTab: "works" });
       }
     } catch (e) {}
+    var that = this;
+    upsertMe()
+      .then(function (u) {
+        if (u) {
+          that.setData({
+            "stats.following": u.following || 0,
+            "stats.followers": u.followers || 0,
+          });
+        }
+      })
+      .catch(function () {});
     this.refreshProfile();
     this.refreshMockFlag();
     this.refreshDevMode();
@@ -117,21 +128,42 @@ Page({
 
   refreshProfile() {
     var profile = getProfile();
+    if (!profile.uid || profile.uid === "10086") {
+      profile = saveProfile({ uid: getUserId() });
+    }
     var stats = statsFromLists(profile);
     var letter = (profile.nickname || "U").trim().charAt(0) || "U";
     var likeN = getLikedIds().length;
     var bmN = getBookmarkedIds().length;
-    var noteN = listNotes().length;
+    var that = this;
     this.setData({
       profile: profile,
       avatarLetter: letter,
       stats: stats,
       tabs: [
-        { key: "works", label: "作品", count: noteN },
+        { key: "works", label: "作品", count: 0 },
         { key: "bookmarks", label: "收藏", count: bmN },
         { key: "likes", label: "赞过", count: likeN },
       ],
     });
+    listNotes(getUserId())
+      .then(function (notes) {
+        var tabs = that.data.tabs.slice();
+        tabs[0] = { key: "works", label: "作品", count: (notes || []).length };
+        that.setData({ tabs: tabs });
+      })
+      .catch(function () {});
+    fetchUser(getUserId())
+      .then(function (u) {
+        if (!u) return;
+        that.setData({
+          stats: Object.assign({}, that.data.stats, {
+            following: u.following || 0,
+            followers: u.followers || 0,
+          }),
+        });
+      })
+      .catch(function () {});
   },
 
   refreshMockFlag() {
@@ -154,27 +186,29 @@ Page({
     var that = this;
     var copy = emptyCopy(tab);
     if (tab === "works") {
-      var notes = notesAsFeedItems(listNotes());
-      if (!notes.length) {
-        this.setData(
-          Object.assign(
-            {
-              leftList: [],
-              rightList: [],
-            },
-            copy
-          )
-        );
-        return;
-      }
-      var cols = splitWaterfall(notes);
-      this.setData(
-        Object.assign(cols, {
-          emptyTitle: "",
-          emptySub: "",
-          emptyCta: "",
+      var copy = emptyCopy(tab);
+      listNotes(getUserId())
+        .then(function (notes) {
+          if (!notes.length) {
+            that.setData(
+              Object.assign({ leftList: [], rightList: [] }, copy)
+            );
+            return;
+          }
+          var cols = splitWaterfall(notes);
+          that.setData(
+            Object.assign(cols, {
+              emptyTitle: "",
+              emptySub: "",
+              emptyCta: "",
+            })
+          );
         })
-      );
+        .catch(function () {
+          that.setData(
+            Object.assign({ leftList: [], rightList: [] }, copy)
+          );
+        });
       return;
     }
     var ids = tab === "likes" ? getLikedIds() : getBookmarkedIds();
@@ -304,11 +338,15 @@ Page({
   },
 
   onTapFollowing() {
-    wx.showToast({ title: "关注功能即将上线", icon: "none" });
+    wx.navigateTo({
+      url: "/pages/follow-list/index?kind=following&user_id=" + encodeURIComponent(getUserId()),
+    });
   },
 
   onTapFollowers() {
-    wx.showToast({ title: "关注功能即将上线", icon: "none" });
+    wx.navigateTo({
+      url: "/pages/follow-list/index?kind=followers&user_id=" + encodeURIComponent(getUserId()),
+    });
   },
 
   onEmptyCta() {
@@ -322,7 +360,7 @@ Page({
   onOpenDetail(e) {
     var id = e.currentTarget.dataset.id;
     if (!id) return;
-    if (this.data.activeTab === "works") {
+    if (this.data.activeTab === "works" || String(id).indexOf("note-") === 0) {
       wx.navigateTo({
         url: "/pages/note-detail/index?id=" + encodeURIComponent(id),
       });

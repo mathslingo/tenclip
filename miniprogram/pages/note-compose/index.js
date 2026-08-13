@@ -1,4 +1,4 @@
-const { addNote } = require("../../utils/me_store");
+const { publishNote, upsertMe } = require("../../utils/social_api");
 const { requirePrivacyIfNeeded } = require("../../utils/api");
 
 Page({
@@ -70,12 +70,19 @@ Page({
     }
 
     this.setData({ busy: true });
-    addNote({
-      title: this.data.title,
-      body: body,
-      imagePaths: images,
-    })
+    upsertMe()
+      .catch(function () {})
       .then(function () {
+        return publishNote({
+          title: that.data.title,
+          body: body,
+          imagePaths: images,
+        });
+      })
+      .then(function () {
+        try {
+          wx.setStorageSync("tenclip_me_open_works", "1");
+        } catch (e) {}
         wx.showToast({ title: "已发布", icon: "success" });
         setTimeout(function () {
           wx.switchTab({ url: "/pages/me/index" });

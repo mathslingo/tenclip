@@ -24,6 +24,7 @@ model/*
 
 # 小程序 / API 运行时上传与导出（勿提交大视频）
 data/uploads/
+data/note_uploads/
 data/stroke_outputs/
 data/logs/
 data/*.db
