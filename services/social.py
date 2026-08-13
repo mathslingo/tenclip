@@ -8,9 +8,32 @@ import uuid
 from pathlib import Path
 from typing import Any
 
+from fastapi import File, Form, HTTPException, Query, UploadFile
+from fastapi.staticfiles import StaticFiles
+from pydantic import BaseModel, Field
+
 _REPO_ROOT = Path(__file__).resolve().parent.parent
 DB_PATH = _REPO_ROOT / "data" / "social.db"
 NOTE_UPLOAD_DIR = _REPO_ROOT / "data" / "note_uploads"
+
+
+class UserUpsert(BaseModel):
+    user_id: str = Field(..., min_length=1)
+    nickname: str = ""
+    avatar_url: str = ""
+    bio: str = ""
+
+
+class NoteCreate(BaseModel):
+    user_id: str = Field(..., min_length=1)
+    title: str = ""
+    body: str = ""
+    image_urls: list[str] = Field(default_factory=list)
+
+
+class FollowBody(BaseModel):
+    follower_id: str = Field(..., min_length=1)
+    followee_id: str = Field(..., min_length=1)
 
 
 def _conn() -> sqlite3.Connection:
@@ -152,8 +175,7 @@ def follow(follower_id: str, followee_id: str) -> dict[str, Any]:
             (a, b, now),
         )
         conn.commit()
-        following = _is_following(conn, a, b)
-    return {"ok": True, "following": following, **(get_user(b) or {})}
+    return {"ok": True, "following": True, **(get_user(b) or {})}
 
 
 def unfollow(follower_id: str, followee_id: str) -> dict[str, Any]:
@@ -376,34 +398,15 @@ def save_upload(note_key: str, index: int, data: bytes, suffix: str) -> str:
 
 def register_social_routes(api) -> None:
     """挂到 FastAPI：笔记、关注、静态图。"""
-    from fastapi import File, Form, HTTPException, Query, UploadFile
-    from fastapi.staticfiles import StaticFiles
-    from pydantic import BaseModel, Field
-
-    class UserUpsert(BaseModel):
-        user_id: str = Field(..., min_length=1)
-        nickname: str = ""
-        avatar_url: str = ""
-        bio: str = ""
-
-    class NoteCreate(BaseModel):
-        user_id: str = Field(..., min_length=1)
-        title: str = ""
-        body: str = ""
-        image_urls: list[str] = Field(default_factory=list)
-
-    class FollowBody(BaseModel):
-        follower_id: str = Field(..., min_length=1)
-        followee_id: str = Field(..., min_length=1)
 
     @api.post("/api/social/users/upsert")
-    def api_upsert_user(body: UserUpsert):
+    def api_upsert_user(payload: UserUpsert):
         try:
             return upsert_user(
-                body.user_id,
-                nickname=body.nickname,
-                avatar_url=body.avatar_url,
-                bio=body.bio,
+                payload.user_id,
+                nickname=payload.nickname,
+                avatar_url=payload.avatar_url,
+                bio=payload.bio,
             )
         except ValueError as e:
             raise HTTPException(status_code=400, detail=str(e)) from e
@@ -421,16 +424,16 @@ def register_social_routes(api) -> None:
         return user
 
     @api.post("/api/social/follow")
-    def api_follow(body: FollowBody):
+    def api_follow(payload: FollowBody):
         try:
-            return follow(body.follower_id, body.followee_id)
+            return follow(payload.follower_id, payload.followee_id)
         except ValueError as e:
             raise HTTPException(status_code=400, detail=str(e)) from e
 
     @api.post("/api/social/unfollow")
-    def api_unfollow(body: FollowBody):
+    def api_unfollow(payload: FollowBody):
         try:
-            return unfollow(body.follower_id, body.followee_id)
+            return unfollow(payload.follower_id, payload.followee_id)
         except ValueError as e:
             raise HTTPException(status_code=400, detail=str(e)) from e
 
@@ -457,13 +460,13 @@ def register_social_routes(api) -> None:
         return {"url": url, "ok": True}
 
     @api.post("/api/social/notes")
-    def api_create_note(body: NoteCreate):
+    def api_create_note(payload: NoteCreate):
         try:
             return create_note(
-                body.user_id,
-                title=body.title,
-                body=body.body,
-                image_urls=body.image_urls,
+                payload.user_id,
+                title=payload.title,
+                body=payload.body,
+                image_urls=payload.image_urls,
             )
         except ValueError as e:
             raise HTTPException(status_code=400, detail=str(e)) from e
