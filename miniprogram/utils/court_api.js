@@ -1,19 +1,11 @@
 /**
- * 网球场数据 API — 腾讯地图 POI 搜索 + Mock 降级
- *
- * 数据源优先级：
- *   1. 腾讯地图 POI 搜索（真实球场数据）
- *   2. 本地 Mock 数据（接口异常时降级）
+ * 网球场数据 API — 优先服务端 courts.db，失败降级本地 Mock。
  */
-
 var config = require("./config");
 var courtData = require("./court_data");
 
 var TENCENT_POI_URL = "https://apis.map.qq.com/ws/place/v1/search";
 
-/**
- * 将腾讯 POI 数据转为球场格式
- */
 function mapPoiToCourt(poi) {
   var name = (poi.title || "").replace(/\(.*?\)/g, "").replace(/（.*?）/g, "").replace("网球场", "").trim();
   if (!name) name = poi.title || "网球场";
@@ -23,10 +15,10 @@ function mapPoiToCourt(poi) {
     lat: poi.location ? poi.location.lat : 0,
     lng: poi.location ? poi.location.lng : 0,
     address: poi.address || "",
-    rating: -1,              // -1 = 无评分数据
-    priceRange: "",           // 空 = 无价格数据
-    indoorCourts: -1,         // -1 = 未知
-    outdoorCourts: -1,         // -1 = 未知
+    rating: -1,
+    priceRange: "",
+    indoorCourts: -1,
+    outdoorCourts: -1,
     facilities: [],
     photos: [],
     phone: poi.tel || "",
@@ -39,22 +31,35 @@ function mapPoiToCourt(poi) {
   });
 }
 
-/**
- * 从腾讯地图 POI 搜索网球场
- * @param {Object} opts - { lat, lng, keyword, pageIndex }
- * @returns {Promise}
- */
+function mapApiCourt(c) {
+  return courtData.normalizeCourt({
+    id: c.id,
+    name: c.name,
+    lat: c.lat,
+    lng: c.lng,
+    address: c.address,
+    distance: c.distance,
+    rating: c.rating,
+    priceRange: c.priceRange || "",
+    indoorCourts: c.indoorCourts,
+    outdoorCourts: c.outdoorCourts,
+    facilities: c.facilities || [],
+    photos: c.photos || [],
+    phone: c.phone || "",
+    hours: c.hours || "",
+    bookingOptions: c.bookingOptions || [],
+    extSources: c.extSources || [],
+    courtType: c.courtType,
+  });
+}
+
 function searchTencentPoi(opts) {
   opts = opts || {};
   var key = config.TENCENT_MAP_KEY;
-
   if (!key) {
     return Promise.reject(new Error("未配置腾讯地图 Key"));
   }
-
-  // 搜索半径 50km 覆盖全上海
   var boundary = "nearby(" + (opts.lat || 31.23) + "," + (opts.lng || 121.47) + ",50000)";
-
   return new Promise(function (resolve, reject) {
     wx.request({
       url: TENCENT_POI_URL,
@@ -80,48 +85,111 @@ function searchTencentPoi(opts) {
 }
 
 /**
- * 搜索网球场 — 先调腾讯 POI，失败降级 Mock
- * @param {Object} opts
- * @returns {Promise<{courts: Array, source: string, total: number}>}
+ * 服务端球场库搜索（低延迟）
+ */
+function searchServerCourts(opts) {
+  opts = opts || {};
+  var q = [];
+  if (opts.lat != null) q.push("lat=" + encodeURIComponent(opts.lat));
+  if (opts.lng != null) q.push("lng=" + encodeURIComponent(opts.lng));
+  if (opts.keyword) q.push("keyword=" + encodeURIComponent(opts.keyword));
+  if (opts.filter && opts.filter !== "all") q.push("type=" + encodeURIComponent(opts.filter));
+  if (opts.price && opts.price !== "all") q.push("price=" + encodeURIComponent(opts.price));
+  if (opts.county) q.push("county=" + encodeURIComponent(opts.county));
+  if (opts.radius_m) q.push("radius_m=" + encodeURIComponent(opts.radius_m));
+  q.push("limit=" + encodeURIComponent(opts.limit || 80));
+  if (opts.offset) q.push("offset=" + encodeURIComponent(opts.offset));
+
+  return new Promise(function (resolve, reject) {
+    wx.request({
+      url: config.API_BASE_URL + "/api/courts/search?" + q.join("&"),
+      method: "GET",
+      timeout: 8000,
+      success: function (res) {
+        if (res.statusCode >= 200 && res.statusCode < 300 && res.data) {
+          var items = res.data.items || [];
+          resolve({
+            courts: items.map(mapApiCourt),
+            total: res.data.total || items.length,
+            source: res.data.source || "courts.db",
+          });
+          return;
+        }
+        reject(new Error((res.data && res.data.detail) || "球场搜索失败"));
+      },
+      fail: function (err) {
+        reject(new Error((err && err.errMsg) || "网络错误"));
+      },
+    });
+  });
+}
+
+function fetchCourtById(id) {
+  var sid = String(id || "");
+  if (!sid) return Promise.reject(new Error("缺少球场 ID"));
+
+  // 先查本地缓存 / Mock
+  var local = courtData.fetchCourtById(sid);
+  if (local) return Promise.resolve(local);
+
+  return new Promise(function (resolve, reject) {
+    wx.request({
+      url: config.API_BASE_URL + "/api/courts/" + encodeURIComponent(sid),
+      method: "GET",
+      timeout: 8000,
+      success: function (res) {
+        if (res.statusCode >= 200 && res.statusCode < 300 && res.data && res.data.id) {
+          var court = mapApiCourt(res.data);
+          courtData.cacheCourts([court]);
+          resolve(court);
+          return;
+        }
+        reject(new Error((res.data && res.data.detail) || "球场不存在"));
+      },
+      fail: function (err) {
+        reject(new Error((err && err.errMsg) || "网络错误"));
+      },
+    });
+  });
+}
+
+/**
+ * 搜索网球场 — 服务端库优先，失败降级 Mock
  */
 function searchCourts(opts) {
   opts = opts || {};
-
-  return searchTencentPoi(opts)
-    .then(function (response) {
-      var pois = response.data || [];
-      var courts = pois.map(mapPoiToCourt);
-
-      // 名称去重
-      var seen = {};
-      courts = courts.filter(function (c) {
-        if (seen[c.name]) return false;
-        seen[c.name] = true;
+  return searchServerCourts(opts).catch(function (err) {
+    console.warn("[court_api] 服务端搜索失败，降级 Mock:", err.message || err);
+    var result = courtData.fetchNearbyCourts({
+      lat: opts.lat,
+      lng: opts.lng,
+      filter: opts.filter,
+      keyword: opts.keyword,
+    });
+    // 本地价格筛选
+    if (opts.price && opts.price !== "all") {
+      var pk = opts.price;
+      result.courts = (result.courts || []).filter(function (c) {
+        if (pk === "free") return String(c.priceRange || "").indexOf("免费") !== -1;
+        var low = parseInt(c.priceRange, 10) || 0;
+        if (pk === "0-60") return low <= 60;
+        if (pk === "60-120") return low > 60 && low <= 120;
+        if (pk === "120-200") return low > 120 && low <= 200;
+        if (pk === "200+") return low > 200;
         return true;
       });
-
-      return {
-        courts: courts,
-        total: response.count || courts.length,
-        source: "tencent-poi",
-      };
-    })
-    .catch(function (err) {
-      console.warn("[court_api] POI 搜索失败，降级Mock:", err.message || err);
-      // 降级到 Mock 数据
-      var result = courtData.fetchNearbyCourts({
-        lat: opts.lat,
-        lng: opts.lng,
-        filter: opts.filter,
-        keyword: opts.keyword,
-      });
-      result.source = "mock-fallback";
-      return result;
-    });
+      result.total = result.courts.length;
+    }
+    result.source = "mock-fallback";
+    return result;
+  });
 }
 
 module.exports = {
-  searchCourts,
-  searchTencentPoi,
-  mapPoiToCourt,
+  searchCourts: searchCourts,
+  searchServerCourts: searchServerCourts,
+  searchTencentPoi: searchTencentPoi,
+  fetchCourtById: fetchCourtById,
+  mapPoiToCourt: mapPoiToCourt,
+  mapApiCourt: mapApiCourt,
 };

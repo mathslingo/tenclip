@@ -79,6 +79,21 @@ Header：`X-Admin-Token: <TENCLIP_ADMIN_TOKEN>`（或 Bearer 同值）
 - 完善资料：`pages/profile-edit?from=register`（昵称去重 + 网球风格）
 - 发笔记、关注、编辑资料：未登录跳登录页；已登录游客可编辑资料
 
+## 找球场 / 场馆库（1.0）
+
+统一库：`data/courts.db`（gitignore；部署时由种子导入）。
+
+| 项 | 说明 |
+|----|------|
+| 种子 | `data/shanghai_tennis_data.json`（仅导入 `SportsType` 含「网球」且有坐标的记录） |
+| 导入 | 启动空库自动导入；或 `python scripts/import_shanghai_courts.py` / `POST /api/courts/import/shanghai` |
+| 搜索 | `GET /api/courts/search?lat=&lng=&keyword=&type=&price=&limit=`（包围盒预筛 + 距离排序） |
+| 详情 | `GET /api/courts/{id}` |
+| 统计 | `GET /api/courts/stats` |
+| 小程序 | `court_api.searchCourts` 优先打服务端；失败降级本地 Mock；用户提报仍存本地 Storage |
+
+低延迟要点：SQLite WAL、`lat/lng` 索引、半径包围盒再算距离、默认 `limit≤80`。
+
 ## 笔记存储（1.0）
 
 | 项 | 说明 |

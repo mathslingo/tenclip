@@ -1,0 +1,43 @@
+<view class="settings-page">
+  <view class="settings-card">
+    <text class="settings-title">账号</text>
+    <view class="account-row" wx:if="{{loggedIn}}">
+      <view class="switch-text">
+        <text class="switch-label">已登录</text>
+        <text class="switch-hint">小程序号 {{uid}}</text>
+      </view>
+      <view class="logout-btn" bindtap="onLogout">退出登录</view>
+    </view>
+    <view class="account-row" wx:else>
+      <view class="switch-text">
+        <text class="switch-label">游客模式</text>
+        <text class="switch-hint">发笔记、关注需登录</text>
+      </view>
+      <view class="login-btn" bindtap="onGoLogin">去登录</view>
+    </view>
+  </view>
+
+  <view class="settings-card">
+    <text class="settings-title">开发者选项</text>
+    <view class="switch-row">
+      <view class="switch-text">
+        <text class="switch-label">开发者模式</text>
+        <text class="switch-hint">开启后，分析页面显示调试功能和详细日志</text>
+      </view>
+      <switch checked="{{devMode}}" bindchange="onDevModeChange" color="#13d8a8" />
+    </view>
+  </view>
+
+  <view class="settings-card" wx:if="{{localDev}}">
+    <text class="settings-title">数据源与调试</text>
+    <view class="switch-row">
+      <view class="switch-text">
+        <text class="switch-label">资讯使用 Mock</text>
+        <text class="switch-hint">关闭后请求本机 /api/news/feed；失败回退 Mock。</text>
+      </view>
+      <switch checked="{{feedUseMock}}" bindchange="onMockChange" color="#13d8a8" />
+    </view>
+    <text class="build-tag">Build {{buildTag}}</text>
+    <text class="build-tag">API {{apiBase}}</text>
+  </view>
+</view>

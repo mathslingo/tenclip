@@ -110,27 +110,50 @@
   <!-- 提报弹窗 -->
   <view class="form-overlay" wx:if="{{showForm}}" bindtap="onHideForm">
     <view class="form-panel" catchtap="">
-      <text class="form-title">提报网球场</text>
-      <form bindsubmit="onFormSubmit">
-        <view class="form-item">
-          <text class="form-label">球场名称 *</text>
-          <input class="form-input" name="name" placeholder="如：XX网球中心" />
-        </view>
-        <view class="form-item">
-          <text class="form-label">地址 *</text>
-          <input class="form-input" name="address" placeholder="如：浦东新区XX路XX号" />
-        </view>
-        <view class="form-row">
-          <view class="form-item half"><text class="form-label">室内场数</text><input class="form-input" name="indoor" type="number" placeholder="0" /></view>
-          <view class="form-item half"><text class="form-label">室外场数</text><input class="form-input" name="outdoor" type="number" placeholder="0" /></view>
-        </view>
-        <view class="form-item"><text class="form-label">参考价格（元/小时）</text><input class="form-input" name="price" placeholder="如：80-150" /></view>
-        <view class="form-item"><text class="form-label">设施（用、分隔）</text><input class="form-input" name="facilities" placeholder="如：停车、淋浴、教练" /></view>
-        <view class="form-item"><text class="form-label">电话</text><input class="form-input" name="phone" type="number" placeholder="021-XXXXXXXX" /></view>
-        <view class="form-item"><text class="form-label">营业时间</text><input class="form-input" name="hours" placeholder="如：06:00-22:00" /></view>
-        <button class="form-submit" form-type="submit">提交</button>
-      </form>
-      <view class="form-close" bindtap="onHideForm">取消</view>
+      <view class="form-header">
+        <text class="form-title">提报网球场</text>
+        <text class="form-close-x" bindtap="onHideForm">关闭</text>
+      </view>
+      <scroll-view class="form-scroll" scroll-y enhanced show-scrollbar="{{false}}">
+        <form bindsubmit="onFormSubmit">
+          <view class="form-item">
+            <text class="form-label">球场名称 *</text>
+            <input class="form-input" name="name" placeholder="如：XX网球中心" />
+          </view>
+          <view class="form-item">
+            <text class="form-label">地址 *</text>
+            <input class="form-input" name="address" placeholder="如：浦东新区XX路XX号" />
+          </view>
+          <view class="form-row">
+            <view class="form-item half">
+              <text class="form-label">室内场数</text>
+              <input class="form-input" name="indoor" type="number" placeholder="0" />
+            </view>
+            <view class="form-item half">
+              <text class="form-label">室外场数</text>
+              <input class="form-input" name="outdoor" type="number" placeholder="0" />
+            </view>
+          </view>
+          <view class="form-item">
+            <text class="form-label">参考价格（元/小时）</text>
+            <input class="form-input" name="price" placeholder="如：80-150" />
+          </view>
+          <view class="form-item">
+            <text class="form-label">设施（用、分隔）</text>
+            <input class="form-input" name="facilities" placeholder="如：停车、淋浴、教练" />
+          </view>
+          <view class="form-item">
+            <text class="form-label">电话</text>
+            <input class="form-input" name="phone" placeholder="021-XXXXXXXX" />
+          </view>
+          <view class="form-item">
+            <text class="form-label">营业时间</text>
+            <input class="form-input" name="hours" placeholder="如：06:00-22:00" />
+          </view>
+          <button class="form-submit" form-type="submit">提交</button>
+          <view class="form-cancel" bindtap="onHideForm">取消</view>
+        </form>
+      </scroll-view>
     </view>
   </view>
 </view>

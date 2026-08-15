@@ -129,20 +129,40 @@ function _starStates(rating) {
 }
 
 function normalizeCourt(raw) {
+  var indoor = raw.indoorCourts != null ? Number(raw.indoorCourts) : -1;
+  var outdoor = raw.outdoorCourts != null ? Number(raw.outdoorCourts) : -1;
+  var courtType = raw.courtType || "";
+  if (!courtType) {
+    courtType =
+      indoor > 0 && outdoor > 0
+        ? "室内外"
+        : indoor > 0
+          ? "室内"
+          : outdoor > 0
+            ? "室外"
+            : "";
+  }
   return {
-    id: String(raw.id), name: raw.name||"", lat: Number(raw.lat)||0, lng: Number(raw.lng)||0,
-    address: raw.address||"", distanceText: formatDistance(raw.distance), distance: raw.distance||0,
-    rating: raw.rating!=null?Number(raw.rating):-1,
-    ratingStars: raw.rating>0?_starStates(raw.rating):[],
-    priceRange: raw.priceRange||"",
-    indoorCourts: raw.indoorCourts>=0?raw.indoorCourts:-1,
-    outdoorCourts: raw.outdoorCourts>=0?raw.outdoorCourts:-1,
-    totalCourts: raw.indoorCourts>=0&&raw.outdoorCourts>=0?raw.indoorCourts+raw.outdoorCourts:-1,
-    courtType: raw.indoorCourts>0&&raw.outdoorCourts>0?"室内外":raw.indoorCourts>0?"室内":raw.outdoorCourts>0?"室外":"",
-    facilities: raw.facilities||[],
-    photos: raw.photos&&raw.photos.length?raw.photos:[FALLBACK_COVER],
-    phone: raw.phone||"", hours: raw.hours||"",
-    bookingOptions: raw.bookingOptions||[], extSources: raw.extSources||[],
+    id: String(raw.id),
+    name: raw.name || "",
+    lat: Number(raw.lat) || 0,
+    lng: Number(raw.lng) || 0,
+    address: raw.address || "",
+    distanceText: raw.distanceText || formatDistance(raw.distance),
+    distance: raw.distance || 0,
+    rating: raw.rating != null ? Number(raw.rating) : -1,
+    ratingStars: raw.rating > 0 ? _starStates(raw.rating) : [],
+    priceRange: raw.priceRange || "",
+    indoorCourts: indoor >= 0 ? indoor : -1,
+    outdoorCourts: outdoor >= 0 ? outdoor : -1,
+    totalCourts: indoor >= 0 && outdoor >= 0 ? indoor + outdoor : -1,
+    courtType: courtType,
+    facilities: raw.facilities || [],
+    photos: raw.photos && raw.photos.length ? raw.photos : [FALLBACK_COVER],
+    phone: raw.phone || "",
+    hours: raw.hours || "",
+    bookingOptions: raw.bookingOptions || [],
+    extSources: raw.extSources || [],
   };
 }
 

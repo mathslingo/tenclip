@@ -5,6 +5,7 @@
     "pages/analyze/index",
     "pages/profile/index",
     "pages/profile-edit/index",
+    "pages/settings/index",
     "pages/me/index",
     "pages/login/index",
     "pages/court-detail/index",

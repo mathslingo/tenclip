@@ -64,6 +64,7 @@ from rec import (
 )
 from services.social import init_social_db, list_notes, register_social_routes
 from services.wechat_auth import register_auth_routes
+from services.courts import init_courts_db, register_courts_routes
 
 logging.basicConfig(level=logging.INFO)
 os.environ["GRADIO_ANALYTICS_ENABLED"] = "False"
@@ -807,6 +808,7 @@ def create_app() -> FastAPI:
     init_analysis_db()
     init_stroke_db()
     init_social_db()
+    init_courts_db()
     _ensure_analysis_worker_started()
     ensure_stroke_worker_started()
     try:
@@ -1168,6 +1170,7 @@ def create_app() -> FastAPI:
 
     register_social_routes(api)
     register_auth_routes(api)
+    register_courts_routes(api)
 
     front_page_dir = _REPO_ROOT / "pages" / "front_page"
     if front_page_dir.exists():

@@ -1,4 +1,5 @@
 var courtData = require("../../utils/court_data");
+var courtApi = require("../../utils/court_api");
 
 var SH_LAT = 31.23;
 var SH_LNG = 121.47;
@@ -100,59 +101,52 @@ Page({
     var that = this;
     var center = that.data.mapCenter;
 
-    // 直接用本地数据（31条真实信息），POI 作为补充
-    var result = courtData.fetchNearbyCourts({
-      lat: center.lat,
-      lng: center.lng,
-      filter: that.data.filterCourtType,
-      keyword: that.data.searchKeyword || "",
-    });
-    var courts = result.courts;
+    courtApi
+      .searchCourts({
+        lat: center.lat,
+        lng: center.lng,
+        filter: that.data.filterCourtType,
+        price: that.data.filterPrice,
+        keyword: that.data.searchKeyword || "",
+        limit: 80,
+        radius_m: 80000,
+      })
+      .then(function (result) {
+        var courts = (result && result.courts) || [];
 
-    // 合并用户提报
-    var userCourts = loadUserCourts().map(function (c) {
-      var n = courtData.normalizeCourt(c);
-      n.isUserCourt = true;
-      return n;
-    });
-
-    var all = courts.concat(userCourts);
-
-    // 价格筛选
-    if (that.data.filterPrice !== "all") {
-      var pk = that.data.filterPrice;
-      if (pk === "free") {
-        all = all.filter(function (c) { return c.priceRange.indexOf("免费") !== -1; });
-      } else if (pk !== "all") {
-        all = all.filter(function (c) {
-          var low = parseInt(c.priceRange, 10) || 0;
-          if (pk === "0-60") return low <= 60;
-          if (pk === "60-120") return low > 60 && low <= 120;
-          if (pk === "120-200") return low > 120 && low <= 200;
-          if (pk === "200+") return low > 200;
-          return true;
+        // 合并用户提报
+        var userCourts = loadUserCourts().map(function (c) {
+          var n = courtData.normalizeCourt(c);
+          n.isUserCourt = true;
+          return n;
         });
-      }
-    }
+        var all = courts.concat(userCourts);
 
-    // 距离排序
-    if (that.data.sortBy === "distance") {
-      all.sort(function (a, b) { return (a.distance||0) - (b.distance||0); });
-    }
+        // 距离排序（服务端已按距离排；用户提报后重排）
+        if (that.data.sortBy === "distance" || (result && result.source === "courts.db")) {
+          if (that.data.sortBy === "distance") {
+            all.sort(function (a, b) {
+              return (a.distance || 0) - (b.distance || 0);
+            });
+          }
+        }
 
-    // 缓存供详情页查询
-    courtData.cacheCourts(all);
+        courtData.cacheCourts(all);
+        var markers = courtData.toMarkers(all);
+        that.setData({ courts: all, markers: markers, loading: false });
 
-    var markers = courtData.toMarkers(all);
-    that.setData({ courts: all, markers: markers, loading: false });
-
-    // 自动缩放包含所有标记
-    if (markers.length > 0) {
-      this._mapCtx.includePoints({
-        points: all.map(function (c) { return { latitude: c.lat, longitude: c.lng }; }),
-        padding: [40, 40, 40, 40],
+        if (markers.length > 0 && that._mapCtx) {
+          that._mapCtx.includePoints({
+            points: all.map(function (c) {
+              return { latitude: c.lat, longitude: c.lng };
+            }),
+            padding: [40, 40, 40, 40],
+          });
+        }
+      })
+      .catch(function () {
+        that.setData({ courts: [], markers: [], loading: false });
       });
-    }
   },
 
   // ── 地图拖动 ──

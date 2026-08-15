@@ -1,4 +1,5 @@
 var courtData = require("../../utils/court_data");
+var courtApi = require("../../utils/court_api");
 
 Page({
   data: {
@@ -16,18 +17,21 @@ Page({
     }
 
     var that = this;
-    var court = courtData.fetchCourtById(id);
-
-    if (!court) {
-      that.setData({ loading: false, errorText: "球场不存在或已下线" });
-      return;
-    }
-
-    wx.setNavigationBarTitle({
-      title: court.name.length > 12 ? court.name.slice(0, 12) : court.name,
-    });
-
-    that.setData({ court: court, loading: false });
+    courtApi
+      .fetchCourtById(id)
+      .then(function (court) {
+        if (!court) {
+          that.setData({ loading: false, errorText: "球场不存在或已下线" });
+          return;
+        }
+        wx.setNavigationBarTitle({
+          title: court.name.length > 12 ? court.name.slice(0, 12) : court.name,
+        });
+        that.setData({ court: court, loading: false });
+      })
+      .catch(function () {
+        that.setData({ loading: false, errorText: "球场不存在或已下线" });
+      });
   },
 
   // ── 图片 ──
