@@ -3,6 +3,10 @@ var courtApi = require("../../utils/court_api");
 
 var SH_LAT = 31.23;
 var SH_LNG = 121.47;
+/** 每页条数；默认只拉一页，下滑再加载 */
+var PAGE_SIZE = 10;
+/** 仅前 N 条渲染封面（与首屏页大小一致） */
+var COVER_LIMIT = 10;
 
 var STATS_KEY = "tenclip_user_stats";
 
@@ -42,40 +46,62 @@ function loadUserCourts() {
   }
 }
 
+function toListItem(c, index) {
+  var showCover = index < COVER_LIMIT && c.cover && !c.coverFailed;
+  return {
+    id: c.id,
+    name: c.name,
+    lat: c.lat,
+    lng: c.lng,
+    address: c.address,
+    distanceText: c.distanceText,
+    priceRange: c.priceRange,
+    courtType: c.courtType,
+    totalCourts: c.totalCourts,
+    phone: c.phone,
+    isUserCourt: !!c.isUserCourt,
+    cover: showCover ? c.cover : "",
+    coverFailed: !!c.coverFailed,
+  };
+}
+
 Page({
   data: {
     markers: [],
-    scale: 12,
+    scale: 13,
     mapLat: SH_LAT,
     mapLng: SH_LNG,
-
     topTabs: [
       { key: "all", label: "全部" },
       { key: "filter", label: "筛选" },
     ],
     activeTab: "all",
-
     filterCourtType: "all",
     filterPrice: "all",
     sortBy: "default",
     priceOptions: PRICE_RANGES,
     sortOptions: SORT_OPTIONS,
-    /** 距离计算基准：优先真机定位，失败才用市中心 */
     userLat: SH_LAT,
     userLng: SH_LNG,
     hasUserLocation: false,
     searchKeyword: "",
-
     courts: [],
     showForm: false,
     loading: true,
+    loadingMore: false,
+    hasMore: true,
+    listTotal: 0,
   },
 
   _mapCtx: null,
   _locating: false,
+  _reqSeq: 0,
+  _fullCourts: [],
+  _loadingMoreLock: false,
 
   onLoad: function () {
     this._mapCtx = wx.createMapContext("courtMap", this);
+    this._loadCourts({ reset: true });
     this._ensureLocationThenLoad(true);
   },
 
@@ -86,45 +112,32 @@ Page({
     }
   },
 
-  /**
-   * 取定位作为「距离最近」基准；失败则退回上海中心点。
-   * @param {boolean} moveMap 是否把地图中心移到用户位置
-   */
   _ensureLocationThenLoad: function (moveMap) {
     var that = this;
+    if (this.data.hasUserLocation && !moveMap) {
+      this._loadCourts({ reset: true });
+      return;
+    }
     if (this._locating) return;
     this._locating = true;
 
     wx.getLocation({
       type: "gcj02",
-      isHighAccuracy: true,
       success: function (res) {
         that._locating = false;
         var lat = Number(res.latitude) || SH_LAT;
         var lng = Number(res.longitude) || SH_LNG;
-        var patch = {
-          userLat: lat,
-          userLng: lng,
-          hasUserLocation: true,
-        };
+        var patch = { userLat: lat, userLng: lng, hasUserLocation: true };
         if (moveMap) {
           patch.mapLat = lat;
           patch.mapLng = lng;
         }
         that.setData(patch);
-        that._loadCourts();
+        that._loadCourts({ reset: true });
       },
       fail: function () {
         that._locating = false;
         that.setData({ hasUserLocation: false });
-        that._loadCourts();
-        if (moveMap) {
-          wx.showToast({
-            title: "未开启定位，距离按市中心估算",
-            icon: "none",
-            duration: 2200,
-          });
-        }
       },
     });
   },
@@ -139,19 +152,33 @@ Page({
         sortBy: "default",
         searchKeyword: "",
       });
-      this._loadCourts();
+      this._loadCourts({ reset: true });
       return;
     }
     this.setData({ activeTab: key });
   },
 
-  _loadCourts: function () {
+  /**
+   * @param {{ reset?: boolean }} opts
+   */
+  _loadCourts: function (opts) {
+    opts = opts || {};
+    var reset = !!opts.reset;
     var that = this;
-    // 距离一律相对用户定位（或降级市中心），不要用地图拖动中心
     var lat = that.data.userLat;
     var lng = that.data.userLng;
 
-    that.setData({ loading: true });
+    if (!reset) {
+      if (!that.data.hasMore || that._loadingMoreLock || that.data.loading) return;
+      that._loadingMoreLock = true;
+      that.setData({ loadingMore: true });
+    } else {
+      that._loadingMoreLock = false;
+      that.setData({ loading: true, hasMore: true, loadingMore: false });
+    }
+
+    var offset = reset ? 0 : (that._fullCourts || []).length;
+    var seq = ++that._reqSeq;
 
     courtApi
       .searchCourts({
@@ -160,47 +187,107 @@ Page({
         filter: that.data.filterCourtType,
         price: that.data.filterPrice,
         keyword: that.data.searchKeyword || "",
-        limit: 80,
-        radius_m: 80000,
+        limit: PAGE_SIZE,
+        offset: offset,
+        radius_m: 25000,
       })
       .then(function (result) {
-        var courts = (result && result.courts) || [];
+        if (seq !== that._reqSeq) return;
 
-        var userCourts = loadUserCourts().map(function (c) {
-          var n = courtData.normalizeCourt(c);
-          n.isUserCourt = true;
-          if (n.lat && n.lng) {
-            n.distance = courtData.calcDistance(lat, lng, n.lat, n.lng);
-            n.distanceText = courtData.formatDistance(n.distance);
-          }
-          return n;
-        });
-        var all = courts.concat(userCourts);
+        var page = (result && result.courts) || [];
+        var total = Number((result && result.total) || 0);
 
-        if (that.data.sortBy === "distance") {
-          all.sort(function (a, b) {
-            var da = a.distance != null && a.distance > 0 ? a.distance : 1e18;
-            var db = b.distance != null && b.distance > 0 ? b.distance : 1e18;
-            return da - db;
+        var merged;
+        if (reset) {
+          // 用户提报只在首屏拼一次
+          var userCourts = loadUserCourts().map(function (c) {
+            var n = courtData.normalizeCourt(c);
+            n.isUserCourt = true;
+            if (n.lat && n.lng) {
+              n.distance = courtData.calcDistance(lat, lng, n.lat, n.lng);
+              n.distanceText = courtData.formatDistance(n.distance);
+            }
+            return n;
           });
+          merged = page.concat(userCourts);
+          if (that.data.sortBy === "distance") {
+            merged.sort(function (a, b) {
+              var da = a.distance != null && a.distance > 0 ? a.distance : 1e18;
+              var db = b.distance != null && b.distance > 0 ? b.distance : 1e18;
+              return da - db;
+            });
+          }
+        } else {
+          // 追加：去重
+          var seen = {};
+          (that._fullCourts || []).forEach(function (c) {
+            seen[String(c.id)] = true;
+          });
+          var append = page.filter(function (c) {
+            return !seen[String(c.id)];
+          });
+          merged = (that._fullCourts || []).concat(append);
         }
 
-        courtData.cacheCourts(all);
-        var markers = courtData.toMarkers(all);
-        that.setData({ courts: all, markers: markers, loading: false });
+        that._fullCourts = merged;
+        courtData.cacheCourts(merged);
+
+        var hasMore = merged.length < total || page.length >= PAGE_SIZE;
+        // 服务端 total 更准
+        if (total > 0) {
+          hasMore = offset + page.length < total;
+        } else {
+          hasMore = page.length >= PAGE_SIZE;
+        }
+
+        that._loadingMoreLock = false;
+        that.setData({
+          courts: merged.map(toListItem),
+          markers: [],
+          loading: false,
+          loadingMore: false,
+          hasMore: hasMore,
+          listTotal: total || merged.length,
+        });
       })
       .catch(function () {
-        that.setData({ courts: [], markers: [], loading: false });
+        if (seq !== that._reqSeq) return;
+        that._loadingMoreLock = false;
+        if (reset) {
+          that._fullCourts = [];
+          that.setData({
+            courts: [],
+            markers: [],
+            loading: false,
+            loadingMore: false,
+            hasMore: false,
+          });
+        } else {
+          that.setData({ loadingMore: false, hasMore: false });
+        }
       });
   },
 
-  onRegionChange: function (e) {
-    if (e.type === "end" && e.detail && e.detail.centerLocation) {
-      this.setData({
-        mapLat: e.detail.centerLocation.latitude,
-        mapLng: e.detail.centerLocation.longitude,
-      });
+  onReachListBottom: function () {
+    this._loadCourts({ reset: false });
+  },
+
+  onCoverError: function (e) {
+    var id = e.currentTarget.dataset.id;
+    if (!id) return;
+    var courts = this.data.courts || [];
+    var idx = -1;
+    for (var i = 0; i < courts.length; i++) {
+      if (String(courts[i].id) === String(id)) {
+        idx = i;
+        break;
+      }
     }
+    if (idx < 0) return;
+    var patch = {};
+    patch["courts[" + idx + "].cover"] = "";
+    patch["courts[" + idx + "].coverFailed"] = true;
+    this.setData(patch);
   },
 
   onLocateMe: function () {
@@ -211,24 +298,24 @@ Page({
     var key = e.currentTarget.dataset.key;
     if (key === this.data.filterCourtType) return;
     this.setData({ filterCourtType: key });
-    this._loadCourts();
+    this._loadCourts({ reset: true });
   },
 
   onPriceFilter: function (e) {
     var key = e.currentTarget.dataset.key;
     if (key === this.data.filterPrice) return;
     this.setData({ filterPrice: key });
-    this._loadCourts();
+    this._loadCourts({ reset: true });
   },
 
   onSortChange: function (e) {
     var key = e.currentTarget.dataset.key;
     if (key === this.data.sortBy) return;
     this.setData({ sortBy: key });
-    if (key === "distance") {
+    if (key === "distance" && !this.data.hasUserLocation) {
       this._ensureLocationThenLoad(false);
     } else {
-      this._loadCourts();
+      this._loadCourts({ reset: true });
     }
   },
 
@@ -237,35 +324,36 @@ Page({
   },
 
   onSearchConfirm: function () {
-    this._loadCourts();
+    this._loadCourts({ reset: true });
   },
 
   onClearSearch: function () {
     this.setData({ searchKeyword: "" });
-    this._loadCourts();
-  },
-
-  onMarkerTap: function (e) {
-    var markerId = e.detail.markerId;
-    var court = this.data.courts[markerId];
-    if (!court) return;
-    this.setData({ highlightId: court.id });
-    this._mapCtx.moveToLocation({ latitude: court.lat, longitude: court.lng });
-    var that = this;
-    setTimeout(function () {
-      that.setData({ highlightId: "" });
-    }, 1500);
+    this._loadCourts({ reset: true });
   },
 
   onCourtTap: function (e) {
     var id = e.currentTarget.dataset.id;
+    var index = e.currentTarget.dataset.index;
     if (!id) return;
-    wx.navigateTo({ url: "/pages/court-detail/index?id=" + encodeURIComponent(id) });
+    var full = this._fullCourts[index] || this._fullCourts.find(function (c) {
+      return String(c.id) === String(id);
+    });
+    if (full) {
+      courtApi.savePreview(full);
+      courtData.cacheCourts([full]);
+    }
+    wx.navigateTo({
+      url: "/pages/court-detail/index?id=" + encodeURIComponent(id),
+      fail: function () {
+        wx.showToast({ title: "打开详情失败", icon: "none" });
+      },
+    });
   },
 
   onNavigateTap: function (e) {
     var index = e.currentTarget.dataset.index;
-    var court = this.data.courts[index];
+    var court = this._fullCourts[index] || this.data.courts[index];
     if (!court) return;
     wx.openLocation({
       latitude: court.lat,
@@ -325,6 +413,6 @@ Page({
     this.setData({ showForm: false });
     wx.showToast({ title: "感谢提报！积分+100", icon: "success" });
     addStats({ points: 100 });
-    this._loadCourts();
+    this._loadCourts({ reset: true });
   },
 });

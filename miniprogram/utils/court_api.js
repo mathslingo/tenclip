@@ -1,37 +1,14 @@
 /**
- * 网球场数据 API — 优先服务端 courts.db，失败降级本地 Mock。
+ * 网球场数据 API — 列表走轻量接口；详情单独拉取。
  */
 var config = require("./config");
 var courtData = require("./court_data");
 
-var TENCENT_POI_URL = "https://apis.map.qq.com/ws/place/v1/search";
-
-function mapPoiToCourt(poi) {
-  var name = (poi.title || "").replace(/\(.*?\)/g, "").replace(/（.*?）/g, "").replace("网球场", "").trim();
-  if (!name) name = poi.title || "网球场";
-  return courtData.normalizeCourt({
-    id: "poi-" + (poi.id || ""),
-    name: name,
-    lat: poi.location ? poi.location.lat : 0,
-    lng: poi.location ? poi.location.lng : 0,
-    address: poi.address || "",
-    rating: -1,
-    priceRange: "",
-    indoorCourts: -1,
-    outdoorCourts: -1,
-    facilities: [],
-    photos: [],
-    phone: poi.tel || "",
-    hours: "",
-    bookingOptions: [],
-    extSources: [
-      { name: "大众点评", icon: "⭐", keyword: name },
-      { name: "小红书", icon: "📕", keyword: name + " 网球场" },
-    ],
-  });
-}
+var PREVIEW_KEY = "tenclip_court_preview";
 
 function mapApiCourt(c) {
+  var photos = c.photos || [];
+  var cover = c.cover || (photos[0] || "");
   return courtData.normalizeCourt({
     id: c.id,
     name: c.name,
@@ -39,12 +16,14 @@ function mapApiCourt(c) {
     lng: c.lng,
     address: c.address,
     distance: c.distance,
+    distanceText: c.distanceText,
     rating: c.rating,
     priceRange: c.priceRange || "",
     indoorCourts: c.indoorCourts,
     outdoorCourts: c.outdoorCourts,
     facilities: c.facilities || [],
-    photos: c.photos || [],
+    photos: photos,
+    cover: cover,
     phone: c.phone || "",
     hours: c.hours || "",
     bookingOptions: c.bookingOptions || [],
@@ -53,40 +32,20 @@ function mapApiCourt(c) {
   });
 }
 
-function searchTencentPoi(opts) {
-  opts = opts || {};
-  var key = config.TENCENT_MAP_KEY;
-  if (!key) {
-    return Promise.reject(new Error("未配置腾讯地图 Key"));
-  }
-  var boundary = "nearby(" + (opts.lat || 31.23) + "," + (opts.lng || 121.47) + ",50000)";
-  return new Promise(function (resolve, reject) {
-    wx.request({
-      url: TENCENT_POI_URL,
-      data: {
-        keyword: opts.keyword || "网球",
-        boundary: boundary,
-        page_size: 20,
-        page_index: opts.pageIndex || 1,
-        key: key,
-      },
-      success: function (res) {
-        if (res.data && res.data.status === 0) {
-          resolve(res.data);
-        } else {
-          reject(new Error(res.data ? res.data.message : "POI 搜索失败"));
-        }
-      },
-      fail: function (err) {
-        reject(err);
-      },
-    });
-  });
+function savePreview(court) {
+  try {
+    wx.setStorageSync(PREVIEW_KEY, court || null);
+  } catch (e) {}
 }
 
-/**
- * 服务端球场库搜索（低延迟）
- */
+function readPreview(id) {
+  try {
+    var c = wx.getStorageSync(PREVIEW_KEY);
+    if (c && String(c.id) === String(id)) return c;
+  } catch (e) {}
+  return null;
+}
+
 function searchServerCourts(opts) {
   opts = opts || {};
   var q = [];
@@ -97,14 +56,15 @@ function searchServerCourts(opts) {
   if (opts.price && opts.price !== "all") q.push("price=" + encodeURIComponent(opts.price));
   if (opts.county) q.push("county=" + encodeURIComponent(opts.county));
   if (opts.radius_m) q.push("radius_m=" + encodeURIComponent(opts.radius_m));
-  q.push("limit=" + encodeURIComponent(opts.limit || 80));
-  if (opts.offset) q.push("offset=" + encodeURIComponent(opts.offset));
+  q.push("limit=" + encodeURIComponent(opts.limit || 10));
+  q.push("offset=" + encodeURIComponent(opts.offset || 0));
+  q.push("lite=1");
 
   return new Promise(function (resolve, reject) {
     wx.request({
       url: config.API_BASE_URL + "/api/courts/search?" + q.join("&"),
       method: "GET",
-      timeout: 8000,
+      timeout: 5000,
       success: function (res) {
         if (res.statusCode >= 200 && res.statusCode < 300 && res.data) {
           var items = res.data.items || [];
@@ -124,23 +84,20 @@ function searchServerCourts(opts) {
   });
 }
 
-function fetchCourtById(id) {
+function fetchCourtDetail(id) {
   var sid = String(id || "");
   if (!sid) return Promise.reject(new Error("缺少球场 ID"));
-
-  // 先查本地缓存 / Mock
-  var local = courtData.fetchCourtById(sid);
-  if (local) return Promise.resolve(local);
 
   return new Promise(function (resolve, reject) {
     wx.request({
       url: config.API_BASE_URL + "/api/courts/" + encodeURIComponent(sid),
       method: "GET",
-      timeout: 8000,
+      timeout: 5000,
       success: function (res) {
         if (res.statusCode >= 200 && res.statusCode < 300 && res.data && res.data.id) {
           var court = mapApiCourt(res.data);
           courtData.cacheCourts([court]);
+          savePreview(court);
           resolve(court);
           return;
         }
@@ -153,9 +110,17 @@ function fetchCourtById(id) {
   });
 }
 
-/**
- * 搜索网球场 — 服务端库优先，失败降级 Mock
- */
+function fetchCourtById(id) {
+  var sid = String(id || "");
+  if (!sid) return Promise.reject(new Error("缺少球场 ID"));
+
+  var preview = readPreview(sid) || courtData.fetchCourtById(sid);
+  if (preview) {
+    return Promise.resolve(courtData.normalizeCourt(preview));
+  }
+  return fetchCourtDetail(sid);
+}
+
 function searchCourts(opts) {
   opts = opts || {};
   return searchServerCourts(opts).catch(function (err) {
@@ -166,20 +131,11 @@ function searchCourts(opts) {
       filter: opts.filter,
       keyword: opts.keyword,
     });
-    // 本地价格筛选
-    if (opts.price && opts.price !== "all") {
-      var pk = opts.price;
-      result.courts = (result.courts || []).filter(function (c) {
-        if (pk === "free") return String(c.priceRange || "").indexOf("免费") !== -1;
-        var low = parseInt(c.priceRange, 10) || 0;
-        if (pk === "0-60") return low <= 60;
-        if (pk === "60-120") return low > 60 && low <= 120;
-        if (pk === "120-200") return low > 120 && low <= 200;
-        if (pk === "200+") return low > 200;
-        return true;
-      });
-      result.total = result.courts.length;
-    }
+    var offset = Number(opts.offset) || 0;
+    var limit = Number(opts.limit) || 10;
+    var all = result.courts || [];
+    result.courts = all.slice(offset, offset + limit);
+    result.total = all.length;
     result.source = "mock-fallback";
     return result;
   });
@@ -188,8 +144,9 @@ function searchCourts(opts) {
 module.exports = {
   searchCourts: searchCourts,
   searchServerCourts: searchServerCourts,
-  searchTencentPoi: searchTencentPoi,
   fetchCourtById: fetchCourtById,
-  mapPoiToCourt: mapPoiToCourt,
+  fetchCourtDetail: fetchCourtDetail,
   mapApiCourt: mapApiCourt,
+  savePreview: savePreview,
+  readPreview: readPreview,
 };

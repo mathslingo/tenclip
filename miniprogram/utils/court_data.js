@@ -142,6 +142,11 @@ function normalizeCourt(raw) {
             ? "室外"
             : "";
   }
+  var photos = (raw.photos || []).filter(function (u) {
+    return u && /^https?:\/\//i.test(String(u));
+  });
+  var cover = raw.cover || photos[0] || "";
+  if (cover && !/^https?:\/\//i.test(String(cover))) cover = "";
   return {
     id: String(raw.id),
     name: raw.name || "",
@@ -158,7 +163,9 @@ function normalizeCourt(raw) {
     totalCourts: indoor >= 0 && outdoor >= 0 ? indoor + outdoor : -1,
     courtType: courtType,
     facilities: raw.facilities || [],
-    photos: raw.photos && raw.photos.length ? raw.photos : [FALLBACK_COVER],
+    photos: photos,
+    cover: cover,
+    coverFailed: false,
     phone: raw.phone || "",
     hours: raw.hours || "",
     bookingOptions: raw.bookingOptions || [],

@@ -19,9 +19,9 @@ SEED_JSON = _REPO_ROOT / "data" / "shanghai_tennis_data.json"
 
 # 地球半径（米）；附近搜索默认半径
 EARTH_R = 6371000.0
-DEFAULT_RADIUS_M = 50000
-DEFAULT_LIMIT = 80
-MAX_LIMIT = 200
+DEFAULT_RADIUS_M = 30000
+DEFAULT_LIMIT = 25
+MAX_LIMIT = 50
 
 
 def _conn() -> sqlite3.Connection:
@@ -338,10 +338,16 @@ def _loads_list(s: str) -> list:
         return []
 
 
-def row_to_court(row: sqlite3.Row, *, distance: float | None = None) -> dict[str, Any]:
-    indoor = int(row["indoor_courts"] if "indoor_courts" in row.keys() else -1)
-    outdoor = int(row["outdoor_courts"] if "outdoor_courts" in row.keys() else -1)
-    stadium_type = row["stadium_type"] or ""
+def row_to_court(
+    row: sqlite3.Row,
+    *,
+    distance: float | None = None,
+    lite: bool = False,
+) -> dict[str, Any]:
+    keys = set(row.keys())
+    indoor = int(row["indoor_courts"] if "indoor_courts" in keys else -1)
+    outdoor = int(row["outdoor_courts"] if "outdoor_courts" in keys else -1)
+    stadium_type = (row["stadium_type"] if "stadium_type" in keys else "") or ""
     if indoor > 0 and outdoor > 0:
         court_type = "室内外"
     elif indoor > 0 or "室内" in stadium_type:
@@ -351,57 +357,82 @@ def row_to_court(row: sqlite3.Row, *, distance: float | None = None) -> dict[str
     else:
         court_type = stadium_type or ""
 
+    courts_num = int(row["courts_num"] if "courts_num" in keys else 0) or 0
     total = -1
     if indoor >= 0 and outdoor >= 0:
         total = indoor + outdoor
-    elif int(row["courts_num"] or 0) > 0:
-        total = int(row["courts_num"])
+    elif courts_num > 0:
+        total = courts_num
 
-    min_price = row["min_price"]
-    price_range = row["price_range"] or ""
+    min_price = row["min_price"] if "min_price" in keys else None
+    price_range = (row["price_range"] if "price_range" in keys else "") or ""
     if not price_range and min_price is not None:
         price_range = str(int(min_price)) if float(min_price) == int(min_price) else str(min_price)
 
-    photos = _loads_list(row["photos_json"])
-    booking = _loads_list(row["booking_json"])
-    facilities = _loads_list(row["facilities_json"])
-    surface = (row["court_surface"] or "").strip()
-    if surface and surface not in facilities:
-        facilities = [surface] + list(facilities)
-
     name = row["name"]
     dist = None if distance is None else float(distance)
-    return {
+    out: dict[str, Any] = {
         "id": row["id"],
-        "source": row["source"],
         "name": name,
         "lat": float(row["lat"]),
         "lng": float(row["lng"]),
-        "address": row["address"] or "",
-        "county": row["county"] or "",
+        "address": (row["address"] if "address" in keys else "") or "",
+        "county": (row["county"] if "county" in keys else "") or "",
         "distance": dist,
         "distanceText": _format_distance(dist),
-        "rating": -1,
         "priceRange": price_range,
-        "minPrice": float(min_price) if min_price is not None else None,
         "indoorCourts": indoor,
         "outdoorCourts": outdoor,
         "totalCourts": total,
         "courtType": court_type,
-        "courtSurface": surface,
-        "facilities": facilities,
-        "photos": photos,
-        "phone": row["phone"] or "",
-        "hours": row["hours"] or "",
-        "detail": row["detail"] or "",
-        "bookingOptions": booking,
-        "extSources": [
-            {"name": "大众点评", "icon": "⭐", "keyword": name},
-            {"name": "小红书", "icon": "📕", "keyword": name + " 网球场"},
-        ],
-        "sportsType": row["sports_type"] or "网球",
-        "bizType": row["biz_type"] or "",
+        "phone": (row["phone"] if "phone" in keys else "") or "",
     }
+    if lite:
+        # 列表：只带首图 URL，前端再决定是否渲染（如前 10 条）
+        cover = ""
+        try:
+            photos = _loads_list(row["photos_json"] if "photos_json" in keys else "[]")
+            if photos:
+                cover = str(photos[0] or "")
+        except Exception:
+            cover = ""
+        out["cover"] = cover
+        out["photos"] = []
+        out["bookingOptions"] = []
+        out["facilities"] = []
+        out["detail"] = ""
+        out["extSources"] = []
+        out["hours"] = ""
+        out["rating"] = -1
+        return out
+
+    photos = _loads_list(row["photos_json"] if "photos_json" in keys else "[]")[:3]
+    booking = _loads_list(row["booking_json"] if "booking_json" in keys else "[]")
+    facilities = _loads_list(row["facilities_json"] if "facilities_json" in keys else "[]")
+    surface = ((row["court_surface"] if "court_surface" in keys else "") or "").strip()
+    if surface and surface not in facilities:
+        facilities = [surface] + list(facilities)
+
+    out.update(
+        {
+            "source": (row["source"] if "source" in keys else "") or "",
+            "rating": -1,
+            "minPrice": float(min_price) if min_price is not None else None,
+            "courtSurface": surface,
+            "facilities": facilities,
+            "photos": photos,
+            "hours": (row["hours"] if "hours" in keys else "") or "",
+            "detail": ((row["detail"] if "detail" in keys else "") or "")[:500],
+            "bookingOptions": booking,
+            "extSources": [
+                {"name": "大众点评", "icon": "⭐", "keyword": name},
+                {"name": "小红书", "icon": "📕", "keyword": name + " 网球场"},
+            ],
+            "sportsType": (row["sports_type"] if "sports_type" in keys else "") or "网球",
+            "bizType": (row["biz_type"] if "biz_type" in keys else "") or "",
+        }
+    )
+    return out
 
 
 def get_court(court_id: str) -> dict[str, Any] | None:
@@ -414,7 +445,14 @@ def get_court(court_id: str) -> dict[str, Any] | None:
         ).fetchone()
         if not row:
             return None
-        return row_to_court(row)
+        return row_to_court(row, lite=False)
+
+
+_LITE_COLS = (
+    "c.id, c.name, c.address, c.county, c.lat, c.lng, c.phone, "
+    "c.stadium_type, c.courts_num, c.indoor_courts, c.outdoor_courts, "
+    "c.min_price, c.price_range, c.photos_json"
+)
 
 
 def search_courts(
@@ -428,8 +466,9 @@ def search_courts(
     radius_m: int = DEFAULT_RADIUS_M,
     limit: int = DEFAULT_LIMIT,
     offset: int = 0,
+    lite: bool = True,
 ) -> dict[str, Any]:
-    """低延迟搜索：FTS 关键词 + 经纬度包围盒预筛 + Haversine 排序。"""
+    """低延迟搜索：轻量字段 + 包围盒预筛 + 距离排序。"""
     limit = max(1, min(int(limit or DEFAULT_LIMIT), MAX_LIMIT))
     offset = max(0, int(offset or 0))
     radius_m = max(500, min(int(radius_m or DEFAULT_RADIUS_M), 200000))
@@ -441,7 +480,6 @@ def search_courts(
     where = ["c.status=1"]
     params: list[Any] = []
 
-    # 关键词：中文以 LIKE 最稳；千级数据量下仍是毫秒级
     if kw:
         where.append("(c.name LIKE ? OR c.address LIKE ? OR c.county LIKE ?)")
         like = f"%{kw}%"
@@ -469,39 +507,43 @@ def search_courts(
 
     use_geo = lat is not None and lng is not None
     if use_geo:
-        # 粗包围盒（约 radius）
         dlat = radius_m / 111000.0
         cos_lat = max(0.2, abs(math.cos(math.radians(float(lat)))))
         dlng = radius_m / (111000.0 * cos_lat)
         where.append("c.lat BETWEEN ? AND ? AND c.lng BETWEEN ? AND ?")
         params.extend([float(lat) - dlat, float(lat) + dlat, float(lng) - dlng, float(lng) + dlng])
 
-    sql = f"SELECT c.* FROM courts c WHERE {' AND '.join(where)}"
+    cols = _LITE_COLS if lite else "c.*"
+    sql = f"SELECT {cols} FROM courts c WHERE {' AND '.join(where)}"
     with _conn() as conn:
         rows = conn.execute(sql, params).fetchall()
 
-    items: list[dict[str, Any]] = []
+    scored: list[tuple[float, Any]] = []
     for r in rows:
-        dist = None
+        dist = 0.0
         if use_geo:
             dist = _haversine_m(float(lat), float(lng), float(r["lat"]), float(r["lng"]))
             if dist > radius_m:
                 continue
-        items.append(row_to_court(r, distance=dist))
+        scored.append((dist if use_geo else 0.0, r))
 
     if use_geo:
-        items.sort(key=lambda x: x.get("distance") if x.get("distance") is not None else 1e18)
+        scored.sort(key=lambda x: x[0])
     else:
-        items.sort(key=lambda x: x.get("name") or "")
+        scored.sort(key=lambda x: (x[1]["name"] or ""))
 
-    total = len(items)
-    page = items[offset : offset + limit]
+    total = len(scored)
+    page = scored[offset : offset + limit]
+    items = [
+        row_to_court(r, distance=(d if use_geo else None), lite=lite) for d, r in page
+    ]
     return {
-        "items": page,
+        "items": items,
         "total": total,
         "source": "courts.db",
         "limit": limit,
         "offset": offset,
+        "lite": bool(lite),
     }
 
 
@@ -542,6 +584,7 @@ def register_courts_routes(api) -> None:
         radius_m: int = Query(DEFAULT_RADIUS_M, ge=500, le=200000),
         limit: int = Query(DEFAULT_LIMIT, ge=1, le=MAX_LIMIT),
         offset: int = Query(0, ge=0),
+        lite: int = Query(1, ge=0, le=1),
     ):
         return search_courts(
             lat=lat,
@@ -553,6 +596,7 @@ def register_courts_routes(api) -> None:
             radius_m=radius_m,
             limit=limit,
             offset=offset,
+            lite=bool(lite),
         )
 
     @api.get("/api/courts/{court_id}")

@@ -82,8 +82,23 @@
   padding-bottom: calc(120rpx + env(safe-area-inset-bottom));
 }
 .list-status, .list-empty {
-  display: flex; flex-direction: column; align-items: center;
-  padding: 100rpx 48rpx; color: #9aa3af; font-size: 28rpx;
+  text-align: center;
+  padding: 40rpx 24rpx;
+  color: #6e7582;
+  font-size: 26rpx;
+}
+.list-status.muted {
+  color: #b0b7c0;
+  font-size: 24rpx;
+  padding: 24rpx;
+}
+.list-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 100rpx 48rpx;
+  color: #9aa3af;
+  font-size: 28rpx;
 }
 .empty-icon { font-size: 80rpx; margin-bottom: 24rpx; }
 .empty-sub { font-size: 24rpx; margin-top: 12rpx; color: #c4c9d2; }
@@ -101,6 +116,15 @@
 .card-cover {
   width: 150rpx; height: 150rpx; border-radius: 14rpx;
   flex-shrink: 0; background: #e8ecf1;
+}
+.card-cover-fallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #e8f8f2;
+}
+.card-cover-emoji {
+  font-size: 48rpx;
 }
 .card-addr-row { margin-bottom: 4rpx; }
 .card-addr { font-size: 20rpx; color: #9aa3af; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: block; }

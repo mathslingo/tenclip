@@ -16,8 +16,7 @@
       latitude="{{mapLat}}" longitude="{{mapLng}}"
       markers="{{markers}}" scale="{{scale}}"
       show-location="{{true}}"
-      bindmarkertap="onMarkerTap"
-      bindregionchange="onRegionChange" />
+      enable-poi="{{false}}" />
     <view class="locate-btn" bindtap="onLocateMe">定位</view>
   </view>
 
@@ -57,7 +56,14 @@
   </view>
 
   <!-- 球场列表 -->
-  <scroll-view class="court-list" scroll-y enhanced show-scrollbar="{{false}}">
+  <scroll-view
+    class="court-list"
+    scroll-y
+    enhanced
+    show-scrollbar="{{false}}"
+    lower-threshold="120"
+    bindscrolltolower="onReachListBottom"
+  >
 
     <!-- 提报入口（顶部） -->
     <view class="submit-banner" bindtap="onShowForm">
@@ -72,38 +78,50 @@
       <text class="empty-text">未找到符合条件的网球场</text>
     </view>
 
-    <view wx:for="{{courts}}" wx:key="id"
-      class="court-card {{highlightId === item.id ? 'highlight' : ''}}"
-      data-id="{{item.id}}" data-index="{{index}}" bindtap="onCourtTap">
+    <block wx:else>
+      <view wx:for="{{courts}}" wx:key="id"
+        class="court-card {{highlightId === item.id ? 'highlight' : ''}}"
+        data-id="{{item.id}}" data-index="{{index}}" bindtap="onCourtTap">
 
-      <image class="card-cover" src="{{item.photos[0]}}" mode="aspectFill" lazy-load />
+        <image
+          wx:if="{{item.cover && !item.coverFailed}}"
+          class="card-cover"
+          src="{{item.cover}}"
+          mode="aspectFill"
+          lazy-load
+          data-id="{{item.id}}"
+          binderror="onCoverError"
+        />
+        <view wx:else class="card-cover card-cover-fallback">
+          <text class="card-cover-emoji">🎾</text>
+        </view>
 
-      <view class="card-body">
-        <view class="card-title-row">
-          <text class="card-name">{{item.name}}</text>
-          <view class="card-rating" wx:if="{{item.rating > 0}}">
-            <text wx:for="{{item.ratingStars}}" wx:key="index" class="star {{item}}">{{item === 'full' ? '★' : (item === 'half' ? '⭑' : '☆')}}</text>
-            <text class="rating-num">{{item.rating}}</text>
+        <view class="card-body">
+          <view class="card-title-row">
+            <text class="card-name">{{item.name}}</text>
+          </view>
+          <view class="card-info-row">
+            <text wx:if="{{item.distanceText}}" class="card-dist">📍 {{item.distanceText}}</text>
+            <text wx:if="{{item.courtType}}" class="card-type">{{item.courtType}}{{item.totalCourts > 0 ? item.totalCourts + '片' : ''}}</text>
+          </view>
+          <view class="card-addr-row">
+            <text class="card-addr">📍 {{item.address}}</text>
+          </view>
+          <view class="card-info-row">
+            <text wx:if="{{item.priceRange}}" class="card-price">💰 ¥{{item.priceRange}}/h</text>
+            <text wx:if="{{item.phone}}" class="card-phone">📞 {{item.phone}}</text>
+            <text wx:if="{{item.isUserCourt}}" class="user-tag">球友提报</text>
           </view>
         </view>
-        <view class="card-info-row">
-          <text wx:if="{{item.distanceText}}" class="card-dist">📍 {{item.distanceText}}</text>
-          <text wx:if="{{item.courtType}}" class="card-type">{{item.courtType}}{{item.totalCourts > 0 ? item.totalCourts + '片' : ''}}</text>
-        </view>
-        <view class="card-addr-row">
-          <text class="card-addr">📍 {{item.address}}</text>
-        </view>
-        <view class="card-info-row">
-          <text wx:if="{{item.priceRange}}" class="card-price">💰 ¥{{item.priceRange}}/h</text>
-          <text wx:if="{{item.phone}}" class="card-phone">📞 {{item.phone}}</text>
-          <text wx:if="{{item.isUserCourt}}" class="user-tag">球友提报</text>
+
+        <view class="card-nav-btn" catchtap="onNavigateTap" data-index="{{index}}">
+          <text class="nav-icon">🧭</text>
         </view>
       </view>
 
-      <view class="card-nav-btn" catchtap="onNavigateTap" data-index="{{index}}">
-        <text class="nav-icon">🧭</text>
-      </view>
-    </view>
+      <view class="list-status" wx:if="{{loadingMore}}"><text>加载更多…</text></view>
+      <view class="list-status muted" wx:elif="{{!hasMore}}"><text>没有更多了</text></view>
+    </block>
 
     <view class="list-bottom-safe"></view>
   </scroll-view>

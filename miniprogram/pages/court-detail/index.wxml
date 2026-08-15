@@ -16,7 +16,9 @@
           src="{{item}}"
           mode="aspectFill"
           data-url="{{item}}"
+          data-index="{{index}}"
           bindtap="onPreviewImage"
+          binderror="onPhotoError"
         />
       </swiper-item>
     </swiper>
@@ -133,7 +135,7 @@
         </button>
       </view>
       <!-- 主预定按钮：第一个渠道为核心入口 -->
-      <view class="main-book-btn" bindtap="onMainBook" wx:if="{{court.bookingOptions.length}}">
+      <view class="main-book-btn" bindtap="onMainBook" wx:if="{{court.bookingOptions && court.bookingOptions.length}}">
         <text class="book-text">预约打球 🎾</text>
         <text class="book-sub">{{court.bookingOptions[0].name}}</text>
       </view>
