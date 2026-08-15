@@ -50,22 +50,33 @@
 
 「先逛逛」= 无账号浏览态（无 user_id）；发笔记/关注/编辑资料需微信或游客登录。
 
-### 服务器环境变量（systemd）
+### 服务器环境变量（推荐 EnvironmentFile）
+
+密钥放 `/etc/tenclip/env`，**不要**写进 systemd unit、不要提交 git：
 
 ```bash
-# /etc/systemd/system/tenclip-api.service 或 EnvironmentFile
+sudo mkdir -p /etc/tenclip
+sudo cp /root/code/tenclip/scripts/deploy/tenclip.env.example /etc/tenclip/env
+sudo nano /etc/tenclip/env   # 填入真实 AppID / Secret（及可选 ADMIN_TOKEN）
+sudo chmod 600 /etc/tenclip/env
+```
+
+文件内容示例：
+
+```bash
 TENCLIP_WECHAT_APPID=wx你的AppID
 TENCLIP_WECHAT_SECRET=你的AppSecret
-TENCLIP_ADMIN_TOKEN=随机长串   # 管理接口
+# TENCLIP_ADMIN_TOKEN=随机长串
+```
+
+确认 unit 含 `EnvironmentFile=-/etc/tenclip/env`（仓库 `scripts/deploy/tenclip-*.service` 已如此），然后：
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl restart tenclip-api
 ```
 
 本地无真机 code 时可设 `TENCLIP_WECHAT_MOCK=1`（**生产禁止**）。
-
-```bash
-systemctl daemon-reload
-systemctl restart tenclip-api
-```
-
 ### 管理接口（运维）
 
 Header：`X-Admin-Token: <TENCLIP_ADMIN_TOKEN>`（或 Bearer 同值）

@@ -4,6 +4,7 @@
 #
 #   sudo cp scripts/deploy/tenclip-uchance-tech.service /etc/systemd/system/tenclip-api.service
 #   sudo nano /etc/systemd/system/tenclip-api.service
+#   # 密钥：sudo cp scripts/deploy/tenclip.env.example /etc/tenclip/env && sudo nano /etc/tenclip/env
 #   sudo systemctl daemon-reload
 #   sudo systemctl enable --now tenclip-api
 #   curl -s http://127.0.0.1:7861/api/mobile/health
@@ -21,6 +22,8 @@ Environment=GRADIO_SERVER_PORT=7861
 # 2GiB 机器若无本地 VLM，可注释下一行，避免误加载大模型
 # Environment=TENCLIP_VLM_MODEL=/root/code/tenclip/model/Qwen2-VL-2B-Instruct
 Environment=PATH=/root/miniconda3/envs/tenclip/bin:/usr/local/bin:/usr/bin:/bin
+# 微信 / 管理密钥：/etc/tenclip/env（见 tenclip.env.example）；勿把 Secret 写进本 unit
+EnvironmentFile=-/etc/tenclip/env
 ExecStart=/root/miniconda3/envs/tenclip/bin/python app.py
 Restart=always
 RestartSec=5

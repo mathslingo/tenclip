@@ -100,13 +100,17 @@ cd /root/code/tenclip
 sudo cp scripts/deploy/tenclip-uchance-tech.service /etc/systemd/system/tenclip-api.service
 # 编辑 User / WorkingDirectory / PATH / ExecStart 与机器一致
 sudo nano /etc/systemd/system/tenclip-api.service
+# 微信登录等密钥（勿写进 unit）
+sudo mkdir -p /etc/tenclip
+sudo cp scripts/deploy/tenclip.env.example /etc/tenclip/env
+sudo nano /etc/tenclip/env   # TENCLIP_WECHAT_APPID / SECRET
+sudo chmod 600 /etc/tenclip/env
 sudo systemctl daemon-reload
 sudo systemctl enable --now tenclip-api
 sudo journalctl -u tenclip-api -n 80 --no-pager
 ```
 
 应用只监听 **`127.0.0.1:7861`**，不要 `0.0.0.0` 对公网裸奔。
-
 ---
 
 ## 4. Nginx → api.uchance.tech
