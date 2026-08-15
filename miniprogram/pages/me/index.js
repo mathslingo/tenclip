@@ -390,7 +390,7 @@ Page({
   // ── 登录相关（供地图模块等调用） ──
 
   onGoLogin() {
-    wx.reLaunch({ url: "/pages/login/index" });
+    wx.navigateTo({ url: "/pages/login/index" });
   },
 
   onGetProfile() {
@@ -439,7 +439,7 @@ Page({
         if (res.confirm) {
           var app = getApp();
           if (app.clearAuth) app.clearAuth();
-          wx.reLaunch({ url: "/pages/login/index" });
+          wx.navigateTo({ url: "/pages/login/index" });
         }
       },
     });

@@ -3,6 +3,8 @@
     "pages/feed/index",
     "pages/courts/index",
     "pages/analyze/index",
+    "pages/profile/index",
+    "pages/profile-edit/index",
     "pages/me/index",
     "pages/login/index",
     "pages/court-detail/index",
@@ -44,7 +46,7 @@
         "text": "分析"
       },
       {
-        "pagePath": "pages/me/index",
+        "pagePath": "pages/profile/index",
         "text": "我的"
       }
     ]

@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import secrets
 import sqlite3
 import time
 import uuid
@@ -9,7 +10,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from fastapi import File, Form, HTTPException, Query, UploadFile
+from fastapi import File, Form, Header, HTTPException, Query, UploadFile
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
@@ -46,6 +47,12 @@ def _conn() -> sqlite3.Connection:
     return conn
 
 
+def _ensure_column(conn: sqlite3.Connection, table: str, column: str, ddl: str) -> None:
+    cols = {row[1] for row in conn.execute(f"PRAGMA table_info({table})").fetchall()}
+    if column not in cols:
+        conn.execute(f"ALTER TABLE {table} ADD COLUMN {ddl}")
+
+
 def init_social_db() -> None:
     NOTE_UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
     with _conn() as conn:
@@ -79,9 +86,161 @@ def init_social_db() -> None:
                 FOREIGN KEY (followee_id) REFERENCES users(user_id)
             );
             CREATE INDEX IF NOT EXISTS idx_follows_followee ON follows(followee_id);
+            CREATE TABLE IF NOT EXISTS sessions (
+                token TEXT PRIMARY KEY,
+                user_id TEXT NOT NULL,
+                created_at REAL NOT NULL,
+                expires_at REAL NOT NULL,
+                device_hint TEXT NOT NULL DEFAULT '',
+                FOREIGN KEY (user_id) REFERENCES users(user_id)
+            );
+            CREATE INDEX IF NOT EXISTS idx_sessions_user ON sessions(user_id);
+            CREATE INDEX IF NOT EXISTS idx_sessions_expires ON sessions(expires_at);
             """
         )
+        # 登录与会话
+        _ensure_column(conn, "users", "openid", "openid TEXT")
+        _ensure_column(conn, "users", "unionid", "unionid TEXT NOT NULL DEFAULT ''")
+        _ensure_column(conn, "users", "session_version", "session_version INTEGER NOT NULL DEFAULT 0")
+        _ensure_column(conn, "users", "profile_completed", "profile_completed INTEGER NOT NULL DEFAULT 0")
+        _ensure_column(conn, "users", "last_login_at", "last_login_at REAL")
+        _ensure_column(conn, "users", "login_count", "login_count INTEGER NOT NULL DEFAULT 0")
+        _ensure_column(conn, "users", "last_login_ip", "last_login_ip TEXT NOT NULL DEFAULT ''")
+        # 资料
+        _ensure_column(conn, "users", "gender", "gender INTEGER NOT NULL DEFAULT 0")
+        _ensure_column(conn, "users", "birthday", "birthday TEXT NOT NULL DEFAULT ''")
+        _ensure_column(conn, "users", "phone", "phone TEXT NOT NULL DEFAULT ''")
+        _ensure_column(conn, "users", "email", "email TEXT NOT NULL DEFAULT ''")
+        _ensure_column(conn, "users", "country", "country TEXT NOT NULL DEFAULT ''")
+        _ensure_column(conn, "users", "province", "province TEXT NOT NULL DEFAULT ''")
+        _ensure_column(conn, "users", "city", "city TEXT NOT NULL DEFAULT ''")
+        _ensure_column(conn, "users", "location", "location TEXT NOT NULL DEFAULT ''")
+        _ensure_column(conn, "users", "tags_json", "tags_json TEXT NOT NULL DEFAULT '[]'")
+        # 账号状态：0 正常 1 禁用 2 注销
+        _ensure_column(conn, "users", "status", "status INTEGER NOT NULL DEFAULT 0")
+        # create_id：创建来源 / 注册渠道（wechat / guest_upgrade / system）
+        _ensure_column(conn, "users", "create_id", "create_id TEXT NOT NULL DEFAULT 'wechat'")
+        _ensure_column(conn, "users", "update_id", "update_id TEXT NOT NULL DEFAULT ''")
+        _ensure_column(conn, "users", "password_hash", "password_hash TEXT NOT NULL DEFAULT ''")
+        _ensure_column(conn, "users", "tennis_hand", "tennis_hand TEXT NOT NULL DEFAULT ''")
+        _ensure_column(conn, "users", "tennis_level", "tennis_level TEXT NOT NULL DEFAULT ''")
+        _ensure_column(conn, "users", "tennis_style", "tennis_style TEXT NOT NULL DEFAULT ''")
+        _ensure_column(conn, "users", "preferred_surface", "preferred_surface TEXT NOT NULL DEFAULT ''")
+        conn.execute(
+            "CREATE UNIQUE INDEX IF NOT EXISTS idx_users_openid ON users(openid) "
+            "WHERE openid IS NOT NULL AND openid <> ''"
+        )
+        # 先消重再建唯一索引（历史默认昵称「网球爱好者」可能重复）
+        _dedupe_nicknames(conn)
+        conn.execute("DROP INDEX IF EXISTS idx_users_nickname_ci")
+        conn.execute(
+            "CREATE UNIQUE INDEX IF NOT EXISTS idx_users_nickname_ci "
+            "ON users(nickname COLLATE NOCASE) "
+            "WHERE nickname IS NOT NULL AND TRIM(nickname) <> ''"
+        )
         conn.commit()
+
+
+def _dedupe_nicknames(conn: sqlite3.Connection) -> None:
+    rows = conn.execute(
+        """
+        SELECT user_id, nickname FROM users
+        WHERE nickname IS NOT NULL AND TRIM(nickname) <> ''
+        ORDER BY created_at ASC, user_id ASC
+        """
+    ).fetchall()
+    seen: dict[str, str] = {}
+    for r in rows:
+        nick = (r["nickname"] or "").strip()
+        key = nick.casefold()
+        uid = r["user_id"]
+        if key not in seen:
+            seen[key] = uid
+            continue
+        # 重复：改为「原昵称_后四位uid」
+        suffix = str(uid)[-4:]
+        new_nick = f"{nick}_{suffix}"
+        n = 0
+        while new_nick.casefold() in seen:
+            n += 1
+            new_nick = f"{nick}_{suffix}{n}"
+        conn.execute(
+            "UPDATE users SET nickname=?, updated_at=? WHERE user_id=?",
+            (new_nick, time.time(), uid),
+        )
+        seen[new_nick.casefold()] = uid
+
+
+def normalize_nickname(nickname: str) -> str:
+    return (nickname or "").strip()
+
+
+def nickname_available(nickname: str, *, exclude_user_id: str = "") -> bool:
+    nick = normalize_nickname(nickname)
+    if not nick:
+        return False
+    with _conn() as conn:
+        return _nickname_free(conn, nick, exclude_user_id=(exclude_user_id or "").strip())
+
+
+def _nickname_free(conn: sqlite3.Connection, nickname: str, *, exclude_user_id: str = "") -> bool:
+    nick = normalize_nickname(nickname)
+    if not nick:
+        return False
+    excl = (exclude_user_id or "").strip()
+    if excl:
+        row = conn.execute(
+            """
+            SELECT 1 FROM users
+            WHERE LOWER(TRIM(nickname)) = LOWER(?) AND user_id <> ?
+            LIMIT 1
+            """,
+            (nick, excl),
+        ).fetchone()
+    else:
+        row = conn.execute(
+            """
+            SELECT 1 FROM users
+            WHERE LOWER(TRIM(nickname)) = LOWER(?)
+            LIMIT 1
+            """,
+            (nick,),
+        ).fetchone()
+    return row is None
+
+
+def find_user_id_by_nickname(nickname: str) -> str | None:
+    nick = normalize_nickname(nickname)
+    if not nick:
+        return None
+    with _conn() as conn:
+        row = conn.execute(
+            """
+            SELECT user_id FROM users
+            WHERE LOWER(TRIM(nickname)) = LOWER(?)
+            LIMIT 1
+            """,
+            (nick,),
+        ).fetchone()
+        return row["user_id"] if row else None
+
+
+def alloc_user_id(conn: sqlite3.Connection | None = None) -> str:
+    """分配全局 8 位数字 user_id（10000000–99999999），保证唯一。"""
+    own = conn is None
+    if own:
+        conn = _conn()
+    try:
+        for _ in range(64):
+            uid = f"{secrets.randbelow(90000000) + 10000000}"
+            hit = conn.execute("SELECT 1 FROM users WHERE user_id=?", (uid,)).fetchone()
+            if not hit:
+                return uid
+        # 极端碰撞：时间片兜底
+        return f"{int(time.time()) % 100000000:08d}"
+    finally:
+        if own:
+            conn.close()
 
 
 def upsert_user(
@@ -95,11 +254,13 @@ def upsert_user(
     if not uid:
         raise ValueError("user_id required")
     now = time.time()
-    nick = (nickname or "").strip() or "网球爱好者"
+    nick_in = normalize_nickname(nickname)
     with _conn() as conn:
         row = conn.execute("SELECT * FROM users WHERE user_id = ?", (uid,)).fetchone()
         if row:
-            nick = nick if nickname.strip() else (row["nickname"] or nick)
+            nick = nick_in if nick_in else (row["nickname"] or f"球友{uid}")
+            if nick_in and not _nickname_free(conn, nick, exclude_user_id=uid):
+                raise ValueError("昵称已被占用")
             avatar = avatar_url.strip() if avatar_url else (row["avatar_url"] or "")
             bio_v = bio if bio != "" else (row["bio"] or "")
             conn.execute(
@@ -110,6 +271,9 @@ def upsert_user(
                 (nick, avatar, bio_v, now, uid),
             )
         else:
+            nick = nick_in or f"球友{uid}"
+            if nick_in and not _nickname_free(conn, nick):
+                raise ValueError("昵称已被占用")
             conn.execute(
                 """
                 INSERT INTO users (user_id, nickname, avatar_url, bio, created_at, updated_at)
@@ -130,14 +294,51 @@ def get_user(user_id: str) -> dict[str, Any] | None:
         if not row:
             return None
         stats = _stats(conn, uid)
+        keys = set(row.keys())
+
+        def g(name: str, default: Any = ""):
+            return row[name] if name in keys else default
+
+        tags = []
+        try:
+            tags = json.loads(g("tags_json", "[]") or "[]")
+        except Exception:
+            tags = []
+        if not isinstance(tags, list):
+            tags = []
+
         return {
             "user_id": row["user_id"],
             "nickname": row["nickname"],
             "avatar_url": row["avatar_url"],
             "bio": row["bio"],
+            "gender": int(g("gender", 0) or 0),
+            "birthday": g("birthday", "") or "",
+            "phone": g("phone", "") or "",
+            "email": g("email", "") or "",
+            "country": g("country", "") or "",
+            "province": g("province", "") or "",
+            "city": g("city", "") or "",
+            "location": g("location", "") or "",
+            "tags": tags,
+            "status": int(g("status", 0) or 0),
+            "create_id": g("create_id", "wechat") or "wechat",
+            "update_id": g("update_id", "") or "",
+            "created_at": row["created_at"],
+            "updated_at": row["updated_at"],
             "following": stats["following"],
             "followers": stats["followers"],
             "note_count": stats["note_count"],
+            "profile_completed": int(g("profile_completed", 0) or 0),
+            "openid": g("openid", "") or "",
+            "last_login_at": g("last_login_at", None),
+            "login_count": int(g("login_count", 0) or 0),
+            "account_type": "guest" if (g("create_id", "") or "") == "guest" else "wechat",
+            "has_password": bool(g("password_hash", "") or ""),
+            "tennis_hand": g("tennis_hand", "") or "",
+            "tennis_level": g("tennis_level", "") or "",
+            "tennis_style": g("tennis_style", "") or "",
+            "preferred_surface": g("preferred_surface", "") or "",
         }
 
 
@@ -510,13 +711,22 @@ def save_upload(note_key: str, index: int, data: bytes, suffix: str) -> str:
 
 
 def register_social_routes(api) -> None:
-    """挂到 FastAPI：笔记、关注、静态图。"""
+    """挂到 FastAPI：笔记、关注、静态图。写操作需 Bearer。"""
+
+    def _auth_user(authorization: str | None):
+        from services.wechat_auth import require_user
+
+        return require_user(authorization)
 
     @api.post("/api/social/users/upsert")
-    def api_upsert_user(payload: UserUpsert):
+    def api_upsert_user(
+        payload: UserUpsert,
+        authorization: str | None = Header(default=None),
+    ):
+        user = _auth_user(authorization)
         try:
             return upsert_user(
-                payload.user_id,
+                user["user_id"],
                 nickname=payload.nickname,
                 avatar_url=payload.avatar_url,
                 bio=payload.bio,
@@ -528,25 +738,45 @@ def register_social_routes(api) -> None:
     def api_get_user(
         user_id: str,
         viewer_id: str = Query(""),
+        authorization: str | None = Header(default=None),
     ):
         user = get_user(user_id)
         if not user:
             raise HTTPException(status_code=404, detail="user not found")
-        if viewer_id:
-            user["is_following"] = is_following(viewer_id, user_id)
+        viewer = viewer_id
+        if not viewer and authorization:
+            try:
+                from services.wechat_auth import resolve_token
+
+                me = resolve_token(authorization)
+                if me:
+                    viewer = me["user_id"]
+            except Exception:
+                viewer = ""
+        if viewer:
+            user["is_following"] = is_following(viewer, user_id)
+        user.pop("openid", None)
         return user
 
     @api.post("/api/social/follow")
-    def api_follow(payload: FollowBody):
+    def api_follow(
+        payload: FollowBody,
+        authorization: str | None = Header(default=None),
+    ):
+        me = _auth_user(authorization)
         try:
-            return follow(payload.follower_id, payload.followee_id)
+            return follow(me["user_id"], payload.followee_id)
         except ValueError as e:
             raise HTTPException(status_code=400, detail=str(e)) from e
 
     @api.post("/api/social/unfollow")
-    def api_unfollow(payload: FollowBody):
+    def api_unfollow(
+        payload: FollowBody,
+        authorization: str | None = Header(default=None),
+    ):
+        me = _auth_user(authorization)
         try:
-            return unfollow(payload.follower_id, payload.followee_id)
+            return unfollow(me["user_id"], payload.followee_id)
         except ValueError as e:
             raise HTTPException(status_code=400, detail=str(e)) from e
 
@@ -563,7 +793,9 @@ def register_social_routes(api) -> None:
         file: UploadFile = File(...),
         key: str = Form(""),
         index: int = Form(0),
+        authorization: str | None = Header(default=None),
     ):
+        _auth_user(authorization)
         raw = await file.read()
         if len(raw) > 8 * 1024 * 1024:
             raise HTTPException(status_code=400, detail="图片不能超过 8MB")
@@ -573,10 +805,14 @@ def register_social_routes(api) -> None:
         return {"url": url, "ok": True}
 
     @api.post("/api/social/notes")
-    def api_create_note(payload: NoteCreate):
+    def api_create_note(
+        payload: NoteCreate,
+        authorization: str | None = Header(default=None),
+    ):
+        me = _auth_user(authorization)
         try:
             return create_note(
-                payload.user_id,
+                me["user_id"],
                 title=payload.title,
                 body=payload.body,
                 image_urls=payload.image_urls,
@@ -620,8 +856,13 @@ def register_social_routes(api) -> None:
         return note
 
     @api.delete("/api/social/notes/{note_id}")
-    def api_delete_note(note_id: str, user_id: str = Query(...)):
-        ok = delete_note(note_id, user_id)
+    def api_delete_note(
+        note_id: str,
+        user_id: str = Query(""),
+        authorization: str | None = Header(default=None),
+    ):
+        me = _auth_user(authorization)
+        ok = delete_note(note_id, me["user_id"])
         if not ok:
             raise HTTPException(status_code=404, detail="无法删除")
         return {"ok": True}

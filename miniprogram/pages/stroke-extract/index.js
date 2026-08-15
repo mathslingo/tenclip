@@ -130,7 +130,7 @@ Page({
         confirmText: "去登录",
         success: function (res) {
           if (res.confirm) {
-            wx.reLaunch({ url: "/pages/login/index" });
+            wx.navigateTo({ url: "/pages/login/index" });
           }
         },
       });

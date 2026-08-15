@@ -36,14 +36,79 @@
   color: #6e7582;
 }
 
+/* ── 模式切换 ── */
+
+.mode-tabs {
+  width: 100%;
+  display: flex;
+  gap: 12rpx;
+  margin-bottom: 24rpx;
+}
+
+.mode-tab {
+  flex: 1;
+  text-align: center;
+  padding: 18rpx 8rpx;
+  border-radius: 16rpx;
+  font-size: 24rpx;
+  font-weight: 600;
+  color: #6e7582;
+  background: #e8ecf0;
+}
+
+.mode-tab.on {
+  color: #0d3d32;
+  background: #fff;
+  box-shadow: 0 2rpx 10rpx rgba(0, 0, 0, 0.06);
+}
+
 /* ── 授权卡片 ── */
 
 .auth-card {
   width: 100%;
   background: #fff;
   border-radius: 28rpx;
-  padding: 36rpx 32rpx 20rpx;
+  padding: 36rpx 32rpx 28rpx;
   box-shadow: 0 4rpx 20rpx rgba(0,0,0,0.06);
+  box-sizing: border-box;
+}
+
+.field {
+  margin-top: 24rpx;
+}
+
+.field-label {
+  display: block;
+  margin-bottom: 10rpx;
+  font-size: 24rpx;
+  font-weight: 600;
+  color: #415360;
+}
+
+.field-input {
+  width: 100%;
+  box-sizing: border-box;
+  height: 84rpx;
+  line-height: 84rpx;
+  padding: 0 24rpx;
+  border-radius: 16rpx;
+  background: #f5f7f9;
+  font-size: 28rpx;
+  color: #151821;
+}
+
+.field-hint {
+  display: block;
+  margin-top: 8rpx;
+  font-size: 22rpx;
+}
+
+.field-hint.ok {
+  color: #0d6b52;
+}
+
+.field-hint.bad {
+  color: #b42318;
 }
 
 .auth-title {
@@ -56,9 +121,16 @@
 .auth-sub {
   display: block;
   margin-top: 8rpx;
-  margin-bottom: 28rpx;
+  margin-bottom: 12rpx;
   font-size: 24rpx;
   color: #9aa3af;
+}
+
+.privacy-hint {
+  display: block;
+  font-size: 22rpx;
+  color: #b0b7c0;
+  line-height: 1.5;
 }
 
 /* ── 授权项 ── */
@@ -187,10 +259,34 @@
   opacity: 1;
 }
 
-/* ── 跳过 ── */
+.guest-btn {
+  width: 100%;
+  margin-top: 20rpx;
+  border: 2rpx solid #d5dde5;
+  border-radius: 24rpx;
+  padding: 26rpx 0;
+  font-size: 30rpx;
+  font-weight: 600;
+  background: #fff;
+  color: #415360;
+}
+
+.guest-btn::after {
+  border: none;
+}
+
+.guest-hint {
+  margin-top: 16rpx;
+  font-size: 22rpx;
+  color: #9aa3af;
+  text-align: center;
+  line-height: 1.4;
+}
+
+/* ── 返回 ── */
 
 .skip-text {
-  margin-top: 28rpx;
+  margin-top: 36rpx;
   font-size: 24rpx;
   color: #9aa3af;
   text-decoration: underline;

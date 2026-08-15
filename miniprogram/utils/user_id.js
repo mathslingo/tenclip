@@ -1,9 +1,10 @@
 /**
- * 本机用户 ID（v1 未接 wx.login 会话，用 storage 持久化）
+ * 本机用户 ID：登录后使用服务端 user_id；游客可浏览但不冒充已登录。
  */
 var USER_KEY = "tenclip_user_profile";
 var ME_PROFILE_KEY = "tenclip_me_profile";
 var UID_KEY = "tenclip_user_id";
+var TOKEN_KEY = "tenclip_auth_token";
 
 function _readJson(key) {
   try {
@@ -19,6 +20,14 @@ function _readJson(key) {
     return raw;
   } catch (e) {
     return null;
+  }
+}
+
+function isLoggedIn() {
+  try {
+    return !!wx.getStorageSync(TOKEN_KEY);
+  } catch (e) {
+    return false;
   }
 }
 
@@ -41,6 +50,8 @@ function getUserId() {
     } catch (e3) {}
     return String(me.uid);
   }
+  // 未登录：不静默生成新 UC 冒充账号；返回空串
+  if (!isLoggedIn()) return "";
   var id = "UC" + Date.now().toString(36).toUpperCase();
   try {
     wx.setStorageSync(UID_KEY, id);
@@ -62,4 +73,5 @@ function getLocalProfile() {
 module.exports = {
   getUserId: getUserId,
   getLocalProfile: getLocalProfile,
+  isLoggedIn: isLoggedIn,
 };

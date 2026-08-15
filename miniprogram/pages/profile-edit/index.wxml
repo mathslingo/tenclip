@@ -1,0 +1,84 @@
+<view class="edit-page">
+  <view class="form-card">
+    <view class="form-item avatar-row">
+      <text class="form-label">头像</text>
+      <button class="avatar-btn" open-type="chooseAvatar" bindchooseavatar="onChooseAvatar">
+        <image wx:if="{{form.avatarUrl}}" class="avatar-preview" src="{{form.avatarUrl}}" mode="aspectFill" />
+        <text wx:else class="avatar-placeholder">选头像</text>
+      </button>
+    </view>
+
+    <view class="form-item">
+      <text class="form-label">昵称（全局唯一）</text>
+      <input
+        class="form-input"
+        type="nickname"
+        value="{{form.nickname}}"
+        maxlength="20"
+        placeholder="填写昵称"
+        bindinput="onInputNick"
+        bindblur="onBlurNick"
+      />
+      <text wx:if="{{nickHint}}" class="nick-hint">{{nickHint}}</text>
+    </view>
+
+    <view class="form-item">
+      <text class="form-label">简介</text>
+      <textarea
+        class="form-textarea"
+        value="{{form.bio}}"
+        maxlength="80"
+        placeholder="介绍一下自己"
+        bindinput="onInputBio"
+      />
+    </view>
+
+    <view class="form-item">
+      <text class="form-label">兴趣标签（逗号分隔）</text>
+      <input
+        class="form-input"
+        value="{{form.tagsText}}"
+        maxlength="40"
+        placeholder="例如：正手，发球，资讯"
+        bindinput="onInputTags"
+      />
+    </view>
+  </view>
+
+  <view class="form-card section">
+    <text class="section-title">网球风格</text>
+
+    <view class="form-item">
+      <text class="form-label">持拍手</text>
+      <picker mode="selector" range="{{handOpts}}" value="{{form.handIndex}}" bindchange="onPickHand">
+        <view class="picker-value">{{form.tennisHand || '请选择'}}</view>
+      </picker>
+    </view>
+
+    <view class="form-item">
+      <text class="form-label">水平</text>
+      <picker mode="selector" range="{{levelOpts}}" value="{{form.levelIndex}}" bindchange="onPickLevel">
+        <view class="picker-value">{{form.tennisLevel || '请选择'}}</view>
+      </picker>
+    </view>
+
+    <view class="form-item">
+      <text class="form-label">打法风格</text>
+      <picker mode="selector" range="{{styleOpts}}" value="{{form.styleIndex}}" bindchange="onPickStyle">
+        <view class="picker-value">{{form.tennisStyle || '请选择'}}</view>
+      </picker>
+    </view>
+
+    <view class="form-item">
+      <text class="form-label">偏好场地</text>
+      <picker mode="selector" range="{{surfaceOpts}}" value="{{form.surfaceIndex}}" bindchange="onPickSurface">
+        <view class="picker-value">{{form.preferredSurface || '请选择'}}</view>
+      </picker>
+    </view>
+  </view>
+
+  <view class="actions">
+    <view class="btn ghost" bindtap="onCancel">{{fromRegister ? '稍后完善' : '取消'}}</view>
+    <view class="btn solid" bindtap="onSave">保存</view>
+  </view>
+</view>

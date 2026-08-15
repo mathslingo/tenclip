@@ -1,5 +1,6 @@
 const { API_BASE_URL } = require("./config");
-const { getUserId, getLocalProfile } = require("./user_id");
+const { getUserId, getLocalProfile, isLoggedIn } = require("./user_id");
+const { authHeaders, getToken } = require("./auth_api");
 
 function absUrl(path) {
   var p = String(path || "");
@@ -13,8 +14,7 @@ function absUrl(path) {
 
 function request(opts) {
   var data = opts.data;
-  var header = opts.header || { "content-type": "application/json" };
-  // 明确用 JSON 字符串，避免微信自动编码成 form-urlencoded 导致 FastAPI 422
+  var header = opts.header || authHeaders();
   if (data && typeof data === "object" && String(header["content-type"] || "") === "application/json") {
     data = JSON.stringify(data);
   }
@@ -26,6 +26,10 @@ function request(opts) {
       header: header,
       timeout: opts.timeout || 20000,
       success: function (res) {
+        if (res.statusCode === 401) {
+          reject(new Error("请先登录"));
+          return;
+        }
         if (res.statusCode >= 200 && res.statusCode < 300) {
           resolve(res.data);
           return;
@@ -43,9 +47,12 @@ function request(opts) {
 }
 
 function ensureUserId() {
+  if (!isLoggedIn()) {
+    throw new Error("请先登录");
+  }
   var uid = getUserId();
   if (!uid) {
-    throw new Error("用户 ID 未初始化，请先到「我的」页面");
+    throw new Error("请先登录");
   }
   return uid;
 }
@@ -104,12 +111,14 @@ function fetchFollowList(userId, kind) {
 }
 
 function uploadNoteImage(filePath, index, key) {
+  var token = getToken();
   return new Promise(function (resolve, reject) {
     wx.uploadFile({
       url: API_BASE_URL + "/api/social/uploads",
       filePath: filePath,
       name: "file",
       formData: { key: key || "", index: String(index || 0) },
+      header: token ? { Authorization: "Bearer " + token } : {},
       timeout: 60000,
       success: function (res) {
         try {
@@ -117,6 +126,10 @@ function uploadNoteImage(filePath, index, key) {
             typeof res.data === "string" ? JSON.parse(res.data) : res.data;
           if (res.statusCode >= 200 && res.statusCode < 300 && body && body.url) {
             resolve(body.url);
+            return;
+          }
+          if (res.statusCode === 401) {
+            reject(new Error("请先登录"));
             return;
           }
         } catch (e) {}
@@ -160,6 +173,7 @@ function listNotes(userId) {
   var q = userId ? "?user_id=" + encodeURIComponent(userId) : "";
   return request({
     url: API_BASE_URL + "/api/social/notes" + q,
+    header: { "content-type": "application/json" },
   }).then(function (body) {
     return ((body && body.items) || []).map(normalizeNote);
   });
@@ -171,18 +185,19 @@ function searchNotes(keyword) {
       API_BASE_URL +
       "/api/social/notes/search?q=" +
       encodeURIComponent((keyword || "").trim()),
+    header: { "content-type": "application/json" },
   }).then(function (body) {
     return ((body && body.items) || []).map(normalizeNote);
   });
 }
 
 function searchFeed(keyword) {
-  /* 同时搜索笔记和资讯，返回原始条目（需配合 feed_api.mapApiItem 渲染）。 */
   return request({
     url:
       API_BASE_URL +
       "/api/feed/search?q=" +
       encodeURIComponent((keyword || "").trim()),
+    header: { "content-type": "application/json" },
   }).then(function (body) {
     return (body && body.items) || [];
   });
@@ -191,6 +206,7 @@ function searchFeed(keyword) {
 function getNote(noteId) {
   return request({
     url: API_BASE_URL + "/api/social/notes/" + encodeURIComponent(noteId),
+    header: { "content-type": "application/json" },
   }).then(normalizeNote);
 }
 

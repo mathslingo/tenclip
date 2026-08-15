@@ -1,5 +1,6 @@
 const { publishNote, upsertMe } = require("../../utils/social_api");
 const { requirePrivacyIfNeeded } = require("../../utils/api");
+const { isLoggedIn, requireLogin } = require("../../utils/auth_api");
 
 Page({
   data: {
@@ -7,6 +8,12 @@ Page({
     body: "",
     images: [],
     busy: false,
+  },
+
+  onShow() {
+    if (!isLoggedIn()) {
+      requireLogin("note-compose");
+    }
   },
 
   onTitle(e) {
@@ -62,6 +69,10 @@ Page({
   onPublish() {
     var that = this;
     if (this.data.busy) return;
+    if (!isLoggedIn()) {
+      requireLogin("note-compose");
+      return;
+    }
     var body = String(this.data.body || "").trim();
     var images = this.data.images || [];
     if (!body && !images.length) {
@@ -85,7 +96,7 @@ Page({
         } catch (e) {}
         wx.showToast({ title: "已发布", icon: "success" });
         setTimeout(function () {
-          wx.switchTab({ url: "/pages/me/index" });
+          wx.switchTab({ url: "/pages/profile/index" });
         }, 400);
       })
       .catch(function (err) {

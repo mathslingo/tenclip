@@ -1,38 +1,108 @@
 <view class="login-page">
-  <!-- 品牌区域 -->
   <view class="brand-area">
     <view class="brand-icon">🎾</view>
     <text class="brand-name">UChance</text>
     <text class="brand-desc">网球 · 剪辑 · AI 教练 · 找球场</text>
   </view>
 
-  <!-- 授权卡片 -->
-  <view class="auth-card">
-    <text class="auth-title">登录授权</text>
-    <text class="auth-sub">授权微信信息以获得完整体验</text>
+  <view class="mode-tabs">
+    <view
+      class="mode-tab {{mode === 'wechat' ? 'on' : ''}}"
+      data-mode="wechat"
+      bindtap="onSwitchMode"
+    >微信登录</view>
+    <view
+      class="mode-tab {{mode === 'guest_register' ? 'on' : ''}}"
+      data-mode="guest_register"
+      bindtap="onSwitchMode"
+    >游客注册</view>
+    <view
+      class="mode-tab {{mode === 'guest_login' ? 'on' : ''}}"
+      data-mode="guest_login"
+      bindtap="onSwitchMode"
+    >游客登录</view>
+  </view>
 
-    <!-- 微信用户信息 -->
-    <view class="auth-item" bindtap="onGetUserInfo">
-      <view class="auth-left">
-        <image wx:if="{{hasUserInfo && avatarUrl}}" class="auth-avatar" src="{{avatarUrl}}" mode="aspectFill" />
-        <view wx:else class="auth-icon-wrap">
-          <text class="auth-icon">👤</text>
-        </view>
-        <view class="auth-text">
-          <text class="auth-label">微信头像与昵称</text>
-          <text class="auth-value" wx:if="{{hasUserInfo}}">{{nickName}}</text>
-          <text class="auth-hint" wx:else>点击授权</text>
-        </view>
-      </view>
-      <view class="auth-status {{hasUserInfo ? 'done' : ''}}">
-        <text wx:if="{{hasUserInfo}}">✓</text>
-        <text wx:else>›</text>
-      </view>
+  <view class="auth-card" wx:if="{{mode === 'wechat'}}">
+    <text class="auth-title">微信一键登录</text>
+    <text class="auth-sub">首次将自动创建账号并分配 8 位 ID</text>
+    <text class="privacy-hint">登录即表示你已阅读并同意用户隐私保护指引</text>
+  </view>
+
+  <view class="auth-card" wx:else>
+    <text class="auth-title">{{mode === 'guest_register' ? '游客注册' : '游客登录'}}</text>
+    <text class="auth-sub">
+      {{mode === 'guest_register'
+        ? '设置唯一昵称与 6 位数字密码，获得正式 user_id'
+        : '用昵称和密码回到同一游客身份'}}
+    </text>
+
+    <view class="field">
+      <text class="field-label">昵称</text>
+      <input
+        class="field-input"
+        value="{{guestNick}}"
+        maxlength="20"
+        placeholder="2–20 个字符，全局唯一"
+        bindinput="onInputGuestNick"
+        bindblur="onBlurGuestNick"
+      />
+      <text wx:if="{{nickHint}}" class="field-hint {{nickOk ? 'ok' : 'bad'}}">{{nickHint}}</text>
+    </view>
+
+    <view class="field">
+      <text class="field-label">登录密码</text>
+      <input
+        class="field-input"
+        password
+        type="number"
+        maxlength="6"
+        value="{{guestPwd}}"
+        placeholder="6 位数字"
+        bindinput="onInputGuestPwd"
+      />
+    </view>
+
+    <view class="field" wx:if="{{mode === 'guest_register'}}">
+      <text class="field-label">确认密码</text>
+      <input
+        class="field-input"
+        password
+        type="number"
+        maxlength="6"
+        value="{{guestPwd2}}"
+        placeholder="再次输入 6 位数字"
+        bindinput="onInputGuestPwd2"
+      />
     </view>
   </view>
 
-  <!-- 进入按钮 -->
-  <button class="enter-btn {{hasUserInfo ? 'ready' : ''}}" bindtap="onEnter">进入 UChance</button>
+  <button
+    wx:if="{{mode === 'wechat'}}"
+    class="enter-btn ready"
+    loading="{{loading}}"
+    disabled="{{loading}}"
+    bindtap="onWechatLogin"
+  >微信一键登录</button>
 
-  <text class="skip-text" bindtap="onEnter">暂不授权，直接进入</text>
+  <button
+    wx:elif="{{mode === 'guest_register'}}"
+    class="enter-btn ready"
+    loading="{{loading}}"
+    disabled="{{loading}}"
+    bindtap="onGuestRegister"
+  >注册并登录</button>
+
+  <button
+    wx:else
+    class="enter-btn ready"
+    loading="{{loading}}"
+    disabled="{{loading}}"
+    bindtap="onGuestLogin"
+  >游客登录</button>
+
+  <button class="guest-btn" bindtap="onGuestEnter">先逛逛（无账号）</button>
+  <text class="guest-hint">先逛逛仅可浏览；发笔记、关注、编辑资料请注册/登录</text>
+
+  <text class="skip-text" bindtap="onBack">返回上一页</text>
 </view>

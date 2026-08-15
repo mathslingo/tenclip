@@ -17,6 +17,11 @@ function defaultProfile() {
     following: 0,
     followers: 0,
     avatarUrl: "",
+    tennisHand: "",
+    tennisLevel: "",
+    tennisStyle: "",
+    preferredSurface: "",
+    accountType: "",
   };
 }
 
@@ -57,6 +62,11 @@ function getProfile() {
     following: Number(p.following) || 0,
     followers: Number(p.followers) || 0,
     avatarUrl: p.avatarUrl || "",
+    tennisHand: p.tennisHand || "",
+    tennisLevel: p.tennisLevel || "",
+    tennisStyle: p.tennisStyle || "",
+    preferredSurface: p.preferredSurface || "",
+    accountType: p.accountType || "",
   };
 }
 

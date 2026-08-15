@@ -1,0 +1,187 @@
+<view class="profile-page">
+  <!-- 顶部绿色背景 -->
+  <view class="profile-header">
+    <view class="header-actions">
+      <view class="header-btn" bindtap="onToggleSettings">设置</view>
+      <view class="header-btn primary" bindtap="onEditProfile">编辑资料</view>
+    </view>
+  </view>
+
+  <!-- 资料卡片 -->
+  <view class="profile-card">
+    <view class="profile-main">
+      <view class="avatar" bindtap="onEditProfile">
+        <image wx:if="{{profile.avatarUrl}}" class="avatar-img" src="{{profile.avatarUrl}}" mode="aspectFill" />
+        <text wx:else class="avatar-letter">{{avatarLetter}}</text>
+      </view>
+      <view class="profile-info">
+        <view class="name-row">
+          <text class="nickname">{{profile.nickname}}</text>
+          <text class="gender" wx:if="{{profile.gender}}">{{profile.gender}}</text>
+        </view>
+        <text class="meta">小程序号 {{profile.uid}}<block wx:if="{{profile.location}}"> · IP {{profile.location}}</block></text>
+      </view>
+    </view>
+
+    <view class="stats-row">
+      <view class="stat" bindtap="onTapFollowing">
+        <text class="stat-num">{{stats.following}}</text>
+        <text class="stat-label">关注</text>
+      </view>
+      <view class="stat" bindtap="onTapFollowers">
+        <text class="stat-num">{{stats.followers}}</text>
+        <text class="stat-label">粉丝</text>
+      </view>
+      <view class="stat">
+        <text class="stat-num">{{stats.likedCollect}}</text>
+        <text class="stat-label">获赞与收藏</text>
+      </view>
+    </view>
+
+    <text class="bio" wx:if="{{profile.bio}}">{{profile.bio}}</text>
+    <text class="tennis-line" wx:if="{{tennisLine}}">{{tennisLine}}</text>
+    <view class="tag-list" wx:if="{{profile.tags.length}}">
+      <text class="tag" wx:for="{{profile.tags}}" wx:key="*this">{{item}}</text>
+    </view>
+  </view>
+
+  <!-- 快捷入口 -->
+  <view class="quick-grid">
+    <view class="quick-item" bindtap="onGoStroke">
+      <text class="quick-icon">✂</text>
+      <text class="quick-text">击球剪辑</text>
+    </view>
+    <view class="quick-item" bindtap="onGoAnalyze">
+      <text class="quick-icon">◎</text>
+      <text class="quick-text">动作分析</text>
+    </view>
+    <view class="quick-item" bindtap="onGoPose">
+      <text class="quick-icon">◇</text>
+      <text class="quick-text">实时关键点</text>
+    </view>
+    <view class="quick-item" bindtap="onGoFeed">
+      <text class="quick-icon">▣</text>
+      <text class="quick-text">发现资讯</text>
+    </view>
+  </view>
+
+  <!-- 内容标签 -->
+  <view class="content-tabs">
+    <view
+      wx:for="{{tabs}}"
+      wx:key="key"
+      class="content-tab {{activeTab === item.key ? 'active' : ''}}"
+      data-key="{{item.key}}"
+      bindtap="onTab"
+    >
+      <text>{{item.label}}</text>
+      <text class="tab-count" wx:if="{{item.count != null}}">{{item.count}}</text>
+    </view>
+  </view>
+
+  <!-- 瀑布流内容 -->
+  <view class="waterfall" wx:if="{{leftList.length || rightList.length}}">
+    <view class="col">
+      <view
+        class="note-card"
+        wx:for="{{leftList}}"
+        wx:key="id"
+        data-id="{{item.id}}"
+        bindtap="onOpenDetail"
+      >
+        <view class="cover-wrap" style="padding-bottom: {{item.cover_ratio * 100}}%;">
+          <image
+            wx:if="{{!item.coverFailed}}"
+            class="cover"
+            src="{{item.cover}}"
+            mode="aspectFill"
+            lazy-load
+            data-id="{{item.id}}"
+            data-col="left"
+            binderror="onCoverError"
+          />
+          <view wx:else class="cover-fallback">
+            <text class="fallback-letter">{{item.author_initial}}</text>
+          </view>
+        </view>
+        <view class="note-body">
+          <text class="note-title">{{item.title}}</text>
+        </view>
+      </view>
+    </view>
+    <view class="col">
+      <view
+        class="note-card"
+        wx:for="{{rightList}}"
+        wx:key="id"
+        data-id="{{item.id}}"
+        bindtap="onOpenDetail"
+      >
+        <view class="cover-wrap" style="padding-bottom: {{item.cover_ratio * 100}}%;">
+          <image
+            wx:if="{{!item.coverFailed}}"
+            class="cover"
+            src="{{item.cover}}"
+            mode="aspectFill"
+            lazy-load
+            data-id="{{item.id}}"
+            data-col="right"
+            binderror="onCoverError"
+          />
+          <view wx:else class="cover-fallback">
+            <text class="fallback-letter">{{item.author_initial}}</text>
+          </view>
+        </view>
+        <view class="note-body">
+          <text class="note-title">{{item.title}}</text>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <view class="empty-block" wx:else>
+    <text class="empty-title">{{emptyTitle}}</text>
+    <text class="empty-sub">{{emptySub}}</text>
+    <view class="empty-cta" bindtap="onEmptyCta" wx:if="{{emptyCta}}">{{emptyCta}}</view>
+  </view>
+
+  <!-- 账号设置 -->
+  <view class="settings-card" wx:if="{{showSettings}}">
+    <text class="settings-title">账号</text>
+    <view class="account-row" wx:if="{{loggedIn}}">
+      <view class="switch-text">
+        <text class="switch-label">已登录</text>
+        <text class="switch-hint">小程序号 {{profile.uid}}</text>
+      </view>
+      <view class="logout-btn" bindtap="onLogout">退出登录</view>
+    </view>
+    <view class="account-row" wx:else>
+      <view class="switch-text">
+        <text class="switch-label">游客模式</text>
+        <text class="switch-hint">发笔记、关注需登录</text>
+      </view>
+      <view class="login-btn" bindtap="onGoLogin">去登录</view>
+    </view>
+
+    <text class="settings-title" style="margin-top: 32rpx;">开发者选项</text>
+    <view class="switch-row">
+      <view class="switch-text">
+        <text class="switch-label">🔧 开发者模式</text>
+        <text class="switch-hint">开启后，分析页面显示调试功能和详细日志</text>
+      </view>
+      <switch checked="{{devMode}}" bindchange="onDevModeChange" color="#667eea" />
+    </view>
+    <block wx:if="{{localDev}}">
+      <text class="settings-title" style="margin-top: 32rpx;">数据源与调试</text>
+      <view class="switch-row">
+        <view class="switch-text">
+          <text class="switch-label">资讯使用 Mock</text>
+          <text class="switch-hint">关闭后请求本机 /api/news/feed；失败回退 Mock。</text>
+        </view>
+        <switch checked="{{feedUseMock}}" bindchange="onMockChange" color="#13d8a8" />
+      </view>
+      <text class="build-tag">Build {{buildTag}}</text>
+      <text class="build-tag">API {{apiBase}}</text>
+    </block>
+  </view>
+</view>

@@ -1,5 +1,6 @@
 const { getNote, deleteNote, follow, unfollow, fetchUser } = require("../../utils/social_api");
 const { getUserId } = require("../../utils/user_id");
+const { isLoggedIn, requireLogin } = require("../../utils/auth_api");
 
 function formatTime(isoOrTs) {
   if (!isoOrTs) return "";
@@ -58,6 +59,10 @@ Page({
   onToggleFollow() {
     var note = this.data.note;
     if (!note || this.data.isMine) return;
+    if (!isLoggedIn()) {
+      requireLogin("follow");
+      return;
+    }
     var that = this;
     var uid = note.user_id;
     var op = this.data.following ? unfollow(uid) : follow(uid);
@@ -87,7 +92,7 @@ Page({
             setTimeout(function () {
               wx.navigateBack({
                 fail: function () {
-                  wx.switchTab({ url: "/pages/me/index" });
+                  wx.switchTab({ url: "/pages/profile/index" });
                 },
               });
             }, 400);

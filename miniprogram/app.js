@@ -7,12 +7,10 @@ const {
   isDomainListError,
 } = require("./utils/config");
 const { pingHealth } = require("./utils/api");
-
-const AUTH_KEY = "tenclip_auth_done";
+const { isLoggedIn, clearSession, fetchMe } = require("./utils/auth_api");
 
 App({
   onLaunch() {
-    // 隐私授权
     if (typeof wx.onNeedPrivacyAuthorization === "function") {
       wx.onNeedPrivacyAuthorization(function (resolve) {
         wx.showModal({
@@ -35,7 +33,12 @@ App({
       });
     }
 
-    // API 连通检查
+    if (isLoggedIn()) {
+      fetchMe().catch(function () {
+        clearSession();
+      });
+    }
+
     if (!isApiConfigValid()) {
       console.error("[UChance] API 未配置:", API_BASE_URL);
       wx.showModal({
@@ -77,24 +80,17 @@ App({
             content: domainWhitelistHint(),
             showCancel: false,
           });
-          return;
         }
       });
   },
 
-  // 检查是否已完成登录授权
   isAuthDone() {
-    try {
-      return !!wx.getStorageSync(AUTH_KEY);
-    } catch (e) {
-      return false;
-    }
+    return isLoggedIn();
   },
 
-  // 清除登录状态（退出登录）
   clearAuth() {
+    clearSession();
     try {
-      wx.removeStorageSync(AUTH_KEY);
       wx.removeStorageSync("tenclip_user_profile");
     } catch (e) {}
   },

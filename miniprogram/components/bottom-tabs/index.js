@@ -16,7 +16,7 @@ Component({
     },
     onMe() {
       if (this.data.active === "me") return;
-      wx.redirectTo({ url: "/pages/me/index" });
+      wx.redirectTo({ url: "/pages/profile/index" });
     },
   },
 });

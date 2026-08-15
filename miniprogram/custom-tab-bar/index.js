@@ -6,7 +6,7 @@ Component({
       { pagePath: "/pages/feed/index", text: "发现", icon: "▣", type: "normal" },
       { pagePath: "", text: "", icon: "+", type: "action" },
       { pagePath: "/pages/analyze/index", text: "分析", icon: "◎", type: "normal" },
-      { pagePath: "/pages/me/index", text: "我的", icon: "👤", type: "normal" },
+      { pagePath: "/pages/profile/index", text: "我的", icon: "👤", type: "normal" },
     ],
   },
 
@@ -48,11 +48,16 @@ Component({
     },
 
     handleAction() {
+      var auth = require("../utils/auth_api");
       wx.showActionSheet({
         itemList: ["发笔记", "击球剪辑", "动作分析", "实时关键点"],
         success: function (res) {
           var tapIndex = res.tapIndex;
           if (tapIndex === 0) {
+            if (!auth.isLoggedIn()) {
+              wx.navigateTo({ url: "/pages/login/index" });
+              return;
+            }
             wx.navigateTo({ url: "/pages/note-compose/index" });
           } else if (tapIndex === 1) {
             wx.navigateTo({ url: "/pages/stroke-extract/index" });

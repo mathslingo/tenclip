@@ -63,6 +63,7 @@ from rec import (
     suggest_tags,
 )
 from services.social import init_social_db, list_notes, register_social_routes
+from services.wechat_auth import register_auth_routes
 
 logging.basicConfig(level=logging.INFO)
 os.environ["GRADIO_ANALYTICS_ENABLED"] = "False"
@@ -1166,6 +1167,7 @@ def create_app() -> FastAPI:
         }
 
     register_social_routes(api)
+    register_auth_routes(api)
 
     front_page_dir = _REPO_ROOT / "pages" / "front_page"
     if front_page_dir.exists():

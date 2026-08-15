@@ -5,6 +5,7 @@ const {
   fetchUser,
 } = require("../../utils/social_api");
 const { getUserId } = require("../../utils/user_id");
+const { isLoggedIn, requireLogin } = require("../../utils/auth_api");
 
 Page({
   data: {
@@ -73,6 +74,10 @@ Page({
   onToggle(e) {
     var id = e.currentTarget.dataset.id;
     if (!id || id === this.data.meId) return;
+    if (!isLoggedIn()) {
+      requireLogin("follow");
+      return;
+    }
     var that = this;
     var items = this.data.items || [];
     var target = null;

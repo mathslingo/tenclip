@@ -1,4 +1,7 @@
 {
-  "navigationBarTitleText": "欢迎",
-  "navigationStyle": "custom"
+  "navigationBarTitleText": "登录",
+  "navigationBarBackgroundColor": "#f2f3f5",
+  "navigationBarTextStyle": "black",
+  "backgroundColor": "#f2f3f5",
+  "disableScroll": true
 }

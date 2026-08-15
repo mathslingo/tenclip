@@ -9,6 +9,7 @@
 - [x] 关注 / 粉丝：关注、取消关注、列表页
 - [x] 生产隐藏资讯 Mock 开关与数据源调试文案
 - [x] 去掉未使用的定位 permission；关键点入口保留
+- [x] **微信一键登录** + **游客昵称/密码注册登录**（8 位 user_id、昵称唯一）+ 完善资料（网球风格）+ Bearer 会话
 
 ## 你需要在公众平台完成
 
@@ -18,34 +19,80 @@
 2. **用户隐私保护指引**（必须发布）  
    - 选相册 / 选视频（`chooseMedia`）— 剪辑、分析、发笔记  
    - 摄像头 — 实时关键点  
+   - 头像 / 昵称（完善资料页 `chooseAvatar` / `nickname`）
 
 3. 上传代码 → 体验版真机测：  
-   - 发现页加载（含用户笔记）  
+   - 微信一键登录 → 首次进完善资料 → 发现页  
    - 发笔记 → 我的作品 / 发现流  
    - 关注与粉丝列表  
    - 击球剪辑 / 动作分析上传  
    - 实时关键点骨架  
 
-4. **服务器**：`git pull` 后重启 `tenclip-api`（新表会在启动时 `init_social_db` 自动建）
+4. **服务器**：`git pull` 后配置环境变量并重启 `tenclip-api`（新列/会话表在启动时自动建）
 
 5. 提审 → 通过后发布正式版  
+
+## 微信登录 / 游客登录（1.0）
+
+| 项 | 说明 |
+|----|------|
+| 库 | `data/social.db`：`users` 含 openid、`password_hash`、网球风格字段、`create_id`；`sessions` 会话 |
+| user_id | **8 位数字**（10000000–99999999），微信与**游客注册**均分配 |
+| 昵称 | **全局唯一**（大小写不敏感）；注册/改资料强制校验 |
+| 微信登录 | `POST /api/auth/wechat/login` body `{ code }` → `{ token, user, is_new }` |
+| 游客注册 | `POST /api/auth/guest/register` `{ nickname, password }`（密码 **6 位数字**）→ 建号 + token |
+| 游客登录 | `POST /api/auth/guest/login` `{ nickname, password }` → 同一 `user_id` 可重复登录 |
+| 昵称检查 | `GET /api/auth/nickname/check?nickname=` |
+| 我的 | `GET /api/auth/me` Header `Authorization: Bearer <token>` |
+| 完善资料 | `POST /api/auth/profile`（含 `tennis_hand` / `tennis_level` / `tennis_style` / `preferred_surface`） |
+| 登出 | `POST /api/auth/logout`（删当前 session；游客可用昵称密码再登） |
+| 写操作 | 发笔记 / 关注 / 上传 / 删笔记需 Bearer（以 token 内 user_id 为准） |
+
+「先逛逛」= 无账号浏览态（无 user_id）；发笔记/关注/编辑资料需微信或游客登录。
+
+### 服务器环境变量（systemd）
+
+```bash
+# /etc/systemd/system/tenclip-api.service 或 EnvironmentFile
+TENCLIP_WECHAT_APPID=wx你的AppID
+TENCLIP_WECHAT_SECRET=你的AppSecret
+TENCLIP_ADMIN_TOKEN=随机长串   # 管理接口
+```
+
+本地无真机 code 时可设 `TENCLIP_WECHAT_MOCK=1`（**生产禁止**）。
+
+```bash
+systemctl daemon-reload
+systemctl restart tenclip-api
+```
+
+### 管理接口（运维）
+
+Header：`X-Admin-Token: <TENCLIP_ADMIN_TOKEN>`（或 Bearer 同值）
+
+- `GET /api/admin/users?limit=50` — 用户列表（openid 脱敏）
+- `POST /api/admin/users/{user_id}/revoke` — 踢下线（删 sessions）
+
+### 小程序前端
+
+- 登录页：`pages/login` → 微信登录 / **游客注册** / **游客登录** / 先逛逛
+- 完善资料：`pages/profile-edit?from=register`（昵称去重 + 网球风格）
+- 发笔记、关注、编辑资料：未登录跳登录页；已登录游客可编辑资料
 
 ## 笔记存储（1.0）
 
 | 项 | 说明 |
 |----|------|
 | 库 | `data/social.db`（SQLite，与 `news_feed.db` 分开） |
-| 表 | `users` / `notes` / `follows` |
+| 表 | `users` / `notes` / `follows` / `sessions` |
 | 图片 | `POST /api/social/uploads` → `/static/notes/{key}/n.jpg` |
-| 发布 | `POST /api/social/notes` |
+| 发布 | `POST /api/social/notes`（需登录） |
 | 发现 | `GET /api/news/feed` 在 offset=0 时把最近笔记混入推荐 |
-
-用户 ID v1 存在小程序本地（`tenclip_user_id`），发笔记/关注前会 `upsert` 到服务器。未接微信 `code2session`，换设备会变成新用户。
 
 ## 关注 / 粉丝（1.0）
 
 - 「我的」数字点进 `pages/follow-list`（关注 / 粉丝 Tab）
-- 他人笔记详情可关注作者
+- 他人笔记详情可关注作者（需登录）
 - API：`POST /api/social/follow`、`/unfollow`，`GET /api/social/users/{id}/following|followers`
 
 ## 跳转其他小程序（球场预约 / 点评）
@@ -95,6 +142,7 @@ wx.navigateToMiniProgram({
 
 ## 已知限制（v1.1）
 
-- 未接微信登录会话（`wx.login` / code2session），用户 ID 随本机存储  
+- 登录前本机生成的旧 `UCxxx` 笔记不会自动合并到微信 openid 账号  
 - 预约小程序 AppID 多数仍为空，需运营收集后填入 `court_data.js` 并加白名单  
 - 笔记未做审核/举报流  
+- 未配 `TENCLIP_WECHAT_APPID/SECRET` 时生产登录不可用  
