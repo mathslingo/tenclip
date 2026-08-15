@@ -13,11 +13,12 @@
   <!-- 地图 -->
   <view class="map-section">
     <map id="courtMap" class="court-map"
-      latitude="31.23" longitude="121.47"
+      latitude="{{mapLat}}" longitude="{{mapLng}}"
       markers="{{markers}}" scale="{{scale}}"
       show-location="{{true}}"
       bindmarkertap="onMarkerTap"
       bindregionchange="onRegionChange" />
+    <view class="locate-btn" bindtap="onLocateMe">定位</view>
   </view>
 
   <!-- 双 Tab -->

@@ -16,8 +16,21 @@
 .search-clear { font-size: 26rpx; color: #9aa3af; padding: 4rpx 10rpx; }
 
 /* ── 地图 ── */
-.map-section { width: 100%; height: 320rpx; }
+.map-section { width: 100%; height: 320rpx; position: relative; }
 .court-map { width: 100%; height: 320rpx; }
+.locate-btn {
+  position: absolute;
+  right: 20rpx;
+  bottom: 20rpx;
+  z-index: 5;
+  padding: 10rpx 20rpx;
+  border-radius: 999rpx;
+  background: #fff;
+  color: #0d3d32;
+  font-size: 22rpx;
+  font-weight: 600;
+  box-shadow: 0 4rpx 16rpx rgba(0, 0, 0, 0.12);
+}
 
 /* ── Tab 导航 ── */
 .tab-bar {

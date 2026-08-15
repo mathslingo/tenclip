@@ -53,5 +53,11 @@
     ]
   },
   "style": "v2",
-  "sitemapLocation": "sitemap.json"
+  "sitemapLocation": "sitemap.json",
+  "permission": {
+    "scope.userLocation": {
+      "desc": "用于找球场时按你的位置计算距离并排序"
+    }
+  },
+  "requiredPrivateInfos": ["getLocation"]
 }

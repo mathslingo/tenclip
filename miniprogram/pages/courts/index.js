@@ -37,13 +37,17 @@ function loadUserCourts() {
   try {
     var raw = wx.getStorageSync(USER_COURTS_KEY);
     return raw ? JSON.parse(raw) : [];
-  } catch (e) { return []; }
+  } catch (e) {
+    return [];
+  }
 }
 
 Page({
   data: {
     markers: [],
-    scale: 11,
+    scale: 12,
+    mapLat: SH_LAT,
+    mapLng: SH_LNG,
 
     topTabs: [
       { key: "all", label: "全部" },
@@ -56,18 +60,23 @@ Page({
     sortBy: "default",
     priceOptions: PRICE_RANGES,
     sortOptions: SORT_OPTIONS,
-    mapCenter: { lat: SH_LAT, lng: SH_LNG },
+    /** 距离计算基准：优先真机定位，失败才用市中心 */
+    userLat: SH_LAT,
+    userLng: SH_LNG,
+    hasUserLocation: false,
     searchKeyword: "",
 
     courts: [],
     showForm: false,
+    loading: true,
   },
 
   _mapCtx: null,
+  _locating: false,
 
   onLoad: function () {
     this._mapCtx = wx.createMapContext("courtMap", this);
-    this._loadCourts();
+    this._ensureLocationThenLoad(true);
   },
 
   onShow: function () {
@@ -77,7 +86,48 @@ Page({
     }
   },
 
-  // ── Tab ──
+  /**
+   * 取定位作为「距离最近」基准；失败则退回上海中心点。
+   * @param {boolean} moveMap 是否把地图中心移到用户位置
+   */
+  _ensureLocationThenLoad: function (moveMap) {
+    var that = this;
+    if (this._locating) return;
+    this._locating = true;
+
+    wx.getLocation({
+      type: "gcj02",
+      isHighAccuracy: true,
+      success: function (res) {
+        that._locating = false;
+        var lat = Number(res.latitude) || SH_LAT;
+        var lng = Number(res.longitude) || SH_LNG;
+        var patch = {
+          userLat: lat,
+          userLng: lng,
+          hasUserLocation: true,
+        };
+        if (moveMap) {
+          patch.mapLat = lat;
+          patch.mapLng = lng;
+        }
+        that.setData(patch);
+        that._loadCourts();
+      },
+      fail: function () {
+        that._locating = false;
+        that.setData({ hasUserLocation: false });
+        that._loadCourts();
+        if (moveMap) {
+          wx.showToast({
+            title: "未开启定位，距离按市中心估算",
+            icon: "none",
+            duration: 2200,
+          });
+        }
+      },
+    });
+  },
 
   onTabTap: function (e) {
     var key = e.currentTarget.dataset.key;
@@ -95,16 +145,18 @@ Page({
     this.setData({ activeTab: key });
   },
 
-  // ── 加载球场 ──
-
   _loadCourts: function () {
     var that = this;
-    var center = that.data.mapCenter;
+    // 距离一律相对用户定位（或降级市中心），不要用地图拖动中心
+    var lat = that.data.userLat;
+    var lng = that.data.userLng;
+
+    that.setData({ loading: true });
 
     courtApi
       .searchCourts({
-        lat: center.lat,
-        lng: center.lng,
+        lat: lat,
+        lng: lng,
         filter: that.data.filterCourtType,
         price: that.data.filterPrice,
         keyword: that.data.searchKeyword || "",
@@ -114,55 +166,46 @@ Page({
       .then(function (result) {
         var courts = (result && result.courts) || [];
 
-        // 合并用户提报
         var userCourts = loadUserCourts().map(function (c) {
           var n = courtData.normalizeCourt(c);
           n.isUserCourt = true;
+          if (n.lat && n.lng) {
+            n.distance = courtData.calcDistance(lat, lng, n.lat, n.lng);
+            n.distanceText = courtData.formatDistance(n.distance);
+          }
           return n;
         });
         var all = courts.concat(userCourts);
 
-        // 距离排序（服务端已按距离排；用户提报后重排）
-        if (that.data.sortBy === "distance" || (result && result.source === "courts.db")) {
-          if (that.data.sortBy === "distance") {
-            all.sort(function (a, b) {
-              return (a.distance || 0) - (b.distance || 0);
-            });
-          }
+        if (that.data.sortBy === "distance") {
+          all.sort(function (a, b) {
+            var da = a.distance != null && a.distance > 0 ? a.distance : 1e18;
+            var db = b.distance != null && b.distance > 0 ? b.distance : 1e18;
+            return da - db;
+          });
         }
 
         courtData.cacheCourts(all);
         var markers = courtData.toMarkers(all);
         that.setData({ courts: all, markers: markers, loading: false });
-
-        if (markers.length > 0 && that._mapCtx) {
-          that._mapCtx.includePoints({
-            points: all.map(function (c) {
-              return { latitude: c.lat, longitude: c.lng };
-            }),
-            padding: [40, 40, 40, 40],
-          });
-        }
       })
       .catch(function () {
         that.setData({ courts: [], markers: [], loading: false });
       });
   },
 
-  // ── 地图拖动 ──
-
   onRegionChange: function (e) {
     if (e.type === "end" && e.detail && e.detail.centerLocation) {
       this.setData({
-        mapCenter: {
-          lat: e.detail.centerLocation.latitude,
-          lng: e.detail.centerLocation.longitude,
-        },
+        mapLat: e.detail.centerLocation.latitude,
+        mapLng: e.detail.centerLocation.longitude,
       });
     }
   },
 
-  // ── 筛选 ──
+  onLocateMe: function () {
+    this._ensureLocationThenLoad(true);
+  },
 
   onTypeFilter: function (e) {
     var key = e.currentTarget.dataset.key;
@@ -182,23 +225,25 @@ Page({
     var key = e.currentTarget.dataset.key;
     if (key === this.data.sortBy) return;
     this.setData({ sortBy: key });
-    this._loadCourts();
+    if (key === "distance") {
+      this._ensureLocationThenLoad(false);
+    } else {
+      this._loadCourts();
+    }
   },
-
-  // ── 搜索 ──
 
   onSearchInput: function (e) {
     this.setData({ searchKeyword: e.detail.value });
   },
 
-  onSearchConfirm: function () { this._loadCourts(); },
+  onSearchConfirm: function () {
+    this._loadCourts();
+  },
 
   onClearSearch: function () {
     this.setData({ searchKeyword: "" });
     this._loadCourts();
   },
-
-  // ── 地图 ──
 
   onMarkerTap: function (e) {
     var markerId = e.detail.markerId;
@@ -207,10 +252,10 @@ Page({
     this.setData({ highlightId: court.id });
     this._mapCtx.moveToLocation({ latitude: court.lat, longitude: court.lng });
     var that = this;
-    setTimeout(function () { that.setData({ highlightId: "" }); }, 1500);
+    setTimeout(function () {
+      that.setData({ highlightId: "" });
+    }, 1500);
   },
-
-  // ── 卡片 ──
 
   onCourtTap: function (e) {
     var id = e.currentTarget.dataset.id;
@@ -223,15 +268,15 @@ Page({
     var court = this.data.courts[index];
     if (!court) return;
     wx.openLocation({
-      latitude: court.lat, longitude: court.lng,
-      name: court.name, address: court.address, scale: 16,
+      latitude: court.lat,
+      longitude: court.lng,
+      name: court.name,
+      address: court.address,
+      scale: 16,
     });
   },
 
-  // ── 提报 ──
-
   onShowForm: function () {
-    // 检查登录
     var app = getApp();
     if (!(app.isAuthDone && app.isAuthDone())) {
       wx.showModal({
@@ -248,7 +293,9 @@ Page({
     }
     this.setData({ showForm: true });
   },
-  onHideForm: function () { this.setData({ showForm: false }); },
+  onHideForm: function () {
+    this.setData({ showForm: false });
+  },
 
   onFormSubmit: function (e) {
     var data = e.detail.value;
@@ -260,7 +307,8 @@ Page({
     userCourts.push({
       id: "user-" + Date.now(),
       name: data.name,
-      lat: 31.23, lng: 121.47,
+      lat: this.data.userLat || SH_LAT,
+      lng: this.data.userLng || SH_LNG,
       address: data.address,
       rating: 0,
       priceRange: data.price || "暂无",
