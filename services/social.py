@@ -1212,7 +1212,7 @@ def toggle_bookmark(note_id: str, user_id: str) -> bool:
 
 
 def create_comment(note_id: str, user_id: str, body: str) -> dict[str, Any]:
-    """创建评论。"""
+    """创建评论。支持用户笔记和新闻文章。"""
     nid = (note_id or "").strip()
     if nid.startswith("note-"):
         nid = nid[5:]
@@ -1224,11 +1224,24 @@ def create_comment(note_id: str, user_id: str, body: str) -> dict[str, Any]:
     if len(text) > 140:
         raise ValueError("评论最多140字")
     
-    # 检查笔记存在
+    # 检查笔记存在（用户笔记或新闻文章）
+    is_news = False
     with _conn() as conn:
         note = conn.execute("SELECT id FROM notes WHERE id = ?", (nid,)).fetchone()
         if not note:
-            raise ValueError("笔记不存在")
+            # 可能是新闻文章，尝试从新闻数据库查询
+            news_conn = _news_conn()
+            if news_conn:
+                try:
+                    news_row = news_conn.execute("SELECT id FROM news_articles WHERE id = ?", (nid,)).fetchone()
+                    if news_row:
+                        is_news = True
+                    else:
+                        raise ValueError("笔记或文章不存在")
+                finally:
+                    news_conn.close()
+            else:
+                raise ValueError("笔记不存在")
         upsert_user(uid)
         
         cid = uuid.uuid4().hex[:16]
