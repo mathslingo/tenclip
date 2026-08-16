@@ -61,7 +61,7 @@
       <text class="info-label">地址</text>
       <view class="info-value-wrap">
         <text class="info-value address">{{court.address}}</text>
-        <text class="nav-link" bindtap="onNavigate">🧭 导航</text>
+        <text class="nav-link" bindtap="onNavigate">📍 导航</text>
       </view>
     </view>
 

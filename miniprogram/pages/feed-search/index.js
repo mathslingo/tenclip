@@ -76,6 +76,14 @@ Page({
     wx.navigateTo({ url: url });
   },
 
+  onOpenAuthor(e) {
+    var uid = e.currentTarget.dataset.uid;
+    if (!uid) return;
+    wx.navigateTo({
+      url: "/pages/user/index?user_id=" + encodeURIComponent(uid),
+    });
+  },
+
   onCoverError(e) {
     var id = e.currentTarget.dataset.id;
     var col = e.currentTarget.dataset.col;

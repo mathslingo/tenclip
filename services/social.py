@@ -32,6 +32,11 @@ class NoteCreate(BaseModel):
     title: str = ""
     body: str = ""
     image_urls: list[str] = Field(default_factory=list)
+    location_name: str = ""
+    location_address: str = ""
+    latitude: float | None = None
+    longitude: float | None = None
+    event_at: float | None = None  # unix 秒；可选附带时间
 
 
 class FollowBody(BaseModel):
@@ -77,6 +82,15 @@ def init_social_db() -> None:
             );
             CREATE INDEX IF NOT EXISTS idx_notes_created ON notes(created_at DESC);
             CREATE INDEX IF NOT EXISTS idx_notes_user ON notes(user_id, created_at DESC);
+            """
+        )
+        _ensure_column(conn, "notes", "location_name", "location_name TEXT NOT NULL DEFAULT ''")
+        _ensure_column(conn, "notes", "location_address", "location_address TEXT NOT NULL DEFAULT ''")
+        _ensure_column(conn, "notes", "latitude", "latitude REAL")
+        _ensure_column(conn, "notes", "longitude", "longitude REAL")
+        _ensure_column(conn, "notes", "event_at", "event_at REAL")
+        conn.executescript(
+            """
             CREATE TABLE IF NOT EXISTS follows (
                 follower_id TEXT NOT NULL,
                 followee_id TEXT NOT NULL,
@@ -243,6 +257,21 @@ def alloc_user_id(conn: sqlite3.Connection | None = None) -> str:
             conn.close()
 
 
+def _sanitize_avatar_url(url: str) -> str:
+    """只接受可公网访问的头像；微信本地临时路径一律丢弃。"""
+    u = (url or "").strip()
+    if not u:
+        return ""
+    low = u.lower()
+    if low.startswith("wxfile://") or low.startswith("file://"):
+        return ""
+    if "://tmp/" in low or low.startswith("http://tmp"):
+        return ""
+    if u.startswith("/") or low.startswith("https://") or low.startswith("http://"):
+        return u
+    return ""
+
+
 def upsert_user(
     user_id: str,
     *,
@@ -261,7 +290,12 @@ def upsert_user(
             nick = nick_in if nick_in else (row["nickname"] or f"球友{uid}")
             if nick_in and not _nickname_free(conn, nick, exclude_user_id=uid):
                 raise ValueError("昵称已被占用")
-            avatar = avatar_url.strip() if avatar_url else (row["avatar_url"] or "")
+            raw_avatar = (avatar_url or "").strip()
+            if not raw_avatar:
+                avatar = _sanitize_avatar_url(row["avatar_url"] or "")
+            else:
+                cleaned = _sanitize_avatar_url(raw_avatar)
+                avatar = cleaned if cleaned else _sanitize_avatar_url(row["avatar_url"] or "")
             bio_v = bio if bio != "" else (row["bio"] or "")
             conn.execute(
                 """
@@ -279,7 +313,7 @@ def upsert_user(
                 INSERT INTO users (user_id, nickname, avatar_url, bio, created_at, updated_at)
                 VALUES (?, ?, ?, ?, ?, ?)
                 """,
-                (uid, nick, avatar_url.strip(), bio.strip(), now, now),
+                (uid, nick, _sanitize_avatar_url(avatar_url), bio.strip(), now, now),
             )
         conn.commit()
     return get_user(uid) or {}
@@ -310,7 +344,7 @@ def get_user(user_id: str) -> dict[str, Any] | None:
         return {
             "user_id": row["user_id"],
             "nickname": row["nickname"],
-            "avatar_url": row["avatar_url"],
+            "avatar_url": _sanitize_avatar_url(row["avatar_url"] or ""),
             "bio": row["bio"],
             "gender": int(g("gender", 0) or 0),
             "birthday": g("birthday", "") or "",
@@ -437,6 +471,17 @@ def list_follow_users(user_id: str, *, kind: str) -> list[dict[str, Any]]:
     ]
 
 
+def _row_get(row: sqlite3.Row, key: str, default: Any = None) -> Any:
+    try:
+        keys = row.keys()
+        if key not in keys:
+            return default
+        v = row[key]
+        return default if v is None else v
+    except Exception:
+        return default
+
+
 def _note_public(row: sqlite3.Row, author: dict[str, Any] | None = None) -> dict[str, Any]:
     images = []
     try:
@@ -451,6 +496,21 @@ def _note_public(row: sqlite3.Row, author: dict[str, Any] | None = None) -> dict
     if not title:
         title = (body[:24] + "…") if len(body) > 24 else (body or "笔记")
     author = author or {}
+    lat = _row_get(row, "latitude", None)
+    lng = _row_get(row, "longitude", None)
+    event_at = _row_get(row, "event_at", None)
+    try:
+        lat_f = float(lat) if lat is not None else None
+    except (TypeError, ValueError):
+        lat_f = None
+    try:
+        lng_f = float(lng) if lng is not None else None
+    except (TypeError, ValueError):
+        lng_f = None
+    try:
+        event_f = float(event_at) if event_at is not None else None
+    except (TypeError, ValueError):
+        event_f = None
     return {
         "id": "note-" + row["id"],
         "note_id": row["id"],
@@ -468,6 +528,12 @@ def _note_public(row: sqlite3.Row, author: dict[str, Any] | None = None) -> dict
         "tags": ["笔记"],
         "published_at": _iso(row["created_at"]),
         "created_at": row["created_at"],
+        "location_name": str(_row_get(row, "location_name", "") or ""),
+        "location_address": str(_row_get(row, "location_address", "") or ""),
+        "latitude": lat_f,
+        "longitude": lng_f,
+        "event_at": event_f,
+        "event_at_iso": _iso(event_f) if event_f else "",
         "popularity": 0,
         "score": 160.0,
         "channel": "推荐",
@@ -489,6 +555,11 @@ def create_note(
     title: str = "",
     body: str = "",
     image_urls: list[str] | None = None,
+    location_name: str = "",
+    location_address: str = "",
+    latitude: float | None = None,
+    longitude: float | None = None,
+    event_at: float | None = None,
 ) -> dict[str, Any]:
     uid = (user_id or "").strip()
     if not uid:
@@ -497,15 +568,60 @@ def create_note(
     images = [str(x).strip() for x in (image_urls or []) if str(x).strip()][:9]
     if not (title or "").strip() and not (body or "").strip() and not images:
         raise ValueError("请填写正文或添加图片")
+    loc_name = (location_name or "").strip()[:80]
+    loc_addr = (location_address or "").strip()[:200]
+    lat_v: float | None = None
+    lng_v: float | None = None
+    if latitude is not None and longitude is not None:
+        try:
+            lat_v = float(latitude)
+            lng_v = float(longitude)
+            if not (-90 <= lat_v <= 90 and -180 <= lng_v <= 180):
+                lat_v, lng_v = None, None
+                loc_name, loc_addr = "", ""
+        except (TypeError, ValueError):
+            lat_v, lng_v = None, None
+            loc_name, loc_addr = "", ""
+    elif loc_name or loc_addr:
+        # 有文案无坐标仍允许保存地址
+        pass
+    else:
+        loc_name, loc_addr = "", ""
+
+    event_v: float | None = None
+    if event_at is not None:
+        try:
+            event_v = float(event_at)
+            # 合理范围：2000-01-01 ~ 2100-01-01
+            if event_v < 946684800 or event_v > 4102444800:
+                event_v = None
+        except (TypeError, ValueError):
+            event_v = None
+
     note_id = uuid.uuid4().hex[:16]
     now = time.time()
     with _conn() as conn:
         conn.execute(
             """
-            INSERT INTO notes (id, user_id, title, body, images_json, created_at)
-            VALUES (?, ?, ?, ?, ?, ?)
+            INSERT INTO notes (
+                id, user_id, title, body, images_json, created_at,
+                location_name, location_address, latitude, longitude, event_at
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
-            (note_id, uid, (title or "").strip(), (body or "").strip(), json.dumps(images, ensure_ascii=False), now),
+            (
+                note_id,
+                uid,
+                (title or "").strip(),
+                (body or "").strip(),
+                json.dumps(images, ensure_ascii=False),
+                now,
+                loc_name,
+                loc_addr,
+                lat_v,
+                lng_v,
+                event_v,
+            ),
         )
         conn.commit()
     return get_note(note_id) or {}
@@ -756,6 +872,13 @@ def register_social_routes(api) -> None:
         if viewer:
             user["is_following"] = is_following(viewer, user_id)
         user.pop("openid", None)
+        # 对外资料页不暴露联系方式
+        if not viewer or viewer != user_id:
+            user.pop("phone", None)
+            user.pop("email", None)
+            user.pop("last_login_at", None)
+            user.pop("login_count", None)
+            user.pop("has_password", None)
         return user
 
     @api.post("/api/social/follow")
@@ -816,6 +939,11 @@ def register_social_routes(api) -> None:
                 title=payload.title,
                 body=payload.body,
                 image_urls=payload.image_urls,
+                location_name=payload.location_name,
+                location_address=payload.location_address,
+                latitude=payload.latitude,
+                longitude=payload.longitude,
+                event_at=payload.event_at,
             )
         except ValueError as e:
             raise HTTPException(status_code=400, detail=str(e)) from e

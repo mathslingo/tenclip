@@ -158,4 +158,12 @@ Page({
         : "/pages/feed-detail/index?id=" + encodeURIComponent(id);
     wx.navigateTo({ url: url });
   },
+
+  onOpenAuthor(e) {
+    var uid = e.currentTarget.dataset.uid;
+    if (!uid) return;
+    wx.navigateTo({
+      url: "/pages/user/index?user_id=" + encodeURIComponent(uid),
+    });
+  },
 });

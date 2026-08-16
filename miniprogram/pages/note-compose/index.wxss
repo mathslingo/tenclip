@@ -133,3 +133,132 @@
   font-size: 22rpx;
   color: #9aa3ad;
 }
+
+.opt-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20rpx;
+}
+
+.opt-left {
+  flex: 1;
+  min-width: 0;
+}
+
+.opt-left .section-title {
+  display: block;
+}
+
+.opt-left .section-hint {
+  display: block;
+  margin-top: 6rpx;
+}
+
+.loc-box,
+.time-box {
+  margin-top: 20rpx;
+  padding: 20rpx 18rpx;
+  border-radius: 16rpx;
+  background: #f7faf9;
+  display: flex;
+  align-items: center;
+  gap: 14rpx;
+}
+
+.loc-pin {
+  width: 28rpx;
+  height: 36rpx;
+  flex-shrink: 0;
+  position: relative;
+}
+.loc-pin::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 28rpx;
+  height: 28rpx;
+  border-radius: 50% 50% 50% 0;
+  background: #13d8a8;
+  transform: rotate(-45deg);
+}
+.loc-pin::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 8rpx;
+  width: 10rpx;
+  height: 10rpx;
+  margin-left: -5rpx;
+  border-radius: 50%;
+  background: #fff;
+  z-index: 1;
+}
+
+.loc-meta {
+  flex: 1;
+  min-width: 0;
+}
+
+.loc-name {
+  display: block;
+  font-size: 28rpx;
+  font-weight: 600;
+  color: #151821;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.loc-name.muted {
+  font-weight: 500;
+  color: #5c6570;
+}
+
+.loc-addr {
+  display: block;
+  margin-top: 4rpx;
+  font-size: 22rpx;
+  color: #9aa3ad;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.loc-arrow {
+  color: #c0c5ce;
+  font-size: 36rpx;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.loc-actions {
+  display: flex;
+  gap: 28rpx;
+  margin-top: 16rpx;
+  padding-left: 4rpx;
+}
+
+.loc-action {
+  font-size: 24rpx;
+  color: #13d8a8;
+}
+
+.loc-action.danger {
+  color: #9aa3ad;
+}
+
+.time-label {
+  font-size: 26rpx;
+  color: #6e7582;
+  flex-shrink: 0;
+}
+
+.time-value {
+  flex: 1;
+  text-align: right;
+  font-size: 28rpx;
+  font-weight: 600;
+  color: #0d3d32;
+}

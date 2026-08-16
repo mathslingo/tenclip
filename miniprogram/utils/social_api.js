@@ -12,6 +12,27 @@ function absUrl(path) {
   return base + p;
 }
 
+/** 可跨端展示的头像；本地临时路径返回空，需先上传 */
+function usableAvatarUrl(path) {
+  var p = String(path || "").trim();
+  if (!p) return "";
+  if (/^(wxfile|file):\/\//i.test(p)) return "";
+  if (/^https?:\/\/tmp\//i.test(p)) return "";
+  if (/^https?:\/\//i.test(p)) return p;
+  if (p.charAt(0) === "/") return absUrl(p);
+  return "";
+}
+
+function needsAvatarUpload(path) {
+  var p = String(path || "").trim();
+  if (!p) return false;
+  if (/^(wxfile|file):\/\//i.test(p)) return true;
+  if (/^https?:\/\/tmp\//i.test(p)) return true;
+  // 已是本站 /static 或公网 https 则不必再传
+  if (/^https?:\/\//i.test(p) || p.indexOf("/static/") === 0) return false;
+  return true;
+}
+
 function request(opts) {
   var data = opts.data;
   var header = opts.header || authHeaders();
@@ -156,15 +177,30 @@ function publishNote(payload) {
     });
   });
   return chain.then(function (urls) {
+    var data = {
+      user_id: uid,
+      title: (payload.title || "").trim(),
+      body: (payload.body || "").trim(),
+      image_urls: urls,
+    };
+    if (payload.location_name || payload.location_address) {
+      data.location_name = payload.location_name || "";
+      data.location_address = payload.location_address || "";
+      if (
+        typeof payload.latitude === "number" &&
+        typeof payload.longitude === "number"
+      ) {
+        data.latitude = payload.latitude;
+        data.longitude = payload.longitude;
+      }
+    }
+    if (typeof payload.event_at === "number" && payload.event_at > 0) {
+      data.event_at = payload.event_at;
+    }
     return request({
       url: API_BASE_URL + "/api/social/notes",
       method: "POST",
-      data: {
-        user_id: uid,
-        title: (payload.title || "").trim(),
-        body: (payload.body || "").trim(),
-        image_urls: urls,
-      },
+      data: data,
     });
   });
 }
@@ -227,6 +263,7 @@ function normalizeNote(n) {
   if (!n) return n;
   var images = (n.images || []).map(absUrl);
   var cover = absUrl(n.image_url || n.cover || (images[0] || ""));
+  var avatar = usableAvatarUrl(n.author_avatar || n.avatar_url || "");
   return Object.assign({}, n, {
     id: n.id || ("note-" + n.note_id),
     kind: "note",
@@ -236,6 +273,7 @@ function normalizeNote(n) {
     cover_ratio: 1.25,
     author_name: n.author_name || n.source || "球友",
     author_initial: String(n.author_name || n.source || "球").charAt(0),
+    author_avatar: avatar,
     summary: n.body || n.summary || "",
     isLocalNote: false,
   });
@@ -243,11 +281,14 @@ function normalizeNote(n) {
 
 module.exports = {
   absUrl: absUrl,
+  usableAvatarUrl: usableAvatarUrl,
+  needsAvatarUpload: needsAvatarUpload,
   upsertMe: upsertMe,
   fetchUser: fetchUser,
   follow: follow,
   unfollow: unfollow,
   fetchFollowList: fetchFollowList,
+  uploadNoteImage: uploadNoteImage,
   publishNote: publishNote,
   listNotes: listNotes,
   searchNotes: searchNotes,

@@ -93,7 +93,10 @@
           binderror="onCoverError"
         />
         <view wx:else class="card-cover card-cover-fallback">
-          <text class="card-cover-emoji">🎾</text>
+          <view class="cover-pin">
+            <view class="cover-pin-head"></view>
+            <view class="cover-pin-dot"></view>
+          </view>
         </view>
 
         <view class="card-body">
@@ -114,8 +117,11 @@
           </view>
         </view>
 
-        <view class="card-nav-btn" catchtap="onNavigateTap" data-index="{{index}}">
-          <text class="nav-icon">🧭</text>
+        <view class="card-nav-btn" catchtap="onNavigateTap" data-index="{{index}}" aria-role="button" aria-label="导航">
+          <view class="nav-pin">
+            <view class="nav-pin-head"></view>
+            <view class="nav-pin-dot"></view>
+          </view>
         </view>
       </view>
 

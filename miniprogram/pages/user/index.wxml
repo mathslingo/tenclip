@@ -1,0 +1,127 @@
+<view class="page" wx:if="{{user}}">
+  <view class="hero">
+    <view class="hero-glow"></view>
+    <view class="hero-main">
+      <view class="avatar">
+        <image wx:if="{{avatarUrl}}" class="avatar-img" src="{{avatarUrl}}" mode="aspectFill" />
+        <text wx:else class="avatar-letter">{{avatarLetter}}</text>
+      </view>
+      <view class="hero-info">
+        <text class="nickname">{{user.nickname}}</text>
+        <view class="id-row">
+          <text class="uid">UChance号 {{user.user_id}}</text>
+          <text class="copy" catchtap="onCopyId">复制</text>
+        </view>
+        <text class="ip" wx:if="{{locationText}}">IP · {{locationText}}</text>
+      </view>
+    </view>
+
+    <view class="stats-row">
+      <view class="stat" bindtap="onTapFollowing">
+        <text class="stat-num">{{user.following || 0}}</text>
+        <text class="stat-label">关注</text>
+      </view>
+      <view class="stat" bindtap="onTapFollowers">
+        <text class="stat-num">{{user.followers || 0}}</text>
+        <text class="stat-label">粉丝</text>
+      </view>
+      <view class="stat">
+        <text class="stat-num">{{user.note_count || 0}}</text>
+        <text class="stat-label">笔记</text>
+      </view>
+    </view>
+
+    <text class="bio" wx:if="{{user.bio}}">{{user.bio}}</text>
+    <text class="bio muted" wx:else>这个球友还没有简介</text>
+
+    <view class="tag-list" wx:if="{{tags.length}}">
+      <text class="tag" wx:for="{{tags}}" wx:key="*this">{{item}}</text>
+    </view>
+
+    <view class="action-row" wx:if="{{!isMine}}">
+      <view class="btn follow {{following ? 'on' : ''}}" bindtap="onToggleFollow">
+        {{following ? '已关注' : '关注'}}
+      </view>
+    </view>
+    <view class="action-row" wx:else>
+      <view class="btn edit" bindtap="onEditMine">编辑资料</view>
+    </view>
+  </view>
+
+  <view class="section-bar">
+    <text class="section-title">笔记</text>
+    <text class="section-count">{{notes.length}}</text>
+  </view>
+
+  <view class="waterfall" wx:if="{{leftList.length || rightList.length}}">
+    <view class="col">
+      <view
+        class="note-card"
+        wx:for="{{leftList}}"
+        wx:key="id"
+        data-id="{{item.id}}"
+        bindtap="onOpenNote"
+      >
+        <view class="cover-wrap" style="padding-bottom: {{item.cover_ratio * 100}}%;">
+          <image
+            wx:if="{{!item.coverFailed}}"
+            class="cover"
+            src="{{item.cover}}"
+            mode="aspectFill"
+            lazy-load
+            data-id="{{item.id}}"
+            data-col="left"
+            binderror="onCoverError"
+          />
+          <view wx:else class="cover-fallback">
+            <text class="fallback-letter">{{item.author_initial}}</text>
+          </view>
+        </view>
+        <view class="note-body">
+          <text class="note-title">{{item.title}}</text>
+        </view>
+      </view>
+    </view>
+    <view class="col">
+      <view
+        class="note-card"
+        wx:for="{{rightList}}"
+        wx:key="id"
+        data-id="{{item.id}}"
+        bindtap="onOpenNote"
+      >
+        <view class="cover-wrap" style="padding-bottom: {{item.cover_ratio * 100}}%;">
+          <image
+            wx:if="{{!item.coverFailed}}"
+            class="cover"
+            src="{{item.cover}}"
+            mode="aspectFill"
+            lazy-load
+            data-id="{{item.id}}"
+            data-col="right"
+            binderror="onCoverError"
+          />
+          <view wx:else class="cover-fallback">
+            <text class="fallback-letter">{{item.author_initial}}</text>
+          </view>
+        </view>
+        <view class="note-body">
+          <text class="note-title">{{item.title}}</text>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <view class="empty" wx:elif="{{!loading}}">
+    <text class="empty-title">还没有公开笔记</text>
+    <text class="empty-sub">球友发布后会出现在这里</text>
+  </view>
+</view>
+
+<view class="empty full" wx:elif="{{!loading}}">
+  <text class="empty-title">{{errorText || '用户不存在'}}</text>
+</view>
+
+<view class="loading" wx:else>
+  <text>加载中…</text>
+</view>

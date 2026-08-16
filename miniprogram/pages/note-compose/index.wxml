@@ -36,6 +36,58 @@
     </view>
   </view>
 
+  <view class="card">
+    <view class="opt-row">
+      <view class="opt-left">
+        <text class="section-title">地图选点</text>
+        <text class="section-hint">分享打球地点（可选）</text>
+      </view>
+      <switch checked="{{locationEnabled}}" color="#13d8a8" bindchange="onToggleLocation" />
+    </view>
+    <block wx:if="{{locationEnabled}}">
+      <view class="loc-box" bindtap="onPickLocation">
+        <view class="loc-pin"></view>
+        <view class="loc-meta" wx:if="{{locationName || locationAddress}}">
+          <text class="loc-name">{{locationName}}</text>
+          <text class="loc-addr" wx:if="{{locationAddress}}">{{locationAddress}}</text>
+        </view>
+        <view class="loc-meta" wx:else>
+          <text class="loc-name muted">点击打开微信地图选点</text>
+          <text class="loc-addr">选点后附带地址一起发布</text>
+        </view>
+        <text class="loc-arrow">›</text>
+      </view>
+      <view class="loc-actions" wx:if="{{locationName || locationAddress}}">
+        <text class="loc-action" bindtap="onPickLocation">重新选点</text>
+        <text class="loc-action danger" bindtap="onClearLocation">清除</text>
+      </view>
+    </block>
+  </view>
+
+  <view class="card">
+    <view class="opt-row">
+      <view class="opt-left">
+        <text class="section-title">附带时间</text>
+        <text class="section-hint">活动 / 约球时间（可选）</text>
+      </view>
+      <switch checked="{{timeEnabled}}" color="#13d8a8" bindchange="onToggleTime" />
+    </view>
+    <picker
+      wx:if="{{timeEnabled}}"
+      mode="multiSelector"
+      range="{{dtRange}}"
+      value="{{dtValue}}"
+      bindchange="onDtChange"
+      bindcolumnchange="onDtColumnChange"
+    >
+      <view class="time-box">
+        <text class="time-label">选择时间</text>
+        <text class="time-value">{{eventTimeText}}</text>
+        <text class="loc-arrow">›</text>
+      </view>
+    </picker>
+  </view>
+
   <button class="publish-btn" loading="{{busy}}" disabled="{{busy}}" bindtap="onPublish">发布</button>
   <text class="tip">笔记保存在服务器，会出现在「发现」和「我的 · 作品」。</text>
 </view>

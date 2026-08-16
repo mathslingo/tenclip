@@ -37,6 +37,18 @@
   align-items: center;
   justify-content: center;
   font-size: 28rpx;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.avatar-img {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.avatar-letter {
+  line-height: 1;
 }
 
 .author-meta {
@@ -99,6 +111,98 @@
   color: #333;
   line-height: 1.65;
   white-space: pre-wrap;
+}
+
+.meta-row {
+  margin-top: 24rpx;
+  padding-top: 20rpx;
+  border-top: 1rpx solid #eef0f3;
+  display: flex;
+  align-items: baseline;
+  gap: 16rpx;
+}
+
+.meta-label {
+  font-size: 24rpx;
+  color: #9aa3ad;
+  flex-shrink: 0;
+}
+
+.meta-value {
+  font-size: 26rpx;
+  color: #0d3d32;
+  font-weight: 600;
+}
+
+.loc-row {
+  margin-top: 20rpx;
+  padding: 18rpx 16rpx;
+  border-radius: 16rpx;
+  background: #f7faf9;
+  display: flex;
+  align-items: center;
+  gap: 14rpx;
+}
+
+.loc-pin {
+  width: 28rpx;
+  height: 36rpx;
+  flex-shrink: 0;
+  position: relative;
+}
+.loc-pin::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 28rpx;
+  height: 28rpx;
+  border-radius: 50% 50% 50% 0;
+  background: #13d8a8;
+  transform: rotate(-45deg);
+}
+.loc-pin::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 8rpx;
+  width: 10rpx;
+  height: 10rpx;
+  margin-left: -5rpx;
+  border-radius: 50%;
+  background: #fff;
+  z-index: 1;
+}
+
+.loc-meta {
+  flex: 1;
+  min-width: 0;
+}
+
+.loc-name {
+  display: block;
+  font-size: 26rpx;
+  font-weight: 600;
+  color: #151821;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.loc-addr {
+  display: block;
+  margin-top: 4rpx;
+  font-size: 22rpx;
+  color: #9aa3ad;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.loc-go {
+  font-size: 24rpx;
+  color: #13d8a8;
+  flex-shrink: 0;
 }
 
 .danger-btn {

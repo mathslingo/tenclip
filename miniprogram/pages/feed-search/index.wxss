@@ -154,6 +154,13 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.avatar.avatar-img {
+  padding: 0;
+  display: block;
 }
 
 .author-name {

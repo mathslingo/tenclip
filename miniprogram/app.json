@@ -14,6 +14,7 @@
     "pages/action-analyze/index",
     "pages/note-compose/index",
     "pages/note-detail/index",
+    "pages/user/index",
     "pages/follow-list/index",
     "pages/feed-search/index",
     "pages/pose-detect/index",
@@ -56,8 +57,8 @@
   "sitemapLocation": "sitemap.json",
   "permission": {
     "scope.userLocation": {
-      "desc": "用于找球场时按你的位置计算距离并排序"
+      "desc": "用于找球场计算距离，以及发布笔记时在地图上选点分享地点"
     }
   },
-  "requiredPrivateInfos": ["getLocation"]
+  "requiredPrivateInfos": ["getLocation", "chooseLocation"]
 }

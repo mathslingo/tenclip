@@ -90,6 +90,7 @@ Header：`X-Admin-Token: <TENCLIP_ADMIN_TOKEN>`（或 Bearer 同值）
 - 完善资料：`pages/profile-edit?from=register`（昵称去重 + 网球风格）
 - 发笔记、关注、编辑资料：未登录跳登录页；已登录游客可编辑资料
 
+
 ## 找球场 / 场馆库（1.0）
 
 统一库：`data/courts.db`（gitignore；部署时由种子导入）。

@@ -1,5 +1,10 @@
 const { getProfile, saveProfile } = require("../../utils/me_store");
-const { upsertMe } = require("../../utils/social_api");
+const {
+  upsertMe,
+  uploadNoteImage,
+  needsAvatarUpload,
+  usableAvatarUrl,
+} = require("../../utils/social_api");
 const {
   isLoggedIn,
   updateAuthProfile,
@@ -68,8 +73,9 @@ Page({
     var nick = (serverUser && serverUser.nickname) || p.nickname || "";
     var bio = serverUser && serverUser.bio != null ? serverUser.bio : p.bio || "";
     var tags = (serverUser && serverUser.tags) || p.tags || [];
-    var avatar =
-      (serverUser && serverUser.avatar_url) || p.avatarUrl || "";
+    var avatar = usableAvatarUrl(
+      (serverUser && serverUser.avatar_url) || p.avatarUrl || ""
+    );
     var hand = (serverUser && serverUser.tennis_hand) || p.tennisHand || "";
     var level = (serverUser && serverUser.tennis_level) || p.tennisLevel || "";
     var style = (serverUser && serverUser.tennis_style) || p.tennisStyle || "";
@@ -173,7 +179,7 @@ Page({
       return;
     }
     var bio = String(form.bio || "").trim();
-    var avatar = String(form.avatarUrl || "").trim();
+    var avatarLocal = String(form.avatarUrl || "").trim();
     var tags = String(form.tagsText || "")
       .split(/[,，\s]+/)
       .map(function (t) {
@@ -187,35 +193,62 @@ Page({
     var style = form.tennisStyle || STYLE_OPTS[0];
     var surface = form.preferredSurface || SURFACE_OPTS[0];
 
-    saveProfile({
-      nickname: nick,
-      bio: bio,
-      tags: tags,
-      avatarUrl: avatar,
-      tennisHand: hand,
-      tennisLevel: level,
-      tennisStyle: style,
-      preferredSurface: surface,
-    });
+    wx.showLoading({ title: "保存中", mask: true });
 
-    updateAuthProfile({
-      nickname: nick,
-      bio: bio,
-      avatar_url: avatar,
-      tags: tags,
-      tennis_hand: hand,
-      tennis_level: level,
-      tennis_style: style,
-      preferred_surface: surface,
-    })
-      .catch(function (err) {
-        var msg = (err && err.message) || "";
-        if (msg.indexOf("昵称") >= 0) {
-          return Promise.reject(err);
+    var uploadPromise;
+    if (!avatarLocal) {
+      uploadPromise = Promise.resolve("");
+    } else if (needsAvatarUpload(avatarLocal)) {
+      uploadPromise = uploadNoteImage(
+        avatarLocal,
+        0,
+        "avatar" + Date.now().toString(36)
+      ).then(function (url) {
+        var ok = usableAvatarUrl(url) || "";
+        if (!ok) {
+          return Promise.reject(new Error("头像上传失败，请重新选择头像"));
         }
-        return upsertMe();
+        return ok;
+      });
+    } else {
+      var ready = usableAvatarUrl(avatarLocal) || "";
+      uploadPromise = ready
+        ? Promise.resolve(ready)
+        : Promise.reject(new Error("头像无效，请重新选择头像"));
+    }
+
+    uploadPromise
+      .then(function (avatar) {
+        saveProfile({
+          nickname: nick,
+          bio: bio,
+          tags: tags,
+          avatarUrl: avatar,
+          tennisHand: hand,
+          tennisLevel: level,
+          tennisStyle: style,
+          preferredSurface: surface,
+        });
+        that.setData({ "form.avatarUrl": avatar });
+        return updateAuthProfile({
+          nickname: nick,
+          bio: bio,
+          avatar_url: avatar,
+          tags: tags,
+          tennis_hand: hand,
+          tennis_level: level,
+          tennis_style: style,
+          preferred_surface: surface,
+        }).catch(function (err) {
+          var msg = (err && err.message) || "";
+          if (msg.indexOf("昵称") >= 0) {
+            return Promise.reject(err);
+          }
+          return upsertMe();
+        });
       })
       .then(function () {
+        wx.hideLoading();
         wx.showToast({ title: "已保存", icon: "success" });
         setTimeout(function () {
           if (that.data.fromRegister) {
@@ -230,6 +263,7 @@ Page({
         }, 400);
       })
       .catch(function (err) {
+        wx.hideLoading();
         wx.showToast({
           title: (err && err.message) || "保存失败",
           icon: "none",

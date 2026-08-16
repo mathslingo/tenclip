@@ -11,8 +11,16 @@
   </swiper>
 
   <view class="author-row" wx:if="{{note.user_id}}">
-    <view class="avatar">{{note.author_initial}}</view>
-    <view class="author-meta">
+    <view class="avatar" bindtap="onOpenAuthor">
+      <image
+        wx:if="{{note.author_avatar}}"
+        class="avatar-img"
+        src="{{note.author_avatar}}"
+        mode="aspectFill"
+      />
+      <text wx:else class="avatar-letter">{{note.author_initial}}</text>
+    </view>
+    <view class="author-meta" bindtap="onOpenAuthor">
       <text class="author-name">{{note.author_name}}</text>
       <text class="time">{{timeText}}</text>
     </view>
@@ -26,6 +34,24 @@
   <view class="body-card">
     <text class="title">{{note.title}}</text>
     <text class="body" selectable>{{note.body || note.summary}}</text>
+
+    <view class="meta-row" wx:if="{{eventTimeText}}">
+      <text class="meta-label">时间</text>
+      <text class="meta-value">{{eventTimeText}}</text>
+    </view>
+
+    <view
+      class="loc-row"
+      wx:if="{{note.location_name || note.location_address}}"
+      bindtap="onOpenLocation"
+    >
+      <view class="loc-pin"></view>
+      <view class="loc-meta">
+        <text class="loc-name">{{note.location_name || '地点'}}</text>
+        <text class="loc-addr" wx:if="{{note.location_address}}">{{note.location_address}}</text>
+      </view>
+      <text class="loc-go" wx:if="{{canOpenMap}}">地图</text>
+    </view>
   </view>
 
   <button class="danger-btn" bindtap="onDelete" wx:if="{{isMine}}">删除笔记</button>

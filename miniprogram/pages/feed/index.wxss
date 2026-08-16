@@ -223,6 +223,12 @@
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
+  overflow: hidden;
+}
+
+.avatar.avatar-img {
+  padding: 0;
+  display: block;
 }
 
 .author-name {

@@ -4,8 +4,16 @@
     <view class="tab {{kind === 'followers' ? 'on' : ''}}" data-kind="followers" bindtap="onKind">粉丝</view>
   </view>
 
-  <view class="row" wx:for="{{items}}" wx:key="user_id">
-    <view class="avatar">{{item.nickname[0] || '球'}}</view>
+  <view class="row" wx:for="{{items}}" wx:key="user_id" data-id="{{item.user_id}}" bindtap="onOpenUser">
+    <view class="avatar">
+      <image
+        wx:if="{{item.avatar_url}}"
+        class="avatar-img"
+        src="{{item.avatar_url}}"
+        mode="aspectFill"
+      />
+      <text wx:else>{{item.nickname[0] || '球'}}</text>
+    </view>
     <view class="meta">
       <text class="name">{{item.nickname}}</text>
       <text class="bio" wx:if="{{item.bio}}">{{item.bio}}</text>
@@ -13,7 +21,7 @@
     <view
       class="follow-btn {{item.is_following ? 'on' : ''}}"
       data-id="{{item.user_id}}"
-      bindtap="onToggle"
+      catchtap="onToggle"
       wx:if="{{item.user_id !== meId}}"
     >{{item.is_following ? '已关注' : '关注'}}</view>
   </view>

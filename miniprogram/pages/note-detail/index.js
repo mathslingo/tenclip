@@ -18,6 +18,8 @@ Page({
   data: {
     note: null,
     timeText: "",
+    eventTimeText: "",
+    canOpenMap: false,
     isMine: false,
     following: false,
     errorText: "",
@@ -34,9 +36,16 @@ Page({
     getNote(id)
       .then(function (note) {
         var isMine = String(note.user_id || "") === String(me);
+        var canOpenMap =
+          typeof note.latitude === "number" &&
+          typeof note.longitude === "number" &&
+          !isNaN(note.latitude) &&
+          !isNaN(note.longitude);
         that.setData({
           note: note,
           timeText: formatTime(note.created_at || note.published_at),
+          eventTimeText: formatTime(note.event_at || note.event_at_iso),
+          canOpenMap: canOpenMap,
           isMine: isMine,
         });
         if (!isMine && note.user_id) {
@@ -54,6 +63,30 @@ Page({
     var src = e.currentTarget.dataset.src;
     var urls = (this.data.note && this.data.note.images) || [];
     wx.previewImage({ current: src, urls: urls });
+  },
+
+  onOpenAuthor() {
+    var note = this.data.note;
+    var uid = note && note.user_id;
+    if (!uid) return;
+    wx.navigateTo({
+      url: "/pages/user/index?user_id=" + encodeURIComponent(uid),
+    });
+  },
+
+  onOpenLocation() {
+    var note = this.data.note;
+    if (!note || !this.data.canOpenMap) {
+      wx.showToast({ title: "暂无精确坐标", icon: "none" });
+      return;
+    }
+    wx.openLocation({
+      latitude: note.latitude,
+      longitude: note.longitude,
+      name: note.location_name || "笔记地点",
+      address: note.location_address || "",
+      scale: 16,
+    });
   },
 
   onToggleFollow() {

@@ -44,8 +44,18 @@
         <view class="note-body">
           <text class="note-title">{{item.title}}</text>
           <view class="note-meta">
-            <view class="author">
-              <view class="avatar">{{item.author_initial}}</view>
+            <view
+              class="author"
+              catchtap="onOpenAuthor"
+              data-uid="{{item.user_id}}"
+            >
+              <image
+                wx:if="{{item.author_avatar}}"
+                class="avatar avatar-img"
+                src="{{item.author_avatar}}"
+                mode="aspectFill"
+              />
+              <view wx:else class="avatar">{{item.author_initial}}</view>
               <text class="author-name">{{item.author_name}}</text>
             </view>
             <view class="likes">
@@ -84,8 +94,18 @@
         <view class="note-body">
           <text class="note-title">{{item.title}}</text>
           <view class="note-meta">
-            <view class="author">
-              <view class="avatar">{{item.author_initial}}</view>
+            <view
+              class="author"
+              catchtap="onOpenAuthor"
+              data-uid="{{item.user_id}}"
+            >
+              <image
+                wx:if="{{item.author_avatar}}"
+                class="avatar avatar-img"
+                src="{{item.author_avatar}}"
+                mode="aspectFill"
+              />
+              <view wx:else class="avatar">{{item.author_initial}}</view>
               <text class="author-name">{{item.author_name}}</text>
             </view>
             <view class="likes">

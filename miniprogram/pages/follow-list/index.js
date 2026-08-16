@@ -3,6 +3,7 @@ const {
   follow,
   unfollow,
   fetchUser,
+  usableAvatarUrl,
 } = require("../../utils/social_api");
 const { getUserId } = require("../../utils/user_id");
 const { isLoggedIn, requireLogin } = require("../../utils/auth_api");
@@ -64,7 +65,13 @@ Page({
         return Promise.all(tasks);
       })
       .then(function (items) {
-        that.setData({ items: items || [], loading: false });
+        that.setData({
+          items: (items || []).map(function (u) {
+            u.avatar_url = usableAvatarUrl(u.avatar_url || "");
+            return u;
+          }),
+          loading: false,
+        });
       })
       .catch(function () {
         that.setData({ items: [], loading: false });
@@ -91,6 +98,14 @@ Page({
       that.setData({ items: items });
     }).catch(function (err) {
       wx.showToast({ title: (err && err.message) || "操作失败", icon: "none" });
+    });
+  },
+
+  onOpenUser(e) {
+    var id = e.currentTarget.dataset.id;
+    if (!id) return;
+    wx.navigateTo({
+      url: "/pages/user/index?user_id=" + encodeURIComponent(id),
     });
   },
 });
