@@ -45,7 +45,6 @@ class FollowBody(BaseModel):
 
 
 class CommentCreate(BaseModel):
-    note_id: str = Field(..., min_length=1)
     body: str = Field(..., min_length=1, max_length=140)
 
 
@@ -1151,6 +1150,8 @@ def register_social_routes(api) -> None:
 def toggle_like(note_id: str, user_id: str) -> bool:
     """Toggle like status for a note. Returns True if now liked, False if unliked."""
     nid = (note_id or "").strip()
+    if nid.startswith("note-"):
+        nid = nid[5:]
     uid = (user_id or "").strip()
     if not nid or not uid:
         return False
@@ -1163,6 +1164,7 @@ def toggle_like(note_id: str, user_id: str) -> bool:
         
         if existing:
             conn.execute("DELETE FROM likes WHERE user_id = ? AND note_id = ?", (uid, nid))
+            conn.commit()
             return False
         else:
             ts = time.time()
@@ -1171,6 +1173,7 @@ def toggle_like(note_id: str, user_id: str) -> bool:
                     "INSERT INTO likes (user_id, note_id, created_at) VALUES (?, ?, ?)",
                     (uid, nid, ts)
                 )
+                conn.commit()
             except sqlite3.IntegrityError:
                 pass
             return True
@@ -1179,6 +1182,8 @@ def toggle_like(note_id: str, user_id: str) -> bool:
 def toggle_bookmark(note_id: str, user_id: str) -> bool:
     """Toggle bookmark status for a note. Returns True if now bookmarked, False if removed."""
     nid = (note_id or "").strip()
+    if nid.startswith("note-"):
+        nid = nid[5:]
     uid = (user_id or "").strip()
     if not nid or not uid:
         return False
@@ -1191,6 +1196,7 @@ def toggle_bookmark(note_id: str, user_id: str) -> bool:
         
         if existing:
             conn.execute("DELETE FROM bookmarks WHERE user_id = ? AND note_id = ?", (uid, nid))
+            conn.commit()
             return False
         else:
             ts = time.time()
@@ -1199,6 +1205,7 @@ def toggle_bookmark(note_id: str, user_id: str) -> bool:
                     "INSERT INTO bookmarks (user_id, note_id, created_at) VALUES (?, ?, ?)",
                     (uid, nid, ts)
                 )
+                conn.commit()
             except sqlite3.IntegrityError:
                 pass
             return True
@@ -1207,6 +1214,8 @@ def toggle_bookmark(note_id: str, user_id: str) -> bool:
 def create_comment(note_id: str, user_id: str, body: str) -> dict[str, Any]:
     """创建评论。"""
     nid = (note_id or "").strip()
+    if nid.startswith("note-"):
+        nid = nid[5:]
     uid = (user_id or "").strip()
     text = (body or "").strip()
     
