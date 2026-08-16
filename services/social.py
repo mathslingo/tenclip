@@ -1224,24 +1224,27 @@ def create_comment(note_id: str, user_id: str, body: str) -> dict[str, Any]:
     if len(text) > 140:
         raise ValueError("评论最多140字")
     
-    # 检查笔记存在（用户笔记或新闻文章）
-    is_news = False
+    # 检查笔记或文章存在
+    note_exists = False
     with _conn() as conn:
         note = conn.execute("SELECT id FROM notes WHERE id = ?", (nid,)).fetchone()
-        if not note:
-            # 可能是新闻文章，尝试从新闻数据库查询
-            news_conn = _news_conn()
-            if news_conn:
-                try:
-                    news_row = news_conn.execute("SELECT id FROM news_articles WHERE id = ?", (nid,)).fetchone()
-                    if news_row:
-                        is_news = True
-                    else:
-                        raise ValueError("笔记或文章不存在")
-                finally:
-                    news_conn.close()
-            else:
-                raise ValueError("笔记不存在")
+        if note:
+            note_exists = True
+    
+    if not note_exists:
+        # 尝试从新闻数据库查询
+        news_conn = _news_conn()
+        if not news_conn:
+            raise ValueError("笔记不存在")
+        try:
+            news_row = news_conn.execute("SELECT id FROM news_articles WHERE id = ?", (nid,)).fetchone()
+            if not news_row:
+                raise ValueError("笔记或文章不存在")
+        finally:
+            news_conn.close()
+    
+    # 创建评论
+    with _conn() as conn:
         upsert_user(uid)
         
         cid = uuid.uuid4().hex[:16]
