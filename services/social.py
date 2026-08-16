@@ -44,6 +44,11 @@ class FollowBody(BaseModel):
     followee_id: str = Field(..., min_length=1)
 
 
+class CommentCreate(BaseModel):
+    note_id: str = Field(..., min_length=1)
+    body: str = Field(..., min_length=1, max_length=140)
+
+
 def _conn() -> sqlite3.Connection:
     DB_PATH.parent.mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(str(DB_PATH))
@@ -110,6 +115,37 @@ def init_social_db() -> None:
             );
             CREATE INDEX IF NOT EXISTS idx_sessions_user ON sessions(user_id);
             CREATE INDEX IF NOT EXISTS idx_sessions_expires ON sessions(expires_at);
+            CREATE TABLE IF NOT EXISTS comments (
+                id TEXT PRIMARY KEY,
+                note_id TEXT NOT NULL,
+                user_id TEXT NOT NULL,
+                body TEXT NOT NULL,
+                created_at REAL NOT NULL,
+                updated_at REAL NOT NULL,
+                FOREIGN KEY (note_id) REFERENCES notes(id),
+                FOREIGN KEY (user_id) REFERENCES users(user_id)
+            );
+            CREATE INDEX IF NOT EXISTS idx_comments_note ON comments(note_id, created_at DESC);
+            CREATE INDEX IF NOT EXISTS idx_comments_user ON comments(user_id, created_at DESC);
+            CREATE TABLE IF NOT EXISTS likes (
+                user_id TEXT NOT NULL,
+                note_id TEXT NOT NULL,
+                created_at REAL NOT NULL,
+                PRIMARY KEY (user_id, note_id),
+                FOREIGN KEY (user_id) REFERENCES users(user_id),
+                FOREIGN KEY (note_id) REFERENCES notes(id)
+            );
+            CREATE INDEX IF NOT EXISTS idx_likes_note ON likes(note_id);
+            CREATE TABLE IF NOT EXISTS bookmarks (
+                user_id TEXT NOT NULL,
+                note_id TEXT NOT NULL,
+                created_at REAL NOT NULL,
+                PRIMARY KEY (user_id, note_id),
+                FOREIGN KEY (user_id) REFERENCES users(user_id),
+                FOREIGN KEY (note_id) REFERENCES notes(id)
+            );
+            CREATE INDEX IF NOT EXISTS idx_bookmarks_user ON bookmarks(user_id, created_at DESC);
+            CREATE INDEX IF NOT EXISTS idx_bookmarks_note ON bookmarks(note_id);
             """
         )
         # 登录与会话
@@ -482,7 +518,7 @@ def _row_get(row: sqlite3.Row, key: str, default: Any = None) -> Any:
         return default
 
 
-def _note_public(row: sqlite3.Row, author: dict[str, Any] | None = None) -> dict[str, Any]:
+def _note_public(row: sqlite3.Row, author: dict[str, Any] | None = None, viewer_id: str | None = None) -> dict[str, Any]:
     images = []
     try:
         images = json.loads(row["images_json"] or "[]")
@@ -537,7 +573,23 @@ def _note_public(row: sqlite3.Row, author: dict[str, Any] | None = None) -> dict
         "popularity": 0,
         "score": 160.0,
         "channel": "推荐",
+        "liked": False,
+        "bookmarked": False,
     }
+    if viewer_id:
+        with _conn() as conn:
+            like_row = conn.execute(
+                "SELECT 1 FROM likes WHERE user_id = ? AND note_id = ? LIMIT 1",
+                (viewer_id, row["id"])
+            ).fetchone()
+            result["liked"] = bool(like_row)
+            
+            bookmark_row = conn.execute(
+                "SELECT 1 FROM bookmarks WHERE user_id = ? AND note_id = ? LIMIT 1",
+                (viewer_id, row["id"])
+            ).fetchone()
+            result["bookmarked"] = bool(bookmark_row)
+    return result
 
 
 def _iso(ts: float) -> str:
@@ -627,7 +679,7 @@ def create_note(
     return get_note(note_id) or {}
 
 
-def get_note(note_id: str) -> dict[str, Any] | None:
+def get_note(note_id: str, viewer_id: str | None = None) -> dict[str, Any] | None:
     nid = (note_id or "").strip()
     if nid.startswith("note-"):
         nid = nid[5:]
@@ -642,10 +694,10 @@ def get_note(note_id: str) -> dict[str, Any] | None:
             (row["user_id"],),
         ).fetchone()
         author = dict(author_row) if author_row else {}
-        return _note_public(row, author)
+        return _note_public(row, author, viewer_id)
 
 
-def search_notes(q: str, limit: int = 40, offset: int = 0) -> list[dict[str, Any]]:
+def search_notes(q: str, limit: int = 40, offset: int = 0, viewer_id: str | None = None) -> list[dict[str, Any]]:
     keyword = (q or "").strip()
     if not keyword:
         return []
@@ -664,7 +716,7 @@ def search_notes(q: str, limit: int = 40, offset: int = 0) -> list[dict[str, Any
         ).fetchall()
     return [
         _note_public(
-            r, {"nickname": r["nickname"], "avatar_url": r["avatar_url"]}
+            r, {"nickname": r["nickname"], "avatar_url": r["avatar_url"]}, viewer_id
         )
         for r in rows
     ]
@@ -741,7 +793,7 @@ def _search_time_key(item: dict[str, Any]) -> float:
         return 0.0
 
 
-def search_universal(q: str, limit: int = 40, offset: int = 0) -> list[dict[str, Any]]:
+def search_universal(q: str, limit: int = 40, offset: int = 0, viewer_id: str | None = None) -> list[dict[str, Any]]:
     """同时搜索用户笔记和新闻资讯，按时间倒序合并。"""
     keyword = (q or "").strip()
     if not keyword:
@@ -750,13 +802,13 @@ def search_universal(q: str, limit: int = 40, offset: int = 0) -> list[dict[str,
     offset = max(0, int(offset))
     # 各自多取一些，避免合并后再分页导致某一类过少
     fetch_limit = max(limit, 40)
-    notes = search_notes(q, limit=fetch_limit, offset=offset)
+    notes = search_notes(q, limit=fetch_limit, offset=offset, viewer_id=viewer_id)
     news = search_news_articles(q, limit=fetch_limit, offset=offset)
     merged = sorted(notes + news, key=_search_time_key, reverse=True)
     return merged[:limit]
 
 
-def list_notes(*, user_id: str | None = None, limit: int = 40, offset: int = 0) -> list[dict[str, Any]]:
+def list_notes(*, user_id: str | None = None, limit: int = 40, offset: int = 0, viewer_id: str | None = None) -> list[dict[str, Any]]:
     limit = max(1, min(int(limit), 80))
     offset = max(0, int(offset))
     with _conn() as conn:
@@ -784,7 +836,7 @@ def list_notes(*, user_id: str | None = None, limit: int = 40, offset: int = 0) 
     out = []
     for r in rows:
         author = {"nickname": r["nickname"], "avatar_url": r["avatar_url"]}
-        out.append(_note_public(r, author))
+        out.append(_note_public(r, author, viewer_id))
     return out
 
 
@@ -953,32 +1005,62 @@ def register_social_routes(api) -> None:
         q: str = Query(..., min_length=1),
         limit: int = Query(40, ge=1, le=80),
         offset: int = Query(0, ge=0),
+        authorization: str | None = Header(default=None),
     ):
-        return {"items": search_notes(q, limit=limit, offset=offset)}
+        viewer_id = None
+        try:
+            user = _auth_user(authorization)
+            viewer_id = user.get("user_id")
+        except Exception:
+            pass
+        return {"items": search_notes(q, limit=limit, offset=offset, viewer_id=viewer_id)}
 
     @api.get("/api/feed/search")
     def api_search_feed(
         q: str = Query(..., min_length=1),
         limit: int = Query(40, ge=1, le=80),
         offset: int = Query(0, ge=0),
+        authorization: str | None = Header(default=None),
     ):
-        return {"items": search_universal(q, limit=limit, offset=offset)}
+        viewer_id = None
+        try:
+            user = _auth_user(authorization)
+            viewer_id = user.get("user_id")
+        except Exception:
+            pass
+        return {"items": search_universal(q, limit=limit, offset=offset, viewer_id=viewer_id)}
 
     @api.get("/api/social/notes")
     def api_list_notes(
         user_id: str = Query(""),
         limit: int = Query(40, ge=1, le=80),
         offset: int = Query(0, ge=0),
+        authorization: str | None = Header(default=None),
     ):
+        viewer_id = None
+        try:
+            user = _auth_user(authorization)
+            viewer_id = user.get("user_id")
+        except Exception:
+            pass
         return {
             "items": list_notes(
-                user_id=user_id or None, limit=limit, offset=offset
+                user_id=user_id or None, limit=limit, offset=offset, viewer_id=viewer_id
             )
         }
 
     @api.get("/api/social/notes/{note_id}")
-    def api_get_note(note_id: str):
-        note = get_note(note_id)
+    def api_get_note(
+        note_id: str,
+        authorization: str | None = Header(default=None),
+    ):
+        viewer_id = None
+        try:
+            user = _auth_user(authorization)
+            viewer_id = user.get("user_id")
+        except Exception:
+            pass
+        note = get_note(note_id, viewer_id)
         if not note:
             raise HTTPException(status_code=404, detail="note not found")
         return note
@@ -995,9 +1077,245 @@ def register_social_routes(api) -> None:
             raise HTTPException(status_code=404, detail="无法删除")
         return {"ok": True}
 
+    @api.post("/api/social/notes/{note_id}/comments")
+    def api_create_comment(
+        note_id: str,
+        payload: CommentCreate,
+        authorization: str | None = Header(default=None),
+    ):
+        me = _auth_user(authorization)
+        try:
+            return create_comment(note_id, me["user_id"], payload.body)
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e)) from e
+
+    @api.get("/api/social/notes/{note_id}/comments")
+    def api_list_comments(
+        note_id: str,
+        limit: int = Query(50, ge=1, le=100),
+        offset: int = Query(0, ge=0),
+        authorization: str | None = Header(default=None),
+    ):
+        viewer = ""
+        if authorization:
+            try:
+                from services.wechat_auth import resolve_token
+                me = resolve_token(authorization)
+                if me:
+                    viewer = me["user_id"]
+            except Exception:
+                viewer = ""
+        return {
+            "items": list_comments(note_id, viewer_id=viewer, limit=limit, offset=offset)
+        }
+
+    @api.delete("/api/social/notes/{note_id}/comments/{comment_id}")
+    def api_delete_comment(
+        note_id: str,
+        comment_id: str,
+        authorization: str | None = Header(default=None),
+    ):
+        me = _auth_user(authorization)
+        ok = delete_comment(comment_id, me["user_id"])
+        if not ok:
+            raise HTTPException(status_code=404, detail="无法删除")
+        return {"ok": True}
+
+    @api.post("/api/social/notes/{note_id}/like")
+    def api_like_note(
+        note_id: str,
+        authorization: str | None = Header(default=None),
+    ):
+        me = _auth_user(authorization)
+        res = toggle_like(note_id, me["user_id"])
+        return {"liked": res}
+
+    @api.post("/api/social/notes/{note_id}/bookmark")
+    def api_bookmark_note(
+        note_id: str,
+        authorization: str | None = Header(default=None),
+    ):
+        me = _auth_user(authorization)
+        res = toggle_bookmark(note_id, me["user_id"])
+        return {"bookmarked": res}
+
     NOTE_UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
     api.mount(
         "/static/notes",
         StaticFiles(directory=str(NOTE_UPLOAD_DIR)),
         name="note-uploads",
     )
+
+
+
+def toggle_like(note_id: str, user_id: str) -> bool:
+    """Toggle like status for a note. Returns True if now liked, False if unliked."""
+    nid = (note_id or "").strip()
+    uid = (user_id or "").strip()
+    if not nid or not uid:
+        return False
+    
+    with _conn() as conn:
+        existing = conn.execute(
+            "SELECT 1 FROM likes WHERE user_id = ? AND note_id = ? LIMIT 1",
+            (uid, nid)
+        ).fetchone()
+        
+        if existing:
+            conn.execute("DELETE FROM likes WHERE user_id = ? AND note_id = ?", (uid, nid))
+            return False
+        else:
+            ts = time.time()
+            try:
+                conn.execute(
+                    "INSERT INTO likes (user_id, note_id, created_at) VALUES (?, ?, ?)",
+                    (uid, nid, ts)
+                )
+            except sqlite3.IntegrityError:
+                pass
+            return True
+
+
+def toggle_bookmark(note_id: str, user_id: str) -> bool:
+    """Toggle bookmark status for a note. Returns True if now bookmarked, False if removed."""
+    nid = (note_id or "").strip()
+    uid = (user_id or "").strip()
+    if not nid or not uid:
+        return False
+    
+    with _conn() as conn:
+        existing = conn.execute(
+            "SELECT 1 FROM bookmarks WHERE user_id = ? AND note_id = ? LIMIT 1",
+            (uid, nid)
+        ).fetchone()
+        
+        if existing:
+            conn.execute("DELETE FROM bookmarks WHERE user_id = ? AND note_id = ?", (uid, nid))
+            return False
+        else:
+            ts = time.time()
+            try:
+                conn.execute(
+                    "INSERT INTO bookmarks (user_id, note_id, created_at) VALUES (?, ?, ?)",
+                    (uid, nid, ts)
+                )
+            except sqlite3.IntegrityError:
+                pass
+            return True
+
+
+def create_comment(note_id: str, user_id: str, body: str) -> dict[str, Any]:
+    """创建评论。"""
+    nid = (note_id or "").strip()
+    uid = (user_id or "").strip()
+    text = (body or "").strip()
+    
+    if not nid or not uid or not text:
+        raise ValueError("note_id, user_id, body required")
+    if len(text) > 140:
+        raise ValueError("评论最多140字")
+    
+    # 检查笔记存在
+    with _conn() as conn:
+        note = conn.execute("SELECT id FROM notes WHERE id = ?", (nid,)).fetchone()
+        if not note:
+            raise ValueError("笔记不存在")
+        upsert_user(uid)
+        
+        cid = uuid.uuid4().hex[:16]
+        now = time.time()
+        conn.execute(
+            """
+            INSERT INTO comments (id, note_id, user_id, body, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?)
+            """,
+            (cid, nid, uid, text, now, now),
+        )
+        conn.commit()
+    return get_comment(cid, uid) or {}
+
+
+def get_comment(comment_id: str, viewer_id: str = "") -> dict[str, Any] | None:
+    """获取单条评论。"""
+    cid = (comment_id or "").strip()
+    if not cid:
+        return None
+    
+    with _conn() as conn:
+        row = conn.execute("SELECT * FROM comments WHERE id = ?", (cid,)).fetchone()
+        if not row:
+            return None
+        
+        author = conn.execute(
+            "SELECT nickname, avatar_url FROM users WHERE user_id = ?",
+            (row["user_id"],),
+        ).fetchone()
+        author_data = dict(author) if author else {}
+        
+        return {
+            "id": row["id"],
+            "note_id": row["note_id"],
+            "user_id": row["user_id"],
+            "body": row["body"],
+            "created_at": row["created_at"],
+            "updated_at": row["updated_at"],
+            "author_name": author_data.get("nickname", "球友"),
+            "author_avatar": author_data.get("avatar_url", ""),
+            "can_delete": viewer_id and (viewer_id == row["user_id"]),
+        }
+
+
+def list_comments(note_id: str, viewer_id: str = "", limit: int = 50, offset: int = 0) -> list[dict[str, Any]]:
+    """获取笔记的评论列表。"""
+    nid = (note_id or "").strip()
+    if not nid:
+        return []
+    
+    limit = max(1, min(int(limit), 100))
+    offset = max(0, int(offset))
+    
+    with _conn() as conn:
+        rows = conn.execute(
+            """
+            SELECT c.*, u.nickname, u.avatar_url
+            FROM comments c
+            LEFT JOIN users u ON u.user_id = c.user_id
+            WHERE c.note_id = ?
+            ORDER BY c.created_at DESC
+            LIMIT ? OFFSET ?
+            """,
+            (nid, limit, offset),
+        ).fetchall()
+    
+    return [
+        {
+            "id": r["id"],
+            "note_id": r["note_id"],
+            "user_id": r["user_id"],
+            "body": r["body"],
+            "created_at": r["created_at"],
+            "author_name": r["nickname"] or "球友",
+            "author_avatar": r["avatar_url"] or "",
+            "can_delete": viewer_id and (viewer_id == r["user_id"]),
+        }
+        for r in rows
+    ]
+
+
+def delete_comment(comment_id: str, user_id: str) -> bool:
+    """删除评论（仅评论者）。"""
+    cid = (comment_id or "").strip()
+    uid = (user_id or "").strip()
+    
+    if not cid or not uid:
+        return False
+    
+    with _conn() as conn:
+        row = conn.execute("SELECT user_id FROM comments WHERE id = ?", (cid,)).fetchone()
+        if not row or row["user_id"] != uid:
+            return False
+        
+        conn.execute("DELETE FROM comments WHERE id = ?", (cid,))
+        conn.commit()
+    
+    return True

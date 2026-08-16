@@ -39,9 +39,34 @@
         <text>{{bookmarked ? '★' : '☆'}} {{bookmarked ? '已收藏' : '收藏'}}</text>
       </view>
     </view>
+  </view>
 
-    <button class="primary-btn" bindtap="onCopyLink" wx:if="{{item.url}}">复制原文链接</button>
-    <button class="ghost-btn" bindtap="onGoAnalyze">用视频做 AI 分析</button>
+  <view class="comment-section">
+    <view class="comment-header">
+      <text class="comment-count">评论 {{comments.length}}</text>
+    </view>
+
+    <view class="comment-list" wx:if="{{comments.length}}">
+      <view class="comment-item" wx:for="{{comments}}" wx:key="id" data-id="{{item.id}}" data-uid="{{item.user_id}}" catchtap="onCommentLongPress">
+        <view class="comment-avatar">
+          <image
+            wx:if="{{item.author_avatar}}"
+            src="{{item.author_avatar}}"
+            mode="aspectFill"
+          />
+          <text wx:else class="avatar-letter">{{item.author_initial}}</text>
+        </view>
+        <view class="comment-body">
+          <text class="comment-author">{{item.author_name}}</text>
+          <text class="comment-text">{{item.body}}</text>
+          <text class="comment-time">{{item.time_text}}</text>
+        </view>
+      </view>
+    </view>
+
+    <view class="comment-empty" wx:if="{{!comments.length && !loading}}">
+      <text>还没有评论</text>
+    </view>
   </view>
 </view>
 

@@ -1,6 +1,8 @@
 const { getNote, deleteNote, follow, unfollow, fetchUser } = require("../../utils/social_api");
 const { getUserId } = require("../../utils/user_id");
 const { isLoggedIn, requireLogin } = require("../../utils/auth_api");
+const { API_BASE_URL } = require("../../utils/config");
+const { authHeaders, getToken } = require("../../utils/auth_api");
 
 function formatTime(isoOrTs) {
   if (!isoOrTs) return "";
@@ -14,6 +16,22 @@ function formatTime(isoOrTs) {
   return y + "-" + m + "-" + day + " " + h + ":" + min;
 }
 
+function formatCommentTime(ts) {
+  if (!ts) return "";
+  var d = new Date(ts * 1000);
+  if (isNaN(d.getTime())) return "";
+  var now = new Date();
+  var diffMs = now - d;
+  var diffMin = Math.floor(diffMs / 60000);
+  if (diffMin < 1) return "刚刚";
+  if (diffMin < 60) return diffMin + "分钟前";
+  var diffHour = Math.floor(diffMin / 60);
+  if (diffHour < 24) return diffHour + "小时前";
+  var diffDay = Math.floor(diffHour / 24);
+  if (diffDay < 30) return diffDay + "天前";
+  return formatTime(ts);
+}
+
 Page({
   data: {
     note: null,
@@ -23,6 +41,12 @@ Page({
     isMine: false,
     following: false,
     errorText: "",
+    comments: [],
+    commentText: "",
+    submitting: false,
+    loggedIn: false,
+    liked: false,
+    bookmarked: false,
   },
 
   onLoad(options) {
@@ -31,6 +55,7 @@ Page({
       this.setData({ errorText: "缺少笔记 id" });
       return;
     }
+    this.setData({ loggedIn: isLoggedIn() });
     var that = this;
     var me = getUserId();
     getNote(id)
@@ -47,6 +72,8 @@ Page({
           eventTimeText: formatTime(note.event_at || note.event_at_iso),
           canOpenMap: canOpenMap,
           isMine: isMine,
+          liked: note.liked || false,
+          bookmarked: note.bookmarked || false,
         });
         if (!isMine && note.user_id) {
           return fetchUser(note.user_id, me).then(function (u) {
@@ -54,9 +81,128 @@ Page({
           });
         }
       })
+      .then(function () {
+        return that.loadComments();
+      })
       .catch(function () {
         that.setData({ errorText: "笔记不存在或已删除" });
       });
+  },
+
+  onShow() {
+    this.setData({ loggedIn: isLoggedIn() });
+  },
+
+  loadComments() {
+    var that = this;
+    var noteId = this.data.note && this.data.note.id;
+    if (!noteId) return Promise.resolve();
+    
+    return new Promise(function (resolve, reject) {
+      wx.request({
+        url: API_BASE_URL + "/api/social/notes/" + encodeURIComponent(noteId) + "/comments?limit=100",
+        header: authHeaders(),
+        success: function (res) {
+          if (res.statusCode >= 200 && res.statusCode < 300) {
+            var items = (res.data && res.data.items) || [];
+            var comments = items.map(function (c) {
+              return Object.assign({}, c, {
+                author_initial: String(c.author_name || "球").charAt(0),
+                time_text: formatCommentTime(c.created_at),
+              });
+            });
+            that.setData({ comments: comments });
+            resolve();
+            return;
+          }
+          reject();
+        },
+        fail: reject,
+      });
+    });
+  },
+
+  onCommentInput(e) {
+    var text = (e.detail && e.detail.value) || "";
+    this.setData({ commentText: text });
+  },
+    if (!text) {
+      wx.showToast({ title: "评论不能为空", icon: "none" });
+      return;
+    }
+    if (!isLoggedIn()) {
+      requireLogin("comment");
+      return;
+    }
+
+    var noteId = this.data.note && this.data.note.id;
+    if (!noteId) return;
+
+    this.setData({ submitting: true });
+    wx.request({
+      url: API_BASE_URL + "/api/social/notes/" + encodeURIComponent(noteId) + "/comments",
+      method: "POST",
+      header: authHeaders(),
+      data: {
+        note_id: noteId,
+        body: text,
+      },
+      timeout: 30000,
+      success: function (res) {
+        that.setData({ submitting: false });
+        if (res.statusCode >= 200 && res.statusCode < 300) {
+          that.setData({ commentText: "" });
+          wx.showToast({ title: "已发送", icon: "success" });
+          that.loadComments();
+          return;
+        }
+        var msg = (res.data && res.data.detail) || "发送失败";
+        wx.showToast({ title: msg, icon: "none" });
+      },
+      fail: function () {
+        that.setData({ submitting: false });
+        wx.showToast({ title: "网络错误", icon: "none" });
+      },
+    });
+  },
+
+  onDeleteComment(e) {
+    var that = this;
+    var commentId = e.currentTarget.dataset.id;
+    if (!commentId) return;
+    
+    wx.showModal({
+      title: "删除评论",
+      content: "确定删除？",
+      confirmColor: "#b42318",
+      success: function (res) {
+        if (!res.confirm) return;
+        
+        var noteId = that.data.note && that.data.note.id;
+        if (!noteId) return;
+        
+        wx.request({
+          url: API_BASE_URL + "/api/social/notes/" + encodeURIComponent(noteId) + "/comments/" + encodeURIComponent(commentId),
+          method: "DELETE",
+          header: authHeaders(),
+          success: function (res) {
+            if (res.statusCode >= 200 && res.statusCode < 300) {
+              wx.showToast({ title: "已删除", icon: "success" });
+              that.loadComments();
+              return;
+            }
+            wx.showToast({ title: "删除失败", icon: "none" });
+          },
+          fail: function () {
+            wx.showToast({ title: "网络错误", icon: "none" });
+          },
+        });
+      },
+    });
+  },
+
+  onRequireLogin() {
+    requireLogin("comment");
   },
 
   onPreview(e) {
@@ -136,6 +282,60 @@ Page({
               icon: "none",
             });
           });
+      },
+    });
+  },
+
+  onToggleLike() {
+    var that = this;
+    if (!isLoggedIn()) {
+      requireLogin();
+      return;
+    }
+    var note = this.data.note;
+    if (!note) return;
+    
+    var noteId = note.id || note.note_id;
+    wx.request({
+      url: API_BASE_URL + "/api/social/notes/" + encodeURIComponent(noteId) + "/like",
+      method: "POST",
+      header: authHeaders(),
+      success: function (res) {
+        if (res.statusCode >= 200 && res.statusCode < 300) {
+          var liked = res.data && res.data.liked;
+          that.setData({ liked: liked });
+          wx.showToast({ title: liked ? "已赞" : "已取消赞", icon: "none" });
+        }
+      },
+      fail: function () {
+        wx.showToast({ title: "操作失败", icon: "none" });
+      },
+    });
+  },
+
+  onToggleBookmark() {
+    var that = this;
+    if (!isLoggedIn()) {
+      requireLogin();
+      return;
+    }
+    var note = this.data.note;
+    if (!note) return;
+    
+    var noteId = note.id || note.note_id;
+    wx.request({
+      url: API_BASE_URL + "/api/social/notes/" + encodeURIComponent(noteId) + "/bookmark",
+      method: "POST",
+      header: authHeaders(),
+      success: function (res) {
+        if (res.statusCode >= 200 && res.statusCode < 300) {
+          var bookmarked = res.data && res.data.bookmarked;
+          that.setData({ bookmarked: bookmarked });
+          wx.showToast({ title: bookmarked ? "已收藏" : "已取消收藏", icon: "none" });
+        }
+      },
+      fail: function () {
+        wx.showToast({ title: "操作失败", icon: "none" });
       },
     });
   },
