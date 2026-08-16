@@ -1277,6 +1277,8 @@ def get_comment(comment_id: str, viewer_id: str = "") -> dict[str, Any] | None:
 def list_comments(note_id: str, viewer_id: str = "", limit: int = 50, offset: int = 0) -> list[dict[str, Any]]:
     """获取笔记的评论列表。"""
     nid = (note_id or "").strip()
+    if nid.startswith("note-"):
+        nid = nid[5:]
     if not nid:
         return []
     
