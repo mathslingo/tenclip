@@ -126,6 +126,10 @@ Page({
     var text = (e.detail && e.detail.value) || "";
     this.setData({ commentText: text });
   },
+
+  onSubmitComment() {
+    var that = this;
+    var text = this.data.commentText;
     if (!text) {
       wx.showToast({ title: "评论不能为空", icon: "none" });
       return;
