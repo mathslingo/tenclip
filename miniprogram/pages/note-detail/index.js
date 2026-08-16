@@ -148,7 +148,6 @@ Page({
       method: "POST",
       header: authHeaders(),
       data: {
-        note_id: noteId,
         body: text,
       },
       timeout: 30000,
