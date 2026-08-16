@@ -68,6 +68,28 @@
       <text>还没有评论</text>
     </view>
   </view>
+
+  <view class="comment-input-wrapper">
+    <input
+      class="comment-input"
+      type="text"
+      placeholder="说说你的想法... (最多140字)"
+      value="{{commentText}}"
+      bindinput="onCommentInput"
+      placeholder-style="color:#c0c5ce"
+      wx:if="{{loggedIn}}"
+    />
+    <button
+      class="comment-submit"
+      bindtap="onSubmitComment"
+      wx:if="{{loggedIn && commentText}}"
+      loading="{{submitting}}"
+      disabled="{{submitting || !commentText}}"
+    >发</button>
+    <view class="comment-login-hint" wx:if="{{!loggedIn}}" bindtap="onRequireLogin">
+      登录后评论
+    </view>
+  </view>
 </view>
 
 <view class="detail-loading" wx:else>

@@ -1,7 +1,7 @@
 const { getFeedItemById } = require("../../utils/feed_api");
 const { isLiked, isBookmarked, toggleLike, toggleBookmark } = require("../../utils/me_store");
 const { API_BASE_URL } = require("../../utils/config");
-const { authHeaders } = require("../../utils/auth_api");
+const { authHeaders, isLoggedIn, requireLogin } = require("../../utils/auth_api");
 
 function formatCommentTime(ts) {
   if (!ts) return "";
@@ -28,6 +28,9 @@ Page({
     liked: false,
     bookmarked: false,
     comments: [],
+    commentText: "",
+    submitting: false,
+    loggedIn: false,
   },
 
   onLoad(query) {
@@ -37,6 +40,7 @@ Page({
       return;
     }
     this._itemId = id;
+    this.setData({ loggedIn: isLoggedIn() });
     var that = this;
     getFeedItemById(id).then(function (item) {
       if (!item) {
@@ -60,31 +64,42 @@ Page({
       wx.setNavigationBarTitle({
         title: item.title ? item.title.slice(0, 12) : "笔记详情",
       });
-      that.loadComments();
+      return that.loadComments();
+    }).catch(function () {
+      that.setData({ errorText: "加载失败" });
     });
+  },
+
+  onShow() {
+    this.setData({ loggedIn: isLoggedIn() });
   },
 
   loadComments() {
     var that = this;
     var itemId = this._itemId;
-    if (!itemId) return;
+    if (!itemId) return Promise.resolve();
     
-    wx.request({
-      url: API_BASE_URL + "/api/social/notes/" + encodeURIComponent(itemId) + "/comments?limit=100",
-      header: authHeaders(),
-      success: function (res) {
-        if (res.statusCode >= 200 && res.statusCode < 300) {
-          var items = (res.data && res.data.items) || [];
-          var comments = items.map(function (c) {
-            return Object.assign({}, c, {
-              author_initial: String(c.author_name || "球").charAt(0),
-              time_text: formatCommentTime(c.created_at),
+    return new Promise(function (resolve, reject) {
+      wx.request({
+        url: API_BASE_URL + "/api/social/notes/" + encodeURIComponent(itemId) + "/comments?limit=100",
+        header: authHeaders(),
+        success: function (res) {
+          if (res.statusCode >= 200 && res.statusCode < 300) {
+            var items = (res.data && res.data.items) || [];
+            var comments = items.map(function (c) {
+              return Object.assign({}, c, {
+                author_initial: String(c.author_name || "球").charAt(0),
+                time_text: formatCommentTime(c.created_at),
+              });
             });
-          });
-          that.setData({ comments: comments });
-        }
-      },
-      fail: function () {},
+            that.setData({ comments: comments });
+            resolve();
+            return;
+          }
+          reject();
+        },
+        fail: reject,
+      });
     });
   },
 
@@ -106,5 +121,56 @@ Page({
     var res = toggleBookmark(item.id);
     this.setData({ bookmarked: res.on });
     wx.showToast({ title: res.on ? "已收藏" : "已取消收藏", icon: "none" });
+  },
+
+  onCommentInput(e) {
+    var text = (e.detail && e.detail.value) || "";
+    this.setData({ commentText: text });
+  },
+
+  onSubmitComment() {
+    var that = this;
+    var text = this.data.commentText;
+    if (!text) {
+      wx.showToast({ title: "评论不能为空", icon: "none" });
+      return;
+    }
+    if (!isLoggedIn()) {
+      requireLogin("comment");
+      return;
+    }
+
+    var itemId = this._itemId;
+    if (!itemId) return;
+
+    this.setData({ submitting: true });
+    wx.request({
+      url: API_BASE_URL + "/api/social/notes/" + encodeURIComponent(itemId) + "/comments",
+      method: "POST",
+      header: authHeaders(),
+      data: {
+        body: text,
+      },
+      timeout: 30000,
+      success: function (res) {
+        that.setData({ submitting: false });
+        if (res.statusCode >= 200 && res.statusCode < 300) {
+          that.setData({ commentText: "" });
+          wx.showToast({ title: "已发送", icon: "success" });
+          that.loadComments();
+          return;
+        }
+        var msg = (res.data && res.data.detail) || "发送失败";
+        wx.showToast({ title: msg, icon: "none" });
+      },
+      fail: function () {
+        that.setData({ submitting: false });
+        wx.showToast({ title: "网络错误", icon: "none" });
+      },
+    });
+  },
+
+  onRequireLogin() {
+    requireLogin("comment");
   },
 });
