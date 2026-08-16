@@ -3,6 +3,14 @@ const { isLiked, isBookmarked, toggleLike, toggleBookmark } = require("../../uti
 const { API_BASE_URL } = require("../../utils/config");
 const { authHeaders, isLoggedIn, requireLogin } = require("../../utils/auth_api");
 
+function normalizeNoteId(id) {
+  var nid = (id || "").trim();
+  if (nid.startsWith("note-")) {
+    return nid.substring(5);
+  }
+  return nid;
+}
+
 function formatCommentTime(ts) {
   if (!ts) return "";
   var d = new Date(ts * 1000);
@@ -76,7 +84,7 @@ Page({
 
   loadComments() {
     var that = this;
-    var itemId = this._itemId;
+    var itemId = normalizeNoteId(this._itemId);
     if (!itemId) return Promise.resolve();
     
     return new Promise(function (resolve, reject) {
@@ -140,7 +148,7 @@ Page({
       return;
     }
 
-    var itemId = this._itemId;
+    var itemId = normalizeNoteId(this._itemId);
     if (!itemId) return;
 
     this.setData({ submitting: true });

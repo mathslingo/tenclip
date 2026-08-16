@@ -4,6 +4,14 @@ const { isLoggedIn, requireLogin } = require("../../utils/auth_api");
 const { API_BASE_URL } = require("../../utils/config");
 const { authHeaders, getToken } = require("../../utils/auth_api");
 
+function normalizeNoteId(id) {
+  var nid = (id || "").trim();
+  if (nid.startsWith("note-")) {
+    return nid.substring(5);
+  }
+  return nid;
+}
+
 function formatTime(isoOrTs) {
   if (!isoOrTs) return "";
   var d = typeof isoOrTs === "number" ? new Date(isoOrTs * (isoOrTs < 1e12 ? 1000 : 1)) : new Date(isoOrTs);
@@ -95,7 +103,7 @@ Page({
 
   loadComments() {
     var that = this;
-    var noteId = this.data.note && this.data.note.id;
+    var noteId = normalizeNoteId(this.data.note && this.data.note.id);
     if (!noteId) return Promise.resolve();
     
     return new Promise(function (resolve, reject) {
@@ -139,7 +147,7 @@ Page({
       return;
     }
 
-    var noteId = this.data.note && this.data.note.id;
+    var noteId = normalizeNoteId(this.data.note && this.data.note.id);
     if (!noteId) return;
 
     this.setData({ submitting: true });
@@ -181,7 +189,7 @@ Page({
       success: function (res) {
         if (!res.confirm) return;
         
-        var noteId = that.data.note && that.data.note.id;
+        var noteId = normalizeNoteId(that.data.note && that.data.note.id);
         if (!noteId) return;
         
         wx.request({
@@ -298,7 +306,7 @@ Page({
     var note = this.data.note;
     if (!note) return;
     
-    var noteId = note.id || note.note_id;
+    var noteId = normalizeNoteId(note.id || note.note_id);
     wx.request({
       url: API_BASE_URL + "/api/social/notes/" + encodeURIComponent(noteId) + "/like",
       method: "POST",
@@ -325,7 +333,7 @@ Page({
     var note = this.data.note;
     if (!note) return;
     
-    var noteId = note.id || note.note_id;
+    var noteId = normalizeNoteId(note.id || note.note_id);
     wx.request({
       url: API_BASE_URL + "/api/social/notes/" + encodeURIComponent(noteId) + "/bookmark",
       method: "POST",
