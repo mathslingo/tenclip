@@ -245,7 +245,7 @@ Page({
           .filter(function (c) { return c.lat && c.lng; })
           .map(function (c, idx) {
             return {
-              id: c.id,
+              id: idx,
               latitude: c.lat,
               longitude: c.lng,
               title: c.name,
@@ -282,11 +282,12 @@ Page({
   },
 
   onMarkerTap: function (e) {
-    var markerId = e.detail.markerId;
-    var court = this._fullCourts.find(function (c) { return c.id === markerId; });
+    var markerIndex = e.detail.markerId;
+    var filtered = this._fullCourts.filter(function (c) { return c.lat && c.lng; });
+    var court = filtered[markerIndex];
     if (court) {
-      var index = this._fullCourts.indexOf(court);
-      this.onCourtTap({ currentTarget: { dataset: { id: court.id, index: index } } });
+      var fullIndex = this._fullCourts.indexOf(court);
+      this.onCourtTap({ currentTarget: { dataset: { id: court.id, index: fullIndex } } });
     }
   },
 
