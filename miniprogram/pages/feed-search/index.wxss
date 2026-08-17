@@ -175,13 +175,19 @@
 .likes {
   display: flex;
   align-items: center;
-  gap: 4rpx;
-  font-size: 22rpx;
-  color: #9aa3ad;
+  gap: 6rpx;
+  font-size: 24rpx;
+  color: #e5515f;
+  font-weight: 600;
+  background: #fff5f6;
+  padding: 6rpx 12rpx;
+  border-radius: 12rpx;
 }
 
 .heart {
-  color: #ff6b6b;
+  color: #e5515f;
+  font-size: 26rpx;
+  line-height: 1;
 }
 
 .empty, .loading {
