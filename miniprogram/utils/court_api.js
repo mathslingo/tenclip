@@ -64,7 +64,7 @@ function searchServerCourts(opts) {
     wx.request({
       url: config.API_BASE_URL + "/api/courts/search?" + q.join("&"),
       method: "GET",
-      timeout: 5000,
+      timeout: 15000,
       success: function (res) {
         if (res.statusCode >= 200 && res.statusCode < 300 && res.data) {
           var items = res.data.items || [];
@@ -92,7 +92,7 @@ function fetchCourtDetail(id) {
     wx.request({
       url: config.API_BASE_URL + "/api/courts/" + encodeURIComponent(sid),
       method: "GET",
-      timeout: 5000,
+      timeout: 15000,
       success: function (res) {
         if (res.statusCode >= 200 && res.statusCode < 300 && res.data && res.data.id) {
           var court = mapApiCourt(res.data);
