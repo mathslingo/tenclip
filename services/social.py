@@ -62,6 +62,36 @@ def _ensure_column(conn: sqlite3.Connection, table: str, column: str, ddl: str) 
         conn.execute(f"ALTER TABLE {table} ADD COLUMN {ddl}")
 
 
+def _table_has_fk_to(conn: sqlite3.Connection, table: str, ref_table: str, column: str) -> bool:
+    try:
+        rows = conn.execute(f"PRAGMA foreign_key_list({table})").fetchall()
+    except sqlite3.Error:
+        return False
+    for row in rows:
+        # row: id, seq, table, from, to, on_update, on_delete, match
+        if str(row[2]) == ref_table and str(row[3]) == column:
+            return True
+    return False
+
+
+def _rebuild_table_without_note_fk(conn: sqlite3.Connection, table: str, create_sql: str) -> None:
+    """SQLite 不能 ALTER 去掉外键；评论/点赞需同时支持用户笔记和新闻 id。"""
+    if not _table_has_fk_to(conn, table, "notes", "note_id"):
+        return
+    tmp = table + "_new"
+    conn.execute("PRAGMA foreign_keys = OFF")
+    try:
+        conn.execute(f"DROP TABLE IF EXISTS {tmp}")
+        conn.execute(create_sql.replace(f"CREATE TABLE {table}", f"CREATE TABLE {tmp}", 1))
+        cols = [r[1] for r in conn.execute(f"PRAGMA table_info({table})").fetchall()]
+        col_csv = ", ".join(cols)
+        conn.execute(f"INSERT INTO {tmp} ({col_csv}) SELECT {col_csv} FROM {table}")
+        conn.execute(f"DROP TABLE {table}")
+        conn.execute(f"ALTER TABLE {tmp} RENAME TO {table}")
+    finally:
+        conn.execute("PRAGMA foreign_keys = ON")
+
+
 def init_social_db() -> None:
     NOTE_UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
     with _conn() as conn:
@@ -121,7 +151,6 @@ def init_social_db() -> None:
                 body TEXT NOT NULL,
                 created_at REAL NOT NULL,
                 updated_at REAL NOT NULL,
-                FOREIGN KEY (note_id) REFERENCES notes(id),
                 FOREIGN KEY (user_id) REFERENCES users(user_id)
             );
             CREATE INDEX IF NOT EXISTS idx_comments_note ON comments(note_id, created_at DESC);
@@ -131,8 +160,7 @@ def init_social_db() -> None:
                 note_id TEXT NOT NULL,
                 created_at REAL NOT NULL,
                 PRIMARY KEY (user_id, note_id),
-                FOREIGN KEY (user_id) REFERENCES users(user_id),
-                FOREIGN KEY (note_id) REFERENCES notes(id)
+                FOREIGN KEY (user_id) REFERENCES users(user_id)
             );
             CREATE INDEX IF NOT EXISTS idx_likes_note ON likes(note_id);
             CREATE TABLE IF NOT EXISTS bookmarks (
@@ -140,13 +168,58 @@ def init_social_db() -> None:
                 note_id TEXT NOT NULL,
                 created_at REAL NOT NULL,
                 PRIMARY KEY (user_id, note_id),
-                FOREIGN KEY (user_id) REFERENCES users(user_id),
-                FOREIGN KEY (note_id) REFERENCES notes(id)
+                FOREIGN KEY (user_id) REFERENCES users(user_id)
             );
             CREATE INDEX IF NOT EXISTS idx_bookmarks_user ON bookmarks(user_id, created_at DESC);
             CREATE INDEX IF NOT EXISTS idx_bookmarks_note ON bookmarks(note_id);
             """
         )
+        _rebuild_table_without_note_fk(
+            conn,
+            "comments",
+            """
+            CREATE TABLE comments (
+                id TEXT PRIMARY KEY,
+                note_id TEXT NOT NULL,
+                user_id TEXT NOT NULL,
+                body TEXT NOT NULL,
+                created_at REAL NOT NULL,
+                updated_at REAL NOT NULL,
+                FOREIGN KEY (user_id) REFERENCES users(user_id)
+            )
+            """,
+        )
+        _rebuild_table_without_note_fk(
+            conn,
+            "likes",
+            """
+            CREATE TABLE likes (
+                user_id TEXT NOT NULL,
+                note_id TEXT NOT NULL,
+                created_at REAL NOT NULL,
+                PRIMARY KEY (user_id, note_id),
+                FOREIGN KEY (user_id) REFERENCES users(user_id)
+            )
+            """,
+        )
+        _rebuild_table_without_note_fk(
+            conn,
+            "bookmarks",
+            """
+            CREATE TABLE bookmarks (
+                user_id TEXT NOT NULL,
+                note_id TEXT NOT NULL,
+                created_at REAL NOT NULL,
+                PRIMARY KEY (user_id, note_id),
+                FOREIGN KEY (user_id) REFERENCES users(user_id)
+            )
+            """,
+        )
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_comments_note ON comments(note_id, created_at DESC)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_comments_user ON comments(user_id, created_at DESC)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_likes_note ON likes(note_id)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_bookmarks_user ON bookmarks(user_id, created_at DESC)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_bookmarks_note ON bookmarks(note_id)")
         # 登录与会话
         _ensure_column(conn, "users", "openid", "openid TEXT")
         _ensure_column(conn, "users", "unionid", "unionid TEXT NOT NULL DEFAULT ''")
@@ -1087,6 +1160,8 @@ def register_social_routes(api) -> None:
             return create_comment(note_id, me["user_id"], payload.body)
         except ValueError as e:
             raise HTTPException(status_code=400, detail=str(e)) from e
+        except sqlite3.Error as e:
+            raise HTTPException(status_code=400, detail="评论保存失败") from e
 
     @api.get("/api/social/notes/{note_id}/comments")
     def api_list_comments(
@@ -1244,19 +1319,21 @@ def create_comment(note_id: str, user_id: str, body: str) -> dict[str, Any]:
             news_conn.close()
     
     # 创建评论
-    with _conn() as conn:
-        upsert_user(uid)
-        
-        cid = uuid.uuid4().hex[:16]
-        now = time.time()
-        conn.execute(
-            """
-            INSERT INTO comments (id, note_id, user_id, body, created_at, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?)
-            """,
-            (cid, nid, uid, text, now, now),
-        )
-        conn.commit()
+    cid = uuid.uuid4().hex[:16]
+    now = time.time()
+    try:
+        with _conn() as conn:
+            upsert_user(uid)
+            conn.execute(
+                """
+                INSERT INTO comments (id, note_id, user_id, body, created_at, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?)
+                """,
+                (cid, nid, uid, text, now, now),
+            )
+            conn.commit()
+    except sqlite3.IntegrityError as e:
+        raise ValueError("评论保存失败") from e
     return get_comment(cid, uid) or {}
 
 
