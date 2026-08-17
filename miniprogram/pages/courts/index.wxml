@@ -16,7 +16,8 @@
       latitude="{{mapLat}}" longitude="{{mapLng}}"
       markers="{{markers}}" scale="{{scale}}"
       show-location="{{true}}"
-      enable-poi="{{false}}" />
+      enable-poi="{{false}}"
+      bindmarkertap="onMarkerTap" />
     <view class="locate-btn" bindtap="onLocateMe">定位</view>
   </view>
 

@@ -241,9 +241,22 @@ Page({
         }
 
         that._loadingMoreLock = false;
+        var markers = merged
+          .filter(function (c) { return c.lat && c.lng; })
+          .map(function (c, idx) {
+            return {
+              id: c.id,
+              latitude: c.lat,
+              longitude: c.lng,
+              title: c.name,
+              iconPath: "",
+              width: 32,
+              height: 40,
+            };
+          });
         that.setData({
           courts: merged.map(toListItem),
-          markers: [],
+          markers: markers,
           loading: false,
           loadingMore: false,
           hasMore: hasMore,
@@ -266,6 +279,15 @@ Page({
           that.setData({ loadingMore: false, hasMore: false });
         }
       });
+  },
+
+  onMarkerTap: function (e) {
+    var markerId = e.detail.markerId;
+    var court = this._fullCourts.find(function (c) { return c.id === markerId; });
+    if (court) {
+      var index = this._fullCourts.indexOf(court);
+      this.onCourtTap({ currentTarget: { dataset: { id: court.id, index: index } } });
+    }
   },
 
   onReachListBottom: function () {
