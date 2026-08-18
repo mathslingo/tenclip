@@ -1,0 +1,74 @@
+<view class="rtmpose-page">
+  <!-- 摄像头实时预览 -->
+  <camera
+    class="cam"
+    device-position="{{devicePosition}}"
+    flash="off"
+    resolution="medium"
+    frame-size="medium"
+    binderror="onCamError"
+    bindinitdone="onCamReady"
+  />
+
+  <!-- 检测结果叠加 -->
+  <image
+    wx:if="{{resultSrc}}"
+    class="result-img"
+    src="{{resultSrc}}"
+    mode="aspectFill"
+  />
+
+  <!-- HUD 界面 -->
+  <cover-view class="hud">
+    <!-- 顶部信息栏 -->
+    <cover-view class="hud-top">
+      <cover-view class="pill status-pill">{{statusText}}</cover-view>
+      <cover-view class="pill fps-pill" wx:if="{{fpsText}}">{{fpsText}}</cover-view>
+    </cover-view>
+
+    <!-- 统计面板（可选） -->
+    <cover-view class="stats-panel" wx:if="{{showStats}}">
+      <cover-view class="stat-row">
+        <cover-view class="stat-label">平均推理时间</cover-view>
+        <cover-view class="stat-value">{{avgInferenceTime}} ms</cover-view>
+      </cover-view>
+      <cover-view class="stat-row">
+        <cover-view class="stat-label">峰值 FPS</cover-view>
+        <cover-view class="stat-value">{{peakFps}}</cover-view>
+      </cover-view>
+      <cover-view class="stat-row">
+        <cover-view class="stat-label">置信度阈值</cover-view>
+        <cover-view class="stat-value">{{confidenceThreshold.toFixed(2)}}</cover-view>
+      </cover-view>
+    </cover-view>
+
+    <!-- 置信度调节滑块（仅在运行时显示） -->
+    <cover-view class="slider-container" wx:if="{{running && showStats}}">
+      <cover-view class="slider-label">置信度阈值</cover-view>
+      <slider
+        class="confidence-slider"
+        min="0"
+        max="1"
+        step="0.05"
+        value="{{confidenceThreshold}}"
+        bindchange="onConfidenceChange"
+      />
+    </cover-view>
+
+    <!-- 底部按钮栏 -->
+    <cover-view class="hud-bottom">
+      <cover-view class="btn" bindtap="onToggleDevice">
+        📷 翻转
+      </cover-view>
+      <cover-view class="btn primary" bindtap="onToggleRun">
+        {{running ? '⏹️ 停止' : '▶️ 开始检测'}}
+      </cover-view>
+      <cover-view class="btn" bindtap="onToggleStats">
+        📊 {{showStats ? '隐藏' : '显示'}}统计
+      </cover-view>
+      <cover-view class="btn" bindtap="onBack">
+        ← 返回
+      </cover-view>
+    </cover-view>
+  </cover-view>
+</view>

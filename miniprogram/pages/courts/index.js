@@ -121,10 +121,21 @@ Page({
     if (this._locating) return;
     this._locating = true;
 
+    // 设置超时定时器，8秒后如果还没有定位成功，则使用默认位置
+    var locationTimeoutId = setTimeout(function () {
+      if (that._locating) {
+        console.warn("定位超时，使用默认位置");
+        that._locating = false;
+        that.setData({ userLat: SH_LAT, userLng: SH_LNG, hasUserLocation: false });
+        that._loadCourts({ reset: true });
+      }
+    }, 8000);
+
     wx.getLocation({
       type: "gcj02",
       success: function (res) {
         that._locating = false;
+        clearTimeout(locationTimeoutId);
         var lat = Number(res.latitude) || SH_LAT;
         var lng = Number(res.longitude) || SH_LNG;
         var patch = { userLat: lat, userLng: lng, hasUserLocation: true };
@@ -135,9 +146,13 @@ Page({
         that.setData(patch);
         that._loadCourts({ reset: true });
       },
-      fail: function () {
+      fail: function (err) {
         that._locating = false;
-        that.setData({ hasUserLocation: false });
+        clearTimeout(locationTimeoutId);
+        console.warn("定位失败:", err);
+        // 定位失败时使用默认位置
+        that.setData({ userLat: SH_LAT, userLng: SH_LNG, hasUserLocation: false });
+        that._loadCourts({ reset: true });
       },
     });
   },
@@ -167,6 +182,7 @@ Page({
     var that = this;
     var lat = that.data.userLat;
     var lng = that.data.userLng;
+    var hasSearchKeyword = that.data.searchKeyword && that.data.searchKeyword.trim();
 
     if (!reset) {
       if (!that.data.hasMore || that._loadingMoreLock || that.data.loading) return;
@@ -180,20 +196,36 @@ Page({
     var offset = reset ? 0 : (that._fullCourts || []).length;
     var seq = ++that._reqSeq;
 
+    // 搜索关键词时，仅传递关键词，不依赖地理位置（全库搜索）
+    var searchParams = {
+      filter: that.data.filterCourtType,
+      price: that.data.filterPrice,
+      keyword: that.data.searchKeyword || "",
+      limit: PAGE_SIZE,
+      offset: offset,
+      radius_m: 25000,
+    };
+    
+    // 只有在没有搜索关键词时，才使用地理位置排序
+    if (!hasSearchKeyword && that.data.sortBy === "distance") {
+      searchParams.lat = lat;
+      searchParams.lng = lng;
+    } else if (!hasSearchKeyword) {
+      // 如果有定位信息，即使不排序也传递（用于服务端的某些逻辑）
+      if (that.data.hasUserLocation) {
+        searchParams.lat = lat;
+        searchParams.lng = lng;
+      }
+    }
+
+    console.log("[courts] 加载参数:", searchParams);
+
     courtApi
-      .searchCourts({
-        lat: lat,
-        lng: lng,
-        filter: that.data.filterCourtType,
-        price: that.data.filterPrice,
-        keyword: that.data.searchKeyword || "",
-        limit: PAGE_SIZE,
-        offset: offset,
-        radius_m: 25000,
-      })
+      .searchCourts(searchParams)
       .then(function (result) {
         if (seq !== that._reqSeq) return;
 
+        console.log("搜索球场成功:", result);
         var page = (result && result.courts) || [];
         var total = Number((result && result.total) || 0);
 
@@ -263,20 +295,43 @@ Page({
           listTotal: total || merged.length,
         });
       })
-      .catch(function () {
+      .catch(function (err) {
         if (seq !== that._reqSeq) return;
+        console.error("搜索球场失败:", err);
         that._loadingMoreLock = false;
         if (reset) {
-          that._fullCourts = [];
-          that.setData({
-            courts: [],
-            markers: [],
-            loading: false,
-            loadingMore: false,
-            hasMore: false,
-          });
+          // API 失败时，尝试使用缓存数据
+          var cachedCourts = that._fullCourts || [];
+          if (!cachedCourts.length) {
+            // 没有缓存，显示错误提示
+            that.setData({
+              courts: [],
+              markers: [],
+              loading: false,
+              loadingMore: false,
+              hasMore: false,
+            });
+            wx.showToast({ 
+              title: "加载失败，请检查网络连接", 
+              icon: "none",
+              duration: 2000 
+            });
+          } else {
+            // 有缓存，继续显示
+            console.log("API 失败，使用缓存数据");
+            that.setData({
+              courts: cachedCourts.map(toListItem),
+              loading: false,
+              loadingMore: false,
+            });
+          }
         } else {
           that.setData({ loadingMore: false, hasMore: false });
+          wx.showToast({ 
+            title: "加载更多失败", 
+            icon: "none",
+            duration: 1000 
+          });
         }
       });
   },

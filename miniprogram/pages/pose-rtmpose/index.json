@@ -1,0 +1,7 @@
+{
+  "navigationBarTitleText": "RTMpose 实时检测 v2",
+  "navigationBarBackgroundColor": "#000000",
+  "navigationBarTextStyle": "white",
+  "navigationStyle": "custom",
+  "usingComponents": {}
+}

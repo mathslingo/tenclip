@@ -8,17 +8,25 @@
     <text class="card-title">开始检测</text>
     <text class="card-sub">使用小程序原生 camera 组件取景，帧图发送到姿态服务绘制骨架。</text>
 
-    <button class="primary-btn" bindtap="onOpenLive">打开原生摄像头检测</button>
+    <button class="primary-btn" bindtap="onOpenRtmpose">🚀 RTMpose v2 检测（推荐）</button>
+    <button class="secondary-btn" bindtap="onOpenLive">标准版检测（旧版）</button>
     <button class="ghost-btn" bindtap="onCopyLink">复制 H5 链接（电脑浏览器）</button>
     <button class="ghost-btn" bindtap="onOpenWebview">尝试内嵌 H5（可能无摄像头）</button>
 
     <view class="tip-box">
+      <text class="tip-title">RTMpose v2 - 高性能实时检测</text>
+      <text class="tip-line">· 支持多人关键点检测和实时可视化</text>
+      <text class="tip-line">· 可调节置信度阈值，灵活过滤检测结果</text>
+      <text class="tip-line">· 启动：conda activate tenclip && python pose_server_v2.py</text>
+      <text class="tip-line">· RTMpose API：{{rtmposeApi}}</text>
+    </view>
+
+    <view class="tip-box">
       <text class="tip-title">若提示无法访问摄像头</text>
-      <text class="tip-line">· 不要走 H5/web-view，请点上方「原生摄像头检测」</text>
+      <text class="tip-line">· 不要走 H5/web-view，请点上方「检测」按钮</text>
       <text class="tip-line">· 手机系统设置 → 微信 → 允许相机</text>
       <text class="tip-line">· 公众平台隐私指引需声明摄像头；真机首次同意隐私弹窗</text>
       <text class="tip-line">· 开发者工具模拟器相机能力弱，请用真机调试</text>
-      <text class="tip-line">· 骨架检测需姿态服务：conda activate mmpose_gpu && python pose_server.py</text>
       <text class="tip-line">· 当前姿态 API：{{poseApi}}</text>
     </view>
   </view>

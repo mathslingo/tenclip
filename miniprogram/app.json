@@ -19,6 +19,7 @@
     "pages/feed-search/index",
     "pages/pose-detect/index",
     "pages/pose-live/index",
+    "pages/pose-rtmpose/index",
     "pages/pose-webview/index"
   ],
   "window": {
@@ -60,5 +61,9 @@
       "desc": "用于找球场计算距离，以及发布笔记时在地图上选点分享地点"
     }
   },
-  "requiredPrivateInfos": ["getLocation", "chooseLocation"]
+  "requiredPrivateInfos": ["getLocation", "chooseLocation"],
+  "navigateToMiniProgramAppIdList": [
+    "wx734c1ad7b3562129",
+    "wxa43e880705719304"
+  ]
 }

@@ -35,7 +35,7 @@ var MOCK_COURTS = [
   { id: "court-018", name: "绿洲运动中心网球场(漕河泾)", lat: 31.1750, lng: 121.4000, address: "闵行区田林路888号", rating: 4.3, priceRange: "260-400", indoorCourts: 4, outdoorCourts: 0, facilities: ["停车","淋浴","空调","教练"], phone: "", hours: "07:00-22:00", bookingOptions: [], extSources:[] },
 
   // ── 黄浦区 ──
-  { id: "court-019", name: "卢湾体育馆网球场", lat: 31.2110, lng: 121.4708, address: "黄浦区肇嘉浜路128号", rating: 4.4, priceRange: "50-280", indoorCourts: 2, outdoorCourts: 4, facilities: ["停车","淋浴","教练"], phone: "021-63011234", hours: "06:00-23:00", bookingOptions: [{name:"勾勾运动",type:"miniprogram",appId:""},{name:"电话预约",type:"phone",phone:"021-63011234"}], extSources:[{name:"大众点评",icon:"⭐",keyword:"卢湾网球"},{name:"小红书",icon:"📕",keyword:"卢湾网球"}] },
+  { id: "court-019", name: "卢湾体育馆网球场", lat: 31.2110, lng: 121.4708, address: "黄浦区肇嘉浜路128号", rating: 4.4, priceRange: "50-280", indoorCourts: 2, outdoorCourts: 4, facilities: ["停车","淋浴","教练"], phone: "021-63011234", hours: "06:00-23:00", bookingOptions: [{name:"勾勾运动",type:"miniprogram",shortLink:"#小程序://勾勾运动/Mn9BgYZb0npey2g",appId:"wxa43e880705719304",path:"/pages/index/index"},{name:"电话预约",type:"phone",phone:"021-63011234"}], extSources:[{name:"大众点评",icon:"⭐",keyword:"卢湾网球"},{name:"小红书",icon:"📕",keyword:"卢湾网球"}] },
 
   // ── 静安区 ──
   { id: "court-020", name: "静安区体育馆网球场", lat: 31.2498, lng: 121.4450, address: "静安区西康路99号", rating: 4.5, priceRange: "300-360", indoorCourts: 2, outdoorCourts: 0, facilities: ["淋浴","空调","更衣室"], phone: "", hours: "07:00-22:00", bookingOptions: [{name:"静安体育",type:"miniprogram",appId:""}], extSources:[{name:"大众点评",icon:"⭐",keyword:"静安体育馆网球"},{name:"小红书",icon:"📕",keyword:"静安网球馆"}] },
@@ -199,16 +199,58 @@ function toMarkers(courts) {
   return (courts||[]).map(function(c,i){return{id:i,latitude:c.lat,longitude:c.lng,title:c.name,width:30,height:30,callout:{content:c.name,color:"#0d3d32",fontSize:13,borderRadius:8,bgColor:"#ffffff",padding:8,display:"BYCLICK"}};});
 }
 
-var DIANPING_APP_ID = "wx734c1ad7b3562129", XHS_APP_ID = "wxb296433f62b558b3";
+// 微信小程序配置
+var DIANPING_APP_ID = "wx734c1ad7b3562129",  // 正确的大众点评 AppID
+    GOUGOU_APP_ID = "wxa43e880705719304",
+    GOUGOU_SHORT_LINK = "#小程序://勾勾运动/Mn9BgYZb0npey2g";
+
 function getExtSourceJump(s) {
-  if (!s) return null;
-  if (s.name==="大众点评") return {appId:DIANPING_APP_ID,path:"/pages/search/search?keyword="+encodeURIComponent(s.keyword||""),type:"miniprogram"};
-  if (s.name==="小红书") return {appId:XHS_APP_ID,path:"/pages/search/search?keyword="+encodeURIComponent(s.keyword||""),type:"miniprogram"};
+  if (!s) {
+    console.warn("[court_data] getExtSourceJump: source is null/undefined");
+    return null;
+  }
+  
+  console.log("[court_data] getExtSourceJump:", s.name, "keyword:", s.keyword);
+  
+  if (s.name==="大众点评") {
+    // 大众点评：使用 AppID + path 方式，在 path 中传递搜索关键词
+    var result = {
+      appId: DIANPING_APP_ID,
+      path: "/pages/search/search?keyword=" + encodeURIComponent(s.keyword || ""),
+      type: "miniprogram"
+    };
+    console.log("[court_data] 大众点评配置:", result);
+    return result;
+  }
+  
+  if (s.name==="小红书") {
+    // 小红书已经没有小程序了，使用网页链接
+    var result = {
+      url: "https://www.xiaohongshu.com/explore?keyword=" + encodeURIComponent(s.keyword || ""),
+      type: "webpage"
+    };
+    console.log("[court_data] 小红书网页链接:", result.url);
+    return result;
+  }
+  
+  if (s.name==="勾勾运动") {
+    // 勾勾运动使用 shortLink（因为它没有搜索参数）
+    var result = {
+      shortLink: GOUGOU_SHORT_LINK,
+      appId: GOUGOU_APP_ID,
+      path: "/pages/index/index",
+      type: "miniprogram"
+    };
+    console.log("[court_data] 勾勾运动配置:", result);
+    return result;
+  }
+  
+  console.warn("[court_data] getExtSourceJump: 未知的来源:", s.name);
   return null;
 }
 
 module.exports = {
   FALLBACK_COVER,FILTER_TYPES,MOCK_COURTS,calcDistance,cacheCourts,
   fetchNearbyCourts,fetchCourtById,toMarkers,formatDistance,normalizeCourt,
-  getExtSourceJump,DIANPING_APP_ID,XHS_APP_ID,
+  getExtSourceJump,DIANPING_APP_ID,GOUGOU_APP_ID,
 };

@@ -1,0 +1,181 @@
+/* RTMpose 实时检测页面 */
+
+.rtmpose-page {
+  position: relative;
+  width: 100vw;
+  height: 100vh;
+  background: #000;
+  overflow: hidden;
+}
+
+.cam {
+  width: 100%;
+  height: 100%;
+}
+
+.result-img {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 1;
+}
+
+.hud {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  pointer-events: auto;
+}
+
+/* ============ 顶部信息栏 ============ */
+
+.hud-top {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12rpx;
+  padding: 24rpx 24rpx 0;
+  align-items: flex-start;
+}
+
+.pill {
+  padding: 10rpx 20rpx;
+  border-radius: 999rpx;
+  background: rgba(0, 0, 0, 0.6);
+  color: #fff;
+  font-size: 22rpx;
+  max-width: 90vw;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  backdrop-filter: blur(10px);
+}
+
+.status-pill {
+  background: rgba(13, 216, 168, 0.8);
+  color: #08352a;
+  font-weight: 600;
+}
+
+.fps-pill {
+  background: rgba(255, 107, 107, 0.7);
+  color: #fff;
+  font-weight: 500;
+}
+
+/* ============ 统计面板 ============ */
+
+.stats-panel {
+  position: absolute;
+  top: 120rpx;
+  right: 24rpx;
+  background: rgba(0, 0, 0, 0.75);
+  border-radius: 12rpx;
+  padding: 20rpx;
+  min-width: 200rpx;
+  max-width: 280rpx;
+  z-index: 3;
+  backdrop-filter: blur(10px);
+}
+
+.stat-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12rpx;
+  padding-bottom: 12rpx;
+  border-bottom: 1rpx solid rgba(255, 255, 255, 0.1);
+}
+
+.stat-row:last-child {
+  border-bottom: none;
+  margin-bottom: 0;
+  padding-bottom: 0;
+}
+
+.stat-label {
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 20rpx;
+}
+
+.stat-value {
+  color: #0dd8a8;
+  font-size: 20rpx;
+  font-weight: 600;
+  font-family: monospace;
+}
+
+/* ============ 置信度滑块 ============ */
+
+.slider-container {
+  position: absolute;
+  bottom: 140rpx;
+  left: 24rpx;
+  right: 24rpx;
+  background: rgba(0, 0, 0, 0.75);
+  border-radius: 12rpx;
+  padding: 20rpx;
+  backdrop-filter: blur(10px);
+  z-index: 3;
+}
+
+.slider-label {
+  color: #fff;
+  font-size: 20rpx;
+  margin-bottom: 12rpx;
+  display: block;
+}
+
+.confidence-slider {
+  width: 100%;
+  margin-bottom: 8rpx;
+}
+
+/* ============ 底部按钮栏 ============ */
+
+.hud-bottom {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 16rpx;
+  padding: 16rpx 24rpx calc(40rpx + env(safe-area-inset-bottom));
+  background: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(10px);
+}
+
+.btn {
+  min-width: 120rpx;
+  padding: 14rpx 22rpx;
+  border-radius: 999rpx;
+  background: rgba(255, 255, 255, 0.15);
+  color: #fff;
+  font-size: 20rpx;
+  text-align: center;
+  border: 1rpx solid rgba(255, 255, 255, 0.2);
+  transition: all 0.2s ease;
+}
+
+.btn:active {
+  background: rgba(255, 255, 255, 0.25);
+  transform: scale(0.95);
+}
+
+.btn.primary {
+  background: linear-gradient(135deg, #13d8a8, #0fb5a8);
+  color: #08352a;
+  font-weight: 600;
+  border: none;
+  min-width: 140rpx;
+}
+
+.btn.primary:active {
+  background: linear-gradient(135deg, #0fb5a8, #089080);
+  transform: scale(0.95);
+}

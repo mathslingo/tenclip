@@ -1,10 +1,20 @@
-const { WEB_POSE_URL, LOCAL_DEV, POSE_API_BASE } = require("../../utils/config");
+const { 
+  WEB_POSE_URL, 
+  LOCAL_DEV, 
+  POSE_API_BASE,
+  RTMPOSE_V2_API_BASE 
+} = require("../../utils/config");
 const { copyPoseLink } = require("../../utils/web_link");
 
 Page({
   data: {
     poseUrl: WEB_POSE_URL,
     poseApi: POSE_API_BASE,
+    rtmposeApi: RTMPOSE_V2_API_BASE,
+  },
+
+  onOpenRtmpose() {
+    wx.navigateTo({ url: "/pages/pose-rtmpose/index" });
   },
 
   onOpenLive() {
