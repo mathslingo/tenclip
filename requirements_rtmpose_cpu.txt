@@ -14,7 +14,9 @@ torchaudio==2.5.1
 
 # ============ MMPose 相关 ============
 mmengine==0.10.7
-mmcv==2.1.0
+# mmcv 必须用 mim 安装，不要在 requirements 中列出
+# 原因: pip 会尝试从源码编译，会失败
+# 在命令行: mim install mmcv
 mmdet==3.2.0
 mmpose==1.3.2
 openmim==0.3.9

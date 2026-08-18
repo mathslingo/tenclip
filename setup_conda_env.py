@@ -130,10 +130,11 @@ def install_dependencies(env_name):
     )
     
     # 分步安装
+    # 重要: mmcv 必须用 mim 安装（预编译），而不是 pip（会编译，容易失败）
     steps = [
         ("PyTorch", "conda run -n {env_name} pip install -i https://pypi.tuna.tsinghua.edu.cn/simple torch torchvision torchaudio -q"),
-        ("MMPose 基础", "conda run -n {env_name} pip install -i https://pypi.tuna.tsinghua.edu.cn/simple mmengine openmim -q"),
-        ("MMCV", "conda run -n {env_name} mim install -q mmcv"),
+        ("基础工具", "conda run -n {env_name} pip install -i https://pypi.tuna.tsinghua.edu.cn/simple mmengine openmim -q"),
+        ("MMCV (via mim)", "conda run -n {env_name} mim install mmcv -q"),
         ("MMDet/MMPose", "conda run -n {env_name} pip install -i https://pypi.tuna.tsinghua.edu.cn/simple mmdet mmpose -q"),
         ("其他依赖", "conda run -n {env_name} pip install -i https://pypi.tuna.tsinghua.edu.cn/simple Flask Flask-CORS opencv-python numpy scipy pandas -q"),
         ("回退方案", "conda run -n {env_name} pip install -i https://pypi.tuna.tsinghua.edu.cn/simple mediapipe -q"),
