@@ -34,7 +34,7 @@ opencv-contrib-python==5.0.0.93
 # ============ 数据和配置 ============
 pandas==2.3.3
 PyYAML==6.0.3
-json-tricks==3.17.0
+# json-tricks 和 chumpy 都是可选的，移除以避免编译问题
 
 # ============ 工具库 ============
 tqdm==4.65.2
@@ -50,6 +50,6 @@ matplotlib==3.10.9
 # seaborn==0.14.2  # 版本不存在，使用 matplotlib 替代（可选）
 
 # ============ 开发工具（可选） ============
-Cython==3.0.11
+# Cython 会编译，移除以避免问题
 setuptools==60.2.0
 wheel==0.47.0
