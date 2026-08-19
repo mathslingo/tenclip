@@ -65,15 +65,13 @@ function poseApiBaseFromHost(apiBase) {
 const POSE_API_BASE = LOCAL_DEV
   ? poseApiBaseFromHost(LOCAL_API_HOST)
   : PROD_API_BASE_URL;
+// 生产 Nginx 只反代 /detect、/health 到 5000；不要打 /api/detect（会进主 API 变 404）
 const POSE_DETECT_URL = POSE_API_BASE + "/detect";
 const POSE_HEALTH_URL = POSE_API_BASE + "/health";
 
-// RTMpose v2 API 端点（新版本）
-const RTMPOSE_V2_API_BASE = LOCAL_DEV
-  ? "http://127.0.0.1:5000" // pose_server_v2.py 默认端口
-  : PROD_API_BASE_URL;
-const RTMPOSE_V2_DETECT_URL = RTMPOSE_V2_API_BASE + "/api/detect";
-const RTMPOSE_V2_HEALTH_URL = RTMPOSE_V2_API_BASE + "/api/health";
+const RTMPOSE_V2_API_BASE = POSE_API_BASE;
+const RTMPOSE_V2_DETECT_URL = POSE_DETECT_URL;
+const RTMPOSE_V2_HEALTH_URL = POSE_HEALTH_URL;
 
 /** wx.uploadFile / wx.downloadFile 超时（毫秒，约 10 分钟；大视频 + 3Mbps 带宽可能仍较慢） */
 const UPLOAD_TIMEOUT_MS = 600000;

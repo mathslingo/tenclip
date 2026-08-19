@@ -103,67 +103,67 @@ def check_gpu():
         print(f"⚠ GPU 检查失败: {e}")
 
 def init_models(model_size='m'):
-    """初始化 MMPose RTMPose 模型"""
+    """初始化 MMPose RTMPose 模型。MMPose 1.3.2 Inferencer 不认 rtmpose-m 这种简称。"""
     global pose_model, detector_model, model_loaded, model_config
     
     check_gpu()
     
+    # 人体默认 alias 是 human（RTMPose-m + RTMDet-m）
     model_name_map = {
-        's': 'rtmpose-s',  # 轻量
-        'm': 'rtmpose-m',  # 标准
-        'l': 'rtmpose-l',  # 高精度
+        's': 'rtmpose-s_8xb256-420e_coco-256x192',
+        'm': 'human',
+        'l': 'rtmpose-l_8xb256-420e_coco-256x192',
     }
     
     try:
         from mmpose.apis import MMPoseInferencer
-        import torch
         
-        model_name = model_name_map.get(model_size, 'rtmpose-m')
+        if model_size not in model_name_map and not gpu_available:
+            model_size = 's'
+        model_name = model_name_map.get(model_size, 'human')
         device = 'cuda:0' if gpu_available else 'cpu'
         
         print(f"\n加载 RTMPose {model_name} 到 {device}...")
         
-        # 创建推理器
-        pose_model = MMPoseInferencer(
-            pose2d=model_name,
-            pose2d_weights=None,  # 自动下载权重
-            device=device
-        )
+        try:
+            pose_model = MMPoseInferencer(
+                pose2d=model_name,
+                pose2d_weights=None,
+                device=device
+            )
+        except Exception as first_err:
+            if model_name != 'human':
+                print(f"⚠ {model_name} 不可用 ({first_err})，改用 human")
+                model_name = 'human'
+                pose_model = MMPoseInferencer(
+                    pose2d=model_name,
+                    pose2d_weights=None,
+                    device=device
+                )
+            else:
+                raise
         
         model_loaded = True
         model_config = {
             'model_name': model_name,
             'device': device,
             'model_size': model_size,
+            'backend': 'MMPose',
         }
         
         print(f"✓ {model_name} 加载成功")
         
-        # GPU 预热
         if gpu_available:
             print("预热 GPU...")
             dummy_img = np.zeros((480, 640, 3), dtype=np.uint8)
-            _ = pose_model(dummy_img, return_vis=False)
+            _ = next(pose_model(dummy_img, return_vis=False))
             print("✓ GPU 预热完成")
-            
-            # 显示预期性能
-            perf_table = {
-                'rtmpose-s': '100-150 FPS',
-                'rtmpose-m': '80-120 FPS',
-                'rtmpose-l': '60-90 FPS',
-            }
-            print(f"预期性能: {perf_table.get(model_name, 'N/A')}")
         else:
-            print("⚠ CPU 模式: 预期 5-20 FPS")
+            print("⚠ CPU 模式: 预期较慢，建议 --size s")
         
     except Exception as e:
         print(f"✗ MMPose 加载失败: {e}")
-        print("尝试回退到 MediaPipe...")
-        try:
-            init_mediapipe()
-        except Exception as e2:
-            print(f"✗ MediaPipe 也加载失败: {e2}")
-            raise
+        raise
 
 def init_mediapipe():
     """回退方案：MediaPipe"""
@@ -224,17 +224,19 @@ def detect_pose(image, return_visualization=True, confidence_threshold=0.5):
     start_time = time.time()
     
     try:
-        # 使用 MMPose 检测
-        results = pose_model(image, return_vis=return_visualization)
+        # MMPoseInferencer 返回生成器
+        results = next(pose_model(image, return_vis=return_visualization))
         
-        # 解析结果
         all_keypoints = []
         num_people = 0
+        predictions = results.get('predictions', []) if isinstance(results, dict) else []
+        if predictions and isinstance(predictions[0], list):
+            predictions = predictions[0]
         
-        if 'predictions' in results and results['predictions']:
-            num_people = len(results['predictions'])
+        if predictions:
+            num_people = len(predictions)
             
-            for person_idx, pred in enumerate(results['predictions']):
+            for person_idx, pred in enumerate(predictions):
                 person_kpts = []
                 
                 if 'keypoints' in pred:
@@ -461,6 +463,7 @@ def index():
     """
     return render_template_string(html)
 
+@app.route('/detect', methods=['POST'])
 @app.route('/api/detect', methods=['POST'])
 def detect():
     """姿态检测 API"""
@@ -485,6 +488,7 @@ def detect():
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
 
+@app.route('/health', methods=['GET'])
 @app.route('/api/health', methods=['GET'])
 def health():
     """健康检查"""
@@ -494,6 +498,11 @@ def health():
         'model_config': model_config,
         'gpu_info': gpu_info,
     })
+
+@app.route('/gpu_info', methods=['GET'])
+def gpu_info_route():
+    return jsonify(gpu_info)
+
 
 @app.route('/api/stats', methods=['GET'])
 def stats():
@@ -513,20 +522,25 @@ def stats():
 # ============ 启动 ============
 
 if __name__ == '__main__':
+    import argparse
+    parser = argparse.ArgumentParser(description='RTMpose v2 后端')
+    parser.add_argument('--size', choices=['s', 'm', 'l'], default='s',
+                        help='模型大小，CPU 建议 s')
+    parser.add_argument('--port', type=int, default=int(os.environ.get('POSE_PORT', '5000')))
+    args = parser.parse_args()
+
     print("=" * 60)
     print("RTMpose 实时姿态估计后端 v2")
     print("=" * 60)
     
-    # 初始化模型
     try:
-        init_models(model_size='m')  # 可选: 's', 'm', 'l'
+        init_models(model_size=args.size)
     except Exception as e:
         print(f"模型初始化失败: {e}")
         sys.exit(1)
     
-    # 启动 Flask
     print("\n启动 Flask 服务...")
-    print("访问地址: http://localhost:5000")
+    print(f"访问地址: http://0.0.0.0:{args.port}")
     print("=" * 60 + "\n")
     
-    app.run(host='0.0.0.0', port=5000, debug=False, threaded=True)
+    app.run(host='0.0.0.0', port=args.port, debug=False, threaded=True)
