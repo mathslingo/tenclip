@@ -27,6 +27,13 @@ data/uploads/
 data/note_uploads/
 data/stroke_outputs/
 data/logs/
+# SQLite 运行时库（含已跟踪文件需 git rm --cached）
+*.db
+*.sqlite
+*.sqlite3
+*.db-wal
+*.db-shm
+*.db-journal
 data/*.db
 data/**/*.mp4
 data/**/*.mov
