@@ -1,3 +1,4 @@
+import json
 import logging
 import os
 import queue
@@ -25,7 +26,7 @@ if not os.environ.get("TENCLIP_VLM_MODEL", "").strip() and _LOCAL_VLM.is_dir():
 import gradio as gr
 import uvicorn
 from fastapi import FastAPI, File, Form, HTTPException, Query, Request, UploadFile
-from fastapi.responses import FileResponse, RedirectResponse
+from fastapi.responses import FileResponse, JSONResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 from moviepy.video.io.VideoFileClip import VideoFileClip
 
@@ -833,6 +834,96 @@ def create_app() -> FastAPI:
             "analysis_queue_size": ANALYSIS_QUEUE.qsize(),
             "news_hourly_ingest": _news_hourly_ingest_enabled(),
         }
+
+    def _pose_upstream() -> str:
+        return os.environ.get("POSE_UPSTREAM", "http://127.0.0.1:5000").rstrip("/")
+
+    def _pose_http(
+        path: str,
+        *,
+        method: str = "GET",
+        query: str = "",
+        data=None,
+        headers=None,
+        timeout: int = 60,
+    ):
+        import urllib.error
+        import urllib.request
+
+        url = f"{_pose_upstream()}{path}"
+        if query:
+            url = f"{url}?{query}"
+        req = urllib.request.Request(
+            url, data=data, method=method, headers=headers or {}
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=timeout) as resp:
+                ctype = resp.headers.get("Content-Type", "application/json")
+                return resp.status, resp.read(), ctype
+        except urllib.error.HTTPError as exc:
+            ctype = (
+                exc.headers.get("Content-Type", "application/json")
+                if exc.headers
+                else "application/json"
+            )
+            return exc.code, exc.read() or b"", ctype
+        except Exception as exc:
+            raise HTTPException(status_code=502, detail=f"姿态服务不可达: {exc}") from exc
+
+    def _pose_json_response(status: int, raw: bytes):
+        try:
+            return JSONResponse(content=json.loads(raw.decode("utf-8")), status_code=status)
+        except Exception:
+            return JSONResponse(
+                content={"error": raw.decode("utf-8", "replace")[:500]},
+                status_code=status,
+            )
+
+    @api.post("/analyze-video")
+    async def pose_clip_analyze_video(video: UploadFile = File(...)):
+        """Nginx 未反代 /analyze-video 时，经主 API 转到 pose:5000。"""
+        filename = (video.filename or "clip.mp4").replace('"', "").replace("\n", "")
+        content_type = video.content_type or "application/octet-stream"
+        payload = await video.read()
+        boundary = "----TenClipPose" + uuid.uuid4().hex
+        body = (
+            f"--{boundary}\r\n"
+            f'Content-Disposition: form-data; name="video"; filename="{filename}"\r\n'
+            f"Content-Type: {content_type}\r\n\r\n"
+        ).encode("utf-8") + payload + f"\r\n--{boundary}--\r\n".encode("utf-8")
+        status, raw, _ctype = _pose_http(
+            "/analyze-video",
+            method="POST",
+            data=body,
+            headers={"Content-Type": f"multipart/form-data; boundary={boundary}"},
+            timeout=120,
+        )
+        return _pose_json_response(status, raw)
+
+    @api.get("/analyze-video/status")
+    def pose_clip_analyze_status(id: str = Query(...)):
+        from urllib.parse import urlencode
+
+        status, raw, _ctype = _pose_http(
+            "/analyze-video/status",
+            query=urlencode({"id": id}),
+            timeout=20,
+        )
+        return _pose_json_response(status, raw)
+
+    @api.get("/analyze-video/file")
+    def pose_clip_analyze_file(id: str = Query(...)):
+        from urllib.parse import urlencode
+
+        status, raw, ctype = _pose_http(
+            "/analyze-video/file",
+            query=urlencode({"id": id}),
+            timeout=60,
+        )
+        if status != 200:
+            return _pose_json_response(status, raw)
+        media = (ctype or "video/mp4").split(";")[0].strip() or "video/mp4"
+        return Response(content=raw, media_type=media)
 
     @api.get("/api/mobile/events")
     def mobile_events():
