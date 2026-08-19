@@ -1,28 +1,25 @@
-# TenClip pose_server（MediaPipe CPU）— 127.0.0.1:5000
+# TenClip pose_server_v2（RTMpose CPU）— 0.0.0.0:5000
 # Nginx 将 https://api.uchance.tech/detect|/health 反代到本进程
 #
-#   sudo cp scripts/deploy/tenclip-pose.service /etc/systemd/system/
-#   # 改 WorkingDirectory / PATH / ExecStart 与机器一致
+#   sudo cp scripts/deploy/tenclip-pose.service /etc/systemd/system/tenclip-pose.service
 #   sudo systemctl daemon-reload
-#   sudo systemctl enable --now tenclip-pose
-#   curl -s http://127.0.0.1:5000/health
+#   sudo systemctl restart tenclip-pose
 
 [Unit]
-Description=TenClip pose_server (MediaPipe) for api.uchance.tech
+Description=TenClip RTMpose v2 for api.uchance.tech
 After=network.target
 
 [Service]
 Type=simple
 User=root
 WorkingDirectory=/root/code/tenclip/pose
-Environment=HOST=127.0.0.1
-Environment=PORT=5000
-Environment=PATH=/root/miniconda3/envs/tenclip/bin:/usr/local/bin:/usr/bin:/bin
-ExecStart=/root/miniconda3/envs/tenclip/bin/python pose_server.py
+Environment=OMP_NUM_THREADS=4
+Environment=POSE_MAX_SIDE=320
+Environment=PATH=/root/miniconda3/envs/pose/bin:/usr/local/bin:/usr/bin:/bin
+ExecStart=/root/miniconda3/envs/pose/bin/python pose_server_v2.py --size s --port 5000
 Restart=always
 RestartSec=5
-# 2GiB 机器：姿态服务单独限内存，避免拖垮主 API
-MemoryMax=700M
+MemoryMax=3G
 
 [Install]
 WantedBy=multi-user.target

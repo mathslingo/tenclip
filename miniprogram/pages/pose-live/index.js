@@ -6,7 +6,7 @@ const {
 } = require("../../utils/config");
 const { requirePrivacyIfNeeded } = require("../../utils/api");
 
-const INTERVAL_MS = 450;
+const INTERVAL_MS = 800;
 
 Page({
   data: {
@@ -149,7 +149,7 @@ Page({
     if (!this.data.running || this._busy || !this._camCtx) return;
     this._busy = true;
     this._camCtx.takePhoto({
-      quality: "normal",
+      quality: "low",
       success: (res) => {
         this._uploadFrame(res.tempImagePath);
       },
@@ -184,13 +184,17 @@ Page({
             }
             const d = res.data;
             const src = d.image ? "data:image/jpeg;base64," + d.image : "";
+            const kptCount =
+              (d.keypoints && d.keypoints.length) ||
+              (d.people && d.people[0] && d.people[0].keypoints && d.people[0].keypoints.length) ||
+              0;
             this.setData({
               resultSrc: src || this.data.resultSrc,
               statusText:
                 "人数 " +
                 (d.num_people || 0) +
                 " · 关键点 " +
-                ((d.keypoints && d.keypoints.length) || 0),
+                kptCount,
               fpsText: d.inference_time_ms ? d.inference_time_ms + " ms" : "",
             });
           },

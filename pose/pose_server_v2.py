@@ -117,6 +117,10 @@ def init_models(model_size='m'):
     
     try:
         from mmpose.apis import MMPoseInferencer
+        import torch
+
+        nthreads = int(os.environ.get('OMP_NUM_THREADS', '4'))
+        torch.set_num_threads(max(1, nthreads))
         
         if model_size not in model_name_map and not gpu_available:
             model_size = 's'
@@ -201,9 +205,45 @@ def decode_base64_image(base64_string):
     return cv2.cvtColor(np.array(img), cv2.COLOR_RGB2BGR)
 
 def encode_image_to_base64(image):
-    """编码图像为 base64"""
-    _, buffer = cv2.imencode('.jpg', image)
+    """编码图像为 base64（CPU 实时用较低 JPEG 质量，减小回传）"""
+    _, buffer = cv2.imencode('.jpg', image, [int(cv2.IMWRITE_JPEG_QUALITY), 60])
     return base64.b64encode(buffer).decode('utf-8')
+
+
+_COCO_EDGES = (
+    (0, 1), (0, 2), (1, 3), (2, 4), (5, 6), (5, 7), (7, 9), (6, 8), (8, 10),
+    (5, 11), (6, 12), (11, 12), (11, 13), (13, 15), (12, 14), (14, 16),
+)
+
+
+def _downscale(image, max_side=320):
+    h, w = image.shape[:2]
+    m = max(h, w)
+    if m <= max_side:
+        return image
+    scale = max_side / float(m)
+    return cv2.resize(image, (int(w * scale), int(h * scale)), interpolation=cv2.INTER_AREA)
+
+
+def _draw_pose(image, predictions, confidence_threshold=0.5):
+    vis = image.copy()
+    color = (0, 140, 255)
+    for pred in predictions:
+        kpts = pred.get('keypoints') or []
+        scores = pred.get('keypoint_scores')
+        if scores is None:
+            scores = [1.0] * len(kpts)
+        pts = []
+        for kpt, score in zip(kpts, scores):
+            x, y = int(kpt[0]), int(kpt[1])
+            sc = float(score)
+            pts.append((x, y, sc))
+            if sc >= confidence_threshold:
+                cv2.circle(vis, (x, y), 3, color, -1, lineType=cv2.LINE_AA)
+        for a, b in _COCO_EDGES:
+            if a < len(pts) and b < len(pts) and pts[a][2] >= confidence_threshold and pts[b][2] >= confidence_threshold:
+                cv2.line(vis, (pts[a][0], pts[a][1]), (pts[b][0], pts[b][1]), color, 2, lineType=cv2.LINE_AA)
+    return vis
 
 # ============ 姿态检测 ============
 
@@ -224,8 +264,9 @@ def detect_pose(image, return_visualization=True, confidence_threshold=0.5):
     start_time = time.time()
     
     try:
-        # MMPoseInferencer 返回生成器
-        results = next(pose_model(image, return_vis=return_visualization))
+        # CPU 上缩小输入、关闭 MMPose 自带可视化（改用轻量 OpenCV 画骨架）
+        infer_img = _downscale(image, int(os.environ.get('POSE_MAX_SIDE', '320')))
+        results = next(pose_model(infer_img, return_vis=False))
         
         all_keypoints = []
         num_people = 0
@@ -258,12 +299,9 @@ def detect_pose(image, return_visualization=True, confidence_threshold=0.5):
                     'keypoint_count': len(person_kpts),
                 })
         
-        # 获取可视化图像
-        vis_image = image
-        if return_visualization and 'visualization' in results:
-            vis_list = results.get('visualization', [])
-            if vis_list and len(vis_list) > 0:
-                vis_image = vis_list[0]
+        vis_image = infer_img
+        if return_visualization:
+            vis_image = _draw_pose(infer_img, predictions, confidence_threshold)
         
         # 更新性能指标
         inference_time = time.time() - start_time
@@ -276,6 +314,7 @@ def detect_pose(image, return_visualization=True, confidence_threshold=0.5):
             'success': True,
             'num_people': num_people,
             'people': all_keypoints,
+            'keypoints': all_keypoints[0]['keypoints'] if all_keypoints else [],
             'image': encode_image_to_base64(vis_image) if return_visualization else None,
             'inference_time_ms': round(inference_time * 1000, 2),
             'fps': round(1.0 / inference_time, 2) if inference_time > 0 else 0,

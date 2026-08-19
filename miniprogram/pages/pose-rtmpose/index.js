@@ -17,7 +17,7 @@ const {
 } = require("../../utils/config");
 const { requirePrivacyIfNeeded } = require("../../utils/api");
 
-const INTERVAL_MS = 400; // 帧采集间隔 (ms)
+const INTERVAL_MS = 700; // CPU 上一帧约 0.5–1s，过密采集只会排队变卡
 
 Page({
   data: {
@@ -240,7 +240,7 @@ Page({
     this._busy = true;
     
     this._camCtx.takePhoto({
-      quality: "normal",
+      quality: "low",
       success: (res) => {
         this._uploadFrame(res.tempImagePath);
       },
