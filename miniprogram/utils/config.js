@@ -73,6 +73,10 @@ const RTMPOSE_V2_API_BASE = POSE_API_BASE;
 const RTMPOSE_V2_DETECT_URL = POSE_DETECT_URL;
 const RTMPOSE_V2_HEALTH_URL = POSE_HEALTH_URL;
 
+const POSE_ANALYZE_VIDEO_URL = POSE_API_BASE + "/analyze-video";
+const POSE_ANALYZE_STATUS_URL = POSE_API_BASE + "/analyze-video/status";
+const POSE_ANALYZE_FILE_URL = POSE_API_BASE + "/analyze-video/file";
+
 /** wx.uploadFile / wx.downloadFile 超时（毫秒，约 10 分钟；大视频 + 3Mbps 带宽可能仍较慢） */
 const UPLOAD_TIMEOUT_MS = 600000;
 
@@ -173,6 +177,9 @@ module.exports = {
   RTMPOSE_V2_API_BASE,
   RTMPOSE_V2_DETECT_URL,
   RTMPOSE_V2_HEALTH_URL,
+  POSE_ANALYZE_VIDEO_URL,
+  POSE_ANALYZE_STATUS_URL,
+  POSE_ANALYZE_FILE_URL,
   isApiConfigValid,
   apiConfigHint,
   apiHostForWhitelist,

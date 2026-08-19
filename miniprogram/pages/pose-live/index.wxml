@@ -1,6 +1,6 @@
 <view class="live-page">
-  <!-- 原生摄像头：小程序内唯一可靠的取景方式；web-view/H5 在微信里常无法 getUserMedia -->
   <camera
+    wx:if="{{!showResult}}"
     class="cam"
     device-position="{{devicePosition}}"
     flash="off"
@@ -10,26 +10,36 @@
     bindinitdone="onCamReady"
   />
 
-  <!-- 检测结果叠加图（后端画好骨架后返回） -->
-  <image
-    wx:if="{{resultSrc}}"
-    class="result-img"
-    src="{{resultSrc}}"
-    mode="aspectFill"
+  <video
+    wx:if="{{showResult && resultVideo}}"
+    class="result-video"
+    src="{{resultVideo}}"
+    controls
+    autoplay
+    loop
+    object-fit="cover"
   />
 
-  <cover-view class="hud">
+  <cover-view class="hud" wx:if="{{!showResult}}">
     <cover-view class="hud-top">
       <cover-view class="pill">{{statusText}}</cover-view>
-      <cover-view class="pill" wx:if="{{fpsText}}">{{fpsText}}</cover-view>
+      <cover-view class="pill rec" wx:if="{{recording}}">● {{timerText}}</cover-view>
+      <cover-view class="pill" wx:if="{{progressText}}">{{progressText}}</cover-view>
     </cover-view>
-
     <cover-view class="hud-bottom">
-      <cover-view class="btn" bindtap="onToggleDevice">翻转</cover-view>
-      <cover-view class="btn primary" bindtap="onToggleRun">
-        {{running ? '停止' : '开始检测'}}
+      <cover-view class="btn" bindtap="onToggleDevice" wx:if="{{!recording && !busy}}">翻转</cover-view>
+      <cover-view class="btn primary" bindtap="onToggleRecord">
+        {{recording ? '停止并分析' : '开始录制'}}
       </cover-view>
       <cover-view class="btn" bindtap="onBack">返回</cover-view>
     </cover-view>
   </cover-view>
+
+  <view class="result-bar" wx:if="{{showResult}}">
+    <text class="result-msg">{{statusText}}</text>
+    <view class="result-actions">
+      <button class="result-btn" bindtap="onRetake">再录一条</button>
+      <button class="result-btn ghost" bindtap="onBack">返回</button>
+    </view>
+  </view>
 </view>

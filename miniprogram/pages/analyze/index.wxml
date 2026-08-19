@@ -2,7 +2,7 @@
   <view class="page-inner">
     <view class="hero">
       <text class="hero-title">分析工具</text>
-      <text class="hero-sub">剪辑 · 动作 · 姿态，一站完成</text>
+      <text class="hero-sub">剪辑 · 动作 · 姿态回放</text>
     </view>
 
     <view class="feature-grid">
@@ -27,8 +27,8 @@
       <view class="feature-card feature-card-pose" bindtap="onGoPose">
         <view class="feature-icon icon-pose">◇</view>
         <view class="feature-info">
-          <text class="feature-title">实时关键点检测</text>
-          <text class="feature-desc">摄像头即时骨架预览，检查姿态是否入镜</text>
+          <text class="feature-title">姿态关键点</text>
+          <text class="feature-desc">录一段动作，生成带骨架的回放</text>
         </view>
         <text class="feature-arrow">›</text>
       </view>
@@ -46,7 +46,7 @@
       </view>
       <view class="tip-item">
         <view class="tip-bar"></view>
-        <text class="tip-text">关键点检测：真机开启摄像头，实时查看骨架</text>
+        <text class="tip-text">姿态关键点：真机录 3–8 秒，生成骨架回放</text>
       </view>
     </view>
 

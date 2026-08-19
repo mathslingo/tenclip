@@ -24,7 +24,7 @@ RTMpose 实时姿态估计后端服务 v2 (增强版)
   http://localhost:5000/api/detect (检测 API)
 """
 
-from flask import Flask, request, jsonify, render_template_string
+from flask import Flask, request, jsonify, render_template_string, send_file
 from flask_cors import CORS
 import cv2
 import numpy as np
@@ -36,7 +36,11 @@ from PIL import Image
 import os
 import sys
 from collections import deque
-from threading import Lock
+from threading import Lock, Thread
+import uuid
+import tempfile
+import subprocess
+import shutil
 
 # ============ 初始化 ============
 app = Flask(__name__)
@@ -59,6 +63,14 @@ perf_metrics = {
     'start_time': time.time(),
 }
 metrics_lock = Lock()
+infer_lock = Lock()
+
+JOB_DIR = os.environ.get('POSE_JOB_DIR', os.path.join(tempfile.gettempdir(), 'tenclip_pose_jobs'))
+video_jobs = {}
+video_jobs_lock = Lock()
+MAX_UPLOAD_BYTES = 20 * 1024 * 1024
+MAX_VIDEO_FRAMES = 48
+TARGET_VIDEO_FPS = 6
 
 # ============ GPU & 模型初始化 ============
 
@@ -247,7 +259,7 @@ def _draw_pose(image, predictions, confidence_threshold=0.5):
 
 # ============ 姿态检测 ============
 
-def detect_pose(image, return_visualization=True, confidence_threshold=0.5):
+def detect_pose(image, return_visualization=True, confidence_threshold=0.5, encode_image=True):
     """
     检测姿态关键点
     
@@ -266,7 +278,8 @@ def detect_pose(image, return_visualization=True, confidence_threshold=0.5):
     try:
         # CPU 上缩小输入、关闭 MMPose 自带可视化（改用轻量 OpenCV 画骨架）
         infer_img = _downscale(image, int(os.environ.get('POSE_MAX_SIDE', '320')))
-        results = next(pose_model(infer_img, return_vis=False))
+        with infer_lock:
+            results = next(pose_model(infer_img, return_vis=False))
         
         all_keypoints = []
         num_people = 0
@@ -315,7 +328,8 @@ def detect_pose(image, return_visualization=True, confidence_threshold=0.5):
             'num_people': num_people,
             'people': all_keypoints,
             'keypoints': all_keypoints[0]['keypoints'] if all_keypoints else [],
-            'image': encode_image_to_base64(vis_image) if return_visualization else None,
+            'image': encode_image_to_base64(vis_image) if (return_visualization and encode_image) else None,
+            'vis_bgr': vis_image if (return_visualization and not encode_image) else None,
             'inference_time_ms': round(inference_time * 1000, 2),
             'fps': round(1.0 / inference_time, 2) if inference_time > 0 else 0,
         }
@@ -330,6 +344,100 @@ def detect_pose(image, return_visualization=True, confidence_threshold=0.5):
             'num_people': 0,
             'people': [],
         }
+
+
+def _job_update(task_id, **kwargs):
+    with video_jobs_lock:
+        job = video_jobs.get(task_id)
+        if not job:
+            return
+        job.update(kwargs)
+
+
+def _transcode_h264(src, dst):
+    ffmpeg = shutil.which('ffmpeg')
+    if not ffmpeg:
+        return False
+    cmd = [
+        ffmpeg, '-y', '-i', src,
+        '-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-an',
+        '-movflags', '+faststart', dst,
+    ]
+    try:
+        subprocess.run(cmd, check=True, capture_output=True, timeout=120)
+        return os.path.isfile(dst) and os.path.getsize(dst) > 0
+    except Exception:
+        return False
+
+
+def _run_video_job(task_id, src_path):
+    _job_update(task_id, status='running', message='正在抽帧', progress=0.02)
+    cap = cv2.VideoCapture(src_path)
+    if not cap.isOpened():
+        _job_update(task_id, status='failed', error='无法打开视频')
+        return
+    src_fps = cap.get(cv2.CAP_PROP_FPS) or 25.0
+    step = max(1, int(round(src_fps / TARGET_VIDEO_FPS)))
+    frames = []
+    idx = 0
+    while True:
+        ok, frame = cap.read()
+        if not ok:
+            break
+        if idx % step == 0:
+            frames.append(frame)
+            if len(frames) >= MAX_VIDEO_FRAMES:
+                break
+        idx += 1
+    cap.release()
+    if not frames:
+        _job_update(task_id, status='failed', error='视频没有可读帧')
+        return
+
+    vis_frames = []
+    total = len(frames)
+    for i, frame in enumerate(frames):
+        result = detect_pose(frame, return_visualization=True, encode_image=False)
+        if not result.get('success'):
+            vis_frames.append(_downscale(frame))
+        else:
+            vis_frames.append(result.get('vis_bgr') or _downscale(frame))
+        _job_update(
+            task_id,
+            progress=0.05 + 0.85 * ((i + 1) / total),
+            message='分析中 %s/%s' % (i + 1, total),
+            frame_count=total,
+        )
+
+    h, w = vis_frames[0].shape[:2]
+    raw_mp4 = os.path.join(JOB_DIR, task_id + '_raw.mp4')
+    out_mp4 = os.path.join(JOB_DIR, task_id + '.mp4')
+    fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+    writer = cv2.VideoWriter(raw_mp4, fourcc, float(TARGET_VIDEO_FPS), (w, h))
+    for vis in vis_frames:
+        if vis.shape[1] != w or vis.shape[0] != h:
+            vis = cv2.resize(vis, (w, h))
+        writer.write(vis)
+    writer.release()
+
+    if _transcode_h264(raw_mp4, out_mp4):
+        try:
+            os.remove(raw_mp4)
+        except OSError:
+            pass
+        result_path = out_mp4
+    else:
+        result_path = raw_mp4
+
+    _job_update(
+        task_id,
+        status='succeeded',
+        progress=1.0,
+        message='完成',
+        result_path=result_path,
+        frame_count=total,
+    )
+
 
 # ============ Flask 路由 ============
 
@@ -557,6 +665,72 @@ def stats():
             'model_name': model_config.get('model_name', '未知'),
             'gpu_info': '可用' if gpu_available else '不可用',
         })
+
+@app.route('/analyze-video', methods=['POST'])
+def analyze_video():
+    if not model_loaded:
+        return jsonify({'error': '模型未加载'}), 503
+    f = request.files.get('video')
+    if f is None or not f.filename:
+        return jsonify({'error': '缺少 video 文件'}), 400
+    os.makedirs(JOB_DIR, exist_ok=True)
+    task_id = uuid.uuid4().hex[:16]
+    ext = os.path.splitext(f.filename)[1].lower() or '.mp4'
+    if ext not in ('.mp4', '.mov', '.avi', '.m4v'):
+        ext = '.mp4'
+    src_path = os.path.join(JOB_DIR, task_id + '_src' + ext)
+    f.save(src_path)
+    if os.path.getsize(src_path) > MAX_UPLOAD_BYTES:
+        try:
+            os.remove(src_path)
+        except OSError:
+            pass
+        return jsonify({'error': '视频超过 20MB'}), 400
+    with video_jobs_lock:
+        video_jobs[task_id] = {
+            'task_id': task_id,
+            'status': 'queued',
+            'progress': 0.0,
+            'message': '排队中',
+            'frame_count': 0,
+            'error': None,
+            'result_path': None,
+        }
+    Thread(target=_run_video_job, args=(task_id, src_path), daemon=True).start()
+    return jsonify({'task_id': task_id}), 202
+
+
+@app.route('/analyze-video/status', methods=['GET'])
+def analyze_video_status():
+    task_id = (request.args.get('id') or '').strip()
+    with video_jobs_lock:
+        job = video_jobs.get(task_id)
+        if not job:
+            return jsonify({'error': '任务不存在'}), 404
+        return jsonify({
+            'task_id': job['task_id'],
+            'status': job['status'],
+            'progress': round(float(job.get('progress') or 0), 3),
+            'message': job.get('message') or '',
+            'frame_count': job.get('frame_count') or 0,
+            'error': job.get('error'),
+        })
+
+
+@app.route('/analyze-video/file', methods=['GET'])
+def analyze_video_file():
+    task_id = (request.args.get('id') or '').strip()
+    with video_jobs_lock:
+        job = video_jobs.get(task_id)
+        if not job:
+            return jsonify({'error': '任务不存在'}), 404
+        if job.get('status') != 'succeeded' or not job.get('result_path'):
+            return jsonify({'error': '结果未就绪'}), 409
+        path = job['result_path']
+    if not os.path.isfile(path):
+        return jsonify({'error': '结果文件丢失'}), 404
+    return send_file(path, mimetype='video/mp4', as_attachment=False, download_name='pose.mp4')
+
 
 # ============ 启动 ============
 

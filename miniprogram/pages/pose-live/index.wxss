@@ -6,18 +6,10 @@
   overflow: hidden;
 }
 
-.cam {
+.cam,
+.result-video {
   width: 100%;
   height: 100%;
-}
-
-.result-img {
-  position: absolute;
-  left: 0;
-  top: 0;
-  width: 100%;
-  height: 100%;
-  z-index: 1;
 }
 
 .hud {
@@ -30,7 +22,6 @@
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  pointer-events: auto;
 }
 
 .hud-top {
@@ -47,9 +38,10 @@
   color: #fff;
   font-size: 22rpx;
   max-width: 90vw;
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
+}
+
+.pill.rec {
+  background: rgba(220, 50, 50, 0.85);
 }
 
 .hud-bottom {
@@ -73,4 +65,39 @@
   background: rgba(19, 216, 168, 0.9);
   color: #08352a;
   font-weight: 600;
+}
+
+.result-bar {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 3;
+  padding: 24rpx 24rpx calc(32rpx + env(safe-area-inset-bottom));
+  background: linear-gradient(transparent, rgba(0, 0, 0, 0.75));
+}
+
+.result-msg {
+  color: #fff;
+  font-size: 26rpx;
+  display: block;
+  margin-bottom: 16rpx;
+}
+
+.result-actions {
+  display: flex;
+  gap: 16rpx;
+}
+
+.result-btn {
+  flex: 1;
+  background: #13d8a8;
+  color: #08352a;
+  font-size: 28rpx;
+  border-radius: 999rpx;
+}
+
+.result-btn.ghost {
+  background: rgba(255, 255, 255, 0.2);
+  color: #fff;
 }

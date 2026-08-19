@@ -1,46 +1,21 @@
 <view class="page">
   <view class="hero">
-    <text class="hero-title">实时关键点检测</text>
-    <text class="hero-sub">微信内请用原生摄像头页；H5/web-view 在微信里通常无法访问摄像头。</text>
+    <text class="hero-title">姿态关键点</text>
+    <text class="hero-sub">先录一段短动作，云端分析后生成带骨架的回放。不做实时跟手。</text>
   </view>
 
   <view class="card">
-    <text class="card-title">开始检测</text>
-    <text class="card-sub">使用小程序原生 camera 组件取景，帧图发送到姿态服务绘制骨架。</text>
+    <text class="card-title">开始</text>
+    <text class="card-sub">建议 3–8 秒、人物完整入镜。分析大约需要几十秒。</text>
 
-    <button class="primary-btn" bindtap="onOpenRtmpose">🚀 RTMpose v2 检测（推荐）</button>
-    <button class="secondary-btn" bindtap="onOpenLive">标准版检测（旧版）</button>
-    <button class="ghost-btn" bindtap="onCopyLink">复制 H5 链接（电脑浏览器）</button>
-    <button class="ghost-btn" bindtap="onOpenWebview">尝试内嵌 H5（可能无摄像头）</button>
+    <button class="primary-btn" bindtap="onOpenLive">录制并生成骨架回放</button>
+    <button class="ghost-btn" bindtap="onGoAnalyze">去动作分析（文字建议）</button>
 
     <view class="tip-box">
-      <text class="tip-title">RTMpose v2 - 高性能实时检测</text>
-      <text class="tip-line">· 支持多人关键点检测和实时可视化</text>
-      <text class="tip-line">· 可调节置信度阈值，灵活过滤检测结果</text>
-      <text class="tip-line">· 启动：conda activate tenclip && python pose_server_v2.py</text>
-      <text class="tip-line">· RTMpose API：{{rtmposeApi}}</text>
+      <text class="tip-title">和动作分析的区别</text>
+      <text class="tip-line">· 姿态关键点：骨架回放，看动作轨迹</text>
+      <text class="tip-line">· 动作分析：AI 中文技术建议</text>
+      <text class="tip-line">· 真机录制；请允许微信使用相机</text>
     </view>
-
-    <view class="tip-box">
-      <text class="tip-title">若提示无法访问摄像头</text>
-      <text class="tip-line">· 不要走 H5/web-view，请点上方「检测」按钮</text>
-      <text class="tip-line">· 手机系统设置 → 微信 → 允许相机</text>
-      <text class="tip-line">· 公众平台隐私指引需声明摄像头；真机首次同意隐私弹窗</text>
-      <text class="tip-line">· 开发者工具模拟器相机能力弱，请用真机调试</text>
-      <text class="tip-line">· 当前姿态 API：{{poseApi}}</text>
-    </view>
-  </view>
-
-  <view class="card">
-    <text class="card-title">与动作分析的区别</text>
-    <view class="diff-row">
-      <text class="diff-label">实时关键点</text>
-      <text class="diff-desc">即时骨架预览，不生成文案</text>
-    </view>
-    <view class="diff-row">
-      <text class="diff-label">动作分析</text>
-      <text class="diff-desc">上传视频，AI 生成中文指导</text>
-    </view>
-    <button class="ghost-btn" bindtap="onGoAnalyze">去动作分析</button>
   </view>
 </view>

@@ -57,7 +57,7 @@
     </view>
     <view class="quick-item" bindtap="onGoPose">
       <text class="quick-icon">◇</text>
-      <text class="quick-text">实时关键点</text>
+      <text class="quick-text">姿态关键点</text>
     </view>
     <view class="quick-item" bindtap="onGoFeed">
       <text class="quick-icon">▣</text>

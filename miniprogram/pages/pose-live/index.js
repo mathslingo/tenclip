@@ -1,40 +1,53 @@
 const {
-  POSE_DETECT_URL,
-  POSE_HEALTH_URL,
+  POSE_ANALYZE_VIDEO_URL,
+  POSE_ANALYZE_STATUS_URL,
+  POSE_ANALYZE_FILE_URL,
   LOCAL_DEV,
   REQUEST_TIMEOUT_MS,
+  UPLOAD_TIMEOUT_MS,
 } = require("../../utils/config");
 const { requirePrivacyIfNeeded } = require("../../utils/api");
 
-const INTERVAL_MS = 800;
+const MAX_RECORD_SEC = 8;
 
 Page({
   data: {
     devicePosition: "front",
-    running: false,
     camReady: false,
+    recording: false,
+    busy: false,
+    showResult: false,
+    resultVideo: "",
     statusText: "准备摄像头…",
-    fpsText: "",
-    resultSrc: "",
+    timerText: "0s",
+    progressText: "",
   },
 
-  _timer: null,
-  _busy: false,
   _camCtx: null,
   _privacyOk: false,
+  _tickTimer: null,
+  _pollTimer: null,
+  _elapsed: 0,
+  _taskId: "",
 
   onLoad() {
     this._camCtx = wx.createCameraContext();
-    this._ensurePrivacy().then(() => this._checkBackend());
+    this._ensurePrivacy();
   },
 
   onUnload() {
-    this._stopLoop();
+    this._clearTimers();
+    if (this.data.recording) {
+      try {
+        this._camCtx && this._camCtx.stopRecord({ complete: () => {} });
+      } catch (e) {}
+    }
   },
 
   onHide() {
-    this._stopLoop();
-    this.setData({ running: false });
+    if (this.data.recording) {
+      this.onToggleRecord();
+    }
   },
 
   _ensurePrivacy() {
@@ -51,7 +64,7 @@ Page({
   onCamReady() {
     this.setData({
       camReady: true,
-      statusText: this.data.running ? "检测中…" : "摄像头就绪，点「开始检测」",
+      statusText: "摄像头就绪，点「开始录制」",
     });
   },
 
@@ -60,65 +73,18 @@ Page({
       (e && e.detail && (e.detail.errMsg || e.detail.message)) ||
       "摄像头打开失败";
     this.setData({ statusText: msg, camReady: false });
-    wx.showModal({
-      title: "无法使用摄像头",
-      content:
-        String(msg) +
-        "\n\n请检查：\n1. 手机系统是否允许微信使用相机\n2. 小程序隐私指引是否声明了摄像头\n3. 请用真机调试（模拟器相机能力有限）",
-      showCancel: false,
-    });
-  },
-
-  _checkBackend() {
-    if (!POSE_HEALTH_URL) {
-      this.setData({ statusText: "未配置姿态服务地址" });
-      return;
-    }
-    wx.request({
-      url: POSE_HEALTH_URL,
-      method: "GET",
-      timeout: Math.min(REQUEST_TIMEOUT_MS || 30000, 8000),
-      success: (res) => {
-        const ok = res.statusCode === 200 && res.data && res.data.status === "ok";
-        if (ok) {
-          const device =
-            (res.data.device || "CPU") +
-            (res.data.backend ? " · " + res.data.backend : "");
-          this.setData({
-            statusText: this.data.camReady
-              ? "摄像头就绪 · 后端 " + device
-              : "后端就绪，等待摄像头…",
-          });
-        } else {
-          this.setData({
-            statusText: "姿态服务未就绪，可先预览相机；检测需启动 pose_server",
-          });
-        }
-      },
-      fail: () => {
-        this.setData({
-          statusText:
-            "连不上姿态服务（" +
-            (LOCAL_DEV ? "请启动 pose_server.py:5000" : "检查 POSE_API_BASE") +
-            "）",
-        });
-      },
-    });
   },
 
   onToggleDevice() {
+    if (this.data.recording || this.data.busy) return;
     const next = this.data.devicePosition === "front" ? "back" : "front";
-    this.setData({ devicePosition: next, resultSrc: "" });
+    this.setData({ devicePosition: next });
   },
 
-  onToggleRun() {
-    if (this.data.running) {
-      this._stopLoop();
-      this.setData({
-        running: false,
-        statusText: "已停止",
-        fpsText: "",
-      });
+  onToggleRecord() {
+    if (this.data.busy) return;
+    if (this.data.recording) {
+      this._stopRecord();
       return;
     }
     const start = () => {
@@ -126,9 +92,34 @@ Page({
         wx.showToast({ title: "摄像头未就绪", icon: "none" });
         return;
       }
-      this.setData({ running: true, statusText: "检测中…" });
-      this._tick();
-      this._timer = setInterval(() => this._tick(), INTERVAL_MS);
+      this._elapsed = 0;
+      this.setData({
+        recording: true,
+        statusText: "录制中，最多 8 秒",
+        timerText: "0s",
+        progressText: "",
+      });
+      this._camCtx.startRecord({
+        timeout: MAX_RECORD_SEC,
+        timeoutCallback: (res) => {
+          this._onRecordFile(res && res.tempVideoPath);
+        },
+        success: () => {
+          this._tickTimer = setInterval(() => {
+            this._elapsed += 1;
+            this.setData({ timerText: this._elapsed + "s" });
+            if (this._elapsed >= MAX_RECORD_SEC) {
+              this._stopRecord();
+            }
+          }, 1000);
+        },
+        fail: (err) => {
+          this.setData({
+            recording: false,
+            statusText: "无法开始录制：" + ((err && err.errMsg) || ""),
+          });
+        },
+      });
     };
     if (!this._privacyOk) {
       this._ensurePrivacy().then(start);
@@ -137,91 +128,175 @@ Page({
     start();
   },
 
-  _stopLoop() {
-    if (this._timer) {
-      clearInterval(this._timer);
-      this._timer = null;
-    }
-    this._busy = false;
-  },
-
-  _tick() {
-    if (!this.data.running || this._busy || !this._camCtx) return;
-    this._busy = true;
-    this._camCtx.takePhoto({
-      quality: "low",
-      success: (res) => {
-        this._uploadFrame(res.tempImagePath);
-      },
+  _stopRecord() {
+    if (!this.data.recording) return;
+    this._clearTick();
+    this.setData({ recording: false, busy: true, statusText: "正在保存…" });
+    this._camCtx.stopRecord({
+      success: (res) => this._onRecordFile(res.tempVideoPath),
       fail: (err) => {
-        this._busy = false;
         this.setData({
-          statusText: "拍照失败：" + ((err && err.errMsg) || "未知错误"),
+          busy: false,
+          statusText: "停止录制失败：" + ((err && err.errMsg) || ""),
         });
       },
     });
   },
 
-  _uploadFrame(filePath) {
-    const fs = wx.getFileSystemManager();
-    fs.readFile({
+  _onRecordFile(filePath) {
+    this._clearTick();
+    this.setData({ recording: false });
+    if (!filePath) {
+      this.setData({ busy: false, statusText: "没有录到视频，请重试" });
+      return;
+    }
+    if (!POSE_ANALYZE_VIDEO_URL) {
+      this.setData({ busy: false, statusText: "未配置姿态服务地址" });
+      return;
+    }
+    this.setData({ busy: true, statusText: "上传中…", progressText: "" });
+    wx.uploadFile({
+      url: POSE_ANALYZE_VIDEO_URL,
       filePath: filePath,
-      encoding: "base64",
-      success: (fileRes) => {
-        wx.request({
-          url: POSE_DETECT_URL,
-          method: "POST",
-          timeout: REQUEST_TIMEOUT_MS || 30000,
-          header: { "Content-Type": "application/json" },
-          data: { image: "data:image/jpeg;base64," + fileRes.data },
-          success: (res) => {
-            this._busy = false;
-            if (res.statusCode !== 200 || !res.data || res.data.error) {
-              const err =
-                (res.data && res.data.error) || "HTTP " + res.statusCode;
-              this.setData({ statusText: "检测失败：" + err });
-              return;
-            }
-            const d = res.data;
-            const src = d.image ? "data:image/jpeg;base64," + d.image : "";
-            const kptCount =
-              (d.keypoints && d.keypoints.length) ||
-              (d.people && d.people[0] && d.people[0].keypoints && d.people[0].keypoints.length) ||
-              0;
+      name: "video",
+      timeout: UPLOAD_TIMEOUT_MS || 600000,
+      success: (res) => {
+        let body = {};
+        try {
+          body = JSON.parse(res.data || "{}");
+        } catch (e) {
+          body = {};
+        }
+        if ((res.statusCode !== 200 && res.statusCode !== 202) || !body.task_id) {
+          this.setData({
+            busy: false,
+            statusText:
+              "上传失败：" + (body.error || "HTTP " + res.statusCode),
+          });
+          return;
+        }
+        this._taskId = body.task_id;
+        this.setData({ statusText: "分析中…", progressText: "排队" });
+        this._pollStatus();
+      },
+      fail: (err) => {
+        this.setData({
+          busy: false,
+          statusText:
+            "上传失败：" +
+            ((err && err.errMsg) || "网络错误") +
+            (LOCAL_DEV ? "（请确认 pose_server_v2 已启动）" : ""),
+        });
+      },
+    });
+  },
+
+  _pollStatus() {
+    this._clearPoll();
+    const tick = () => {
+      wx.request({
+        url: POSE_ANALYZE_STATUS_URL,
+        data: { id: this._taskId },
+        timeout: REQUEST_TIMEOUT_MS || 30000,
+        success: (res) => {
+          const d = res.data || {};
+          if (res.statusCode !== 200) {
             this.setData({
-              resultSrc: src || this.data.resultSrc,
-              statusText:
-                "人数 " +
-                (d.num_people || 0) +
-                " · 关键点 " +
-                kptCount,
-              fpsText: d.inference_time_ms ? d.inference_time_ms + " ms" : "",
+              busy: false,
+              statusText: "查询失败：" + (d.error || res.statusCode),
             });
-          },
-          fail: (err) => {
-            this._busy = false;
+            this._clearPoll();
+            return;
+          }
+          const pct = Math.round((d.progress || 0) * 100);
+          this.setData({
+            statusText: d.message || "分析中…",
+            progressText: pct + "%",
+          });
+          if (d.status === "succeeded") {
+            this._clearPoll();
+            this._downloadResult();
+          } else if (d.status === "failed") {
+            this._clearPoll();
             this.setData({
-              statusText:
-                "请求失败：" +
-                ((err && err.errMsg) || "网络错误") +
-                (LOCAL_DEV ? "（确认 pose_server 已启动）" : ""),
+              busy: false,
+              statusText: "分析失败：" + (d.error || "未知错误"),
+              progressText: "",
             });
-          },
+          }
+        },
+        fail: () => {
+          this._clearPoll();
+          this.setData({ busy: false, statusText: "无法查询分析进度" });
+        },
+      });
+    };
+    tick();
+    this._pollTimer = setInterval(tick, 1500);
+  },
+
+  _downloadResult() {
+    this.setData({ statusText: "下载回放…", progressText: "100%" });
+    wx.downloadFile({
+      url: POSE_ANALYZE_FILE_URL + "?id=" + encodeURIComponent(this._taskId),
+      timeout: UPLOAD_TIMEOUT_MS || 600000,
+      success: (res) => {
+        if (res.statusCode !== 200 || !res.tempFilePath) {
+          this.setData({ busy: false, statusText: "回放下载失败" });
+          return;
+        }
+        this.setData({
+          busy: false,
+          showResult: true,
+          resultVideo: res.tempFilePath,
+          statusText: "骨架回放",
+          progressText: "",
         });
       },
       fail: () => {
-        this._busy = false;
-        this.setData({ statusText: "读取照片失败" });
+        this.setData({ busy: false, statusText: "回放下载失败" });
       },
+    });
+  },
+
+  onRetake() {
+    this._taskId = "";
+    this.setData({
+      showResult: false,
+      resultVideo: "",
+      busy: false,
+      recording: false,
+      statusText: this.data.camReady ? "摄像头就绪，点「开始录制」" : "准备摄像头…",
+      progressText: "",
+      timerText: "0s",
     });
   },
 
   onBack() {
-    this._stopLoop();
+    this._clearTimers();
     wx.navigateBack({
       fail: () => {
         wx.redirectTo({ url: "/pages/pose-detect/index" });
       },
     });
+  },
+
+  _clearTick() {
+    if (this._tickTimer) {
+      clearInterval(this._tickTimer);
+      this._tickTimer = null;
+    }
+  },
+
+  _clearPoll() {
+    if (this._pollTimer) {
+      clearInterval(this._pollTimer);
+      this._pollTimer = null;
+    }
+  },
+
+  _clearTimers() {
+    this._clearTick();
+    this._clearPoll();
   },
 });
