@@ -28,6 +28,7 @@
     </cover-view>
     <cover-view class="hud-bottom">
       <cover-view class="btn" bindtap="onToggleDevice" wx:if="{{!recording && !busy}}">翻转</cover-view>
+      <cover-view class="btn" bindtap="onChooseVideo" wx:if="{{!recording && !busy}}">系统相机</cover-view>
       <cover-view class="btn primary" bindtap="onToggleRecord">
         {{recording ? '停止并分析' : '开始录制'}}
       </cover-view>

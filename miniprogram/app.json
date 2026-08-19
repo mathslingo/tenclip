@@ -59,6 +59,9 @@
   "permission": {
     "scope.userLocation": {
       "desc": "用于找球场计算距离，以及发布笔记时在地图上选点分享地点"
+    },
+    "scope.camera": {
+      "desc": "用于录制网球动作短视频，生成骨架回放"
     }
   },
   "requiredPrivateInfos": ["getLocation", "chooseLocation"],

@@ -31,7 +31,6 @@ Page({
   _taskId: "",
 
   onLoad() {
-    this._camCtx = wx.createCameraContext();
     this._ensurePrivacy();
   },
 
@@ -62,6 +61,7 @@ Page({
   },
 
   onCamReady() {
+    this._camCtx = wx.createCameraContext();
     this.setData({
       camReady: true,
       statusText: "摄像头就绪，点「开始录制」",
@@ -78,7 +78,60 @@ Page({
   onToggleDevice() {
     if (this.data.recording || this.data.busy) return;
     const next = this.data.devicePosition === "front" ? "back" : "front";
-    this.setData({ devicePosition: next });
+    this._camCtx = null;
+    this.setData({ devicePosition: next, camReady: false, statusText: "切换摄像头…" });
+  },
+
+  _ensureCameraAuth() {
+    return new Promise((resolve, reject) => {
+      wx.getSetting({
+        success: (s) => {
+          if (s.authSetting && s.authSetting["scope.camera"] === true) {
+            resolve();
+            return;
+          }
+          wx.authorize({
+            scope: "scope.camera",
+            success: () => resolve(),
+            fail: () => {
+              wx.showModal({
+                title: "需要相机权限",
+                content: "请在设置中允许使用摄像头，才能录制动作。",
+                confirmText: "去设置",
+                success: (m) => {
+                  if (m.confirm) wx.openSetting({});
+                },
+              });
+              reject(new Error("no camera permission"));
+            },
+          });
+        },
+        fail: () => resolve(),
+      });
+    });
+  },
+
+  onChooseVideo() {
+    if (this.data.recording || this.data.busy) return;
+    const pick = () => {
+      wx.chooseVideo({
+        sourceType: ["camera", "album"],
+        camera: this.data.devicePosition === "front" ? "front" : "back",
+        maxDuration: MAX_RECORD_SEC,
+        compressed: true,
+        success: (res) => this._onRecordFile(res.tempFilePath),
+        fail: (err) => {
+          this.setData({
+            statusText: "未选择视频：" + ((err && err.errMsg) || ""),
+          });
+        },
+      });
+    };
+    if (!this._privacyOk) {
+      this._ensurePrivacy().then(pick);
+      return;
+    }
+    pick();
   },
 
   onToggleRecord() {
@@ -88,8 +141,8 @@ Page({
       return;
     }
     const start = () => {
-      if (!this.data.camReady) {
-        wx.showToast({ title: "摄像头未就绪", icon: "none" });
+      if (!this.data.camReady || !this._camCtx) {
+        this.onChooseVideo();
         return;
       }
       this._elapsed = 0;
@@ -114,18 +167,27 @@ Page({
           }, 1000);
         },
         fail: (err) => {
-          this.setData({
-            recording: false,
-            statusText: "无法开始录制：" + ((err && err.errMsg) || ""),
+          const msg = (err && err.errMsg) || "";
+          this.setData({ recording: false });
+          wx.showModal({
+            title: "页内录制不可用",
+            content:
+              msg +
+              "\n\n开发者工具通常不支持页内录像。请用真机，或点「系统相机」拍摄。",
+            confirmText: "系统相机",
+            success: (m) => {
+              if (m.confirm) this.onChooseVideo();
+            },
           });
         },
       });
     };
+    const run = () => this._ensureCameraAuth().then(start).catch(() => {});
     if (!this._privacyOk) {
-      this._ensurePrivacy().then(start);
+      this._ensurePrivacy().then(run);
       return;
     }
-    start();
+    run();
   },
 
   _stopRecord() {
