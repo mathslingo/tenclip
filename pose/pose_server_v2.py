@@ -354,8 +354,21 @@ def _job_update(task_id, **kwargs):
         job.update(kwargs)
 
 
+def _ffmpeg_bin():
+    env = (os.environ.get('FFMPEG_BIN') or '').strip()
+    if env and os.path.isfile(env) and os.access(env, os.X_OK):
+        return env
+    found = shutil.which('ffmpeg')
+    if found:
+        return found
+    cand = os.path.join(os.path.dirname(sys.executable), 'ffmpeg')
+    if os.path.isfile(cand) and os.access(cand, os.X_OK):
+        return cand
+    return None
+
+
 def _transcode_h264(src, dst):
-    ffmpeg = shutil.which('ffmpeg')
+    ffmpeg = _ffmpeg_bin()
     if not ffmpeg:
         return False
     cmd = [
@@ -370,73 +383,140 @@ def _transcode_h264(src, dst):
         return False
 
 
-def _run_video_job(task_id, src_path):
-    _job_update(task_id, status='running', message='正在抽帧', progress=0.02)
-    cap = cv2.VideoCapture(src_path)
-    if not cap.isOpened():
-        _job_update(task_id, status='failed', error='无法打开视频')
-        return
-    src_fps = cap.get(cv2.CAP_PROP_FPS) or 25.0
-    step = max(1, int(round(src_fps / TARGET_VIDEO_FPS)))
+def _extract_frames_ffmpeg(src_path, work_dir):
+    ffmpeg = _ffmpeg_bin()
+    if not ffmpeg:
+        return []
+    os.makedirs(work_dir, exist_ok=True)
+    pattern = os.path.join(work_dir, '%04d.jpg')
+    cmd = [
+        ffmpeg, '-hide_banner', '-loglevel', 'error', '-y',
+        '-i', src_path,
+        '-vf', "fps=%s,scale='min(640,iw)':-2" % TARGET_VIDEO_FPS,
+        '-frames:v', str(MAX_VIDEO_FRAMES),
+        '-q:v', '3',
+        pattern,
+    ]
+    try:
+        subprocess.run(cmd, check=True, capture_output=True, timeout=90)
+    except Exception:
+        return []
+    names = sorted(
+        n for n in os.listdir(work_dir)
+        if n.lower().endswith(('.jpg', '.jpeg', '.png'))
+    )
     frames = []
-    idx = 0
-    while True:
-        ok, frame = cap.read()
-        if not ok:
+    for name in names:
+        img = cv2.imread(os.path.join(work_dir, name))
+        if img is not None:
+            frames.append(img)
+        if len(frames) >= MAX_VIDEO_FRAMES:
             break
-        if idx % step == 0:
-            frames.append(frame)
-            if len(frames) >= MAX_VIDEO_FRAMES:
-                break
-        idx += 1
-    cap.release()
-    if not frames:
-        _job_update(task_id, status='failed', error='视频没有可读帧')
-        return
+    return frames
 
-    vis_frames = []
-    total = len(frames)
-    for i, frame in enumerate(frames):
-        result = detect_pose(frame, return_visualization=True, encode_image=False)
-        if not result.get('success'):
-            vis_frames.append(_downscale(frame))
+
+def _extract_frames_opencv(src_path, timeout_sec=45):
+    box = {'frames': [], 'error': None}
+
+    def _read():
+        cap = cv2.VideoCapture(src_path)
+        if not cap.isOpened():
+            box['error'] = '无法打开视频'
+            return
+        src_fps = cap.get(cv2.CAP_PROP_FPS)
+        if not src_fps or src_fps != src_fps or src_fps < 1:
+            src_fps = 25.0
+        step = max(1, int(round(src_fps / TARGET_VIDEO_FPS)))
+        frames = []
+        idx = 0
+        while True:
+            ok, frame = cap.read()
+            if not ok:
+                break
+            if idx % step == 0:
+                frames.append(frame)
+                if len(frames) >= MAX_VIDEO_FRAMES:
+                    break
+            idx += 1
+        cap.release()
+        box['frames'] = frames
+
+    t = Thread(target=_read, daemon=True)
+    t.start()
+    t.join(timeout_sec)
+    if t.is_alive():
+        return [], '抽帧超时（真机 HEVC 需 ffmpeg）'
+    if box['error']:
+        return [], box['error']
+    return box['frames'], None
+
+
+def _run_video_job(task_id, src_path):
+    try:
+        _job_update(task_id, status='running', message='正在抽帧', progress=0.02)
+        work_dir = os.path.join(JOB_DIR, task_id + '_frames')
+        frames = _extract_frames_ffmpeg(src_path, work_dir)
+        if frames:
+            _job_update(task_id, message='抽帧完成', progress=0.05)
         else:
-            vis_frames.append(result.get('vis_bgr') or _downscale(frame))
+            _job_update(task_id, message='正在解码视频', progress=0.03)
+            frames, err = _extract_frames_opencv(src_path)
+            if err:
+                _job_update(task_id, status='failed', error=err)
+                return
+        if not frames:
+            _job_update(
+                task_id,
+                status='failed',
+                error='视频没有可读帧（真机请确认已安装 ffmpeg）',
+            )
+            return
+
+        vis_frames = []
+        total = len(frames)
+        for i, frame in enumerate(frames):
+            result = detect_pose(frame, return_visualization=True, encode_image=False)
+            if not result.get('success'):
+                vis_frames.append(_downscale(frame))
+            else:
+                vis_frames.append(result.get('vis_bgr') or _downscale(frame))
+            _job_update(
+                task_id,
+                progress=0.05 + 0.85 * ((i + 1) / total),
+                message='分析中 %s/%s' % (i + 1, total),
+                frame_count=total,
+            )
+
+        h, w = vis_frames[0].shape[:2]
+        raw_mp4 = os.path.join(JOB_DIR, task_id + '_raw.mp4')
+        out_mp4 = os.path.join(JOB_DIR, task_id + '.mp4')
+        fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+        writer = cv2.VideoWriter(raw_mp4, fourcc, float(TARGET_VIDEO_FPS), (w, h))
+        for vis in vis_frames:
+            if vis.shape[1] != w or vis.shape[0] != h:
+                vis = cv2.resize(vis, (w, h))
+            writer.write(vis)
+        writer.release()
+
+        if _transcode_h264(raw_mp4, out_mp4):
+            try:
+                os.remove(raw_mp4)
+            except OSError:
+                pass
+            result_path = out_mp4
+        else:
+            result_path = raw_mp4
+
         _job_update(
             task_id,
-            progress=0.05 + 0.85 * ((i + 1) / total),
-            message='分析中 %s/%s' % (i + 1, total),
+            status='succeeded',
+            progress=1.0,
+            message='完成',
+            result_path=result_path,
             frame_count=total,
         )
-
-    h, w = vis_frames[0].shape[:2]
-    raw_mp4 = os.path.join(JOB_DIR, task_id + '_raw.mp4')
-    out_mp4 = os.path.join(JOB_DIR, task_id + '.mp4')
-    fourcc = cv2.VideoWriter_fourcc(*'mp4v')
-    writer = cv2.VideoWriter(raw_mp4, fourcc, float(TARGET_VIDEO_FPS), (w, h))
-    for vis in vis_frames:
-        if vis.shape[1] != w or vis.shape[0] != h:
-            vis = cv2.resize(vis, (w, h))
-        writer.write(vis)
-    writer.release()
-
-    if _transcode_h264(raw_mp4, out_mp4):
-        try:
-            os.remove(raw_mp4)
-        except OSError:
-            pass
-        result_path = out_mp4
-    else:
-        result_path = raw_mp4
-
-    _job_update(
-        task_id,
-        status='succeeded',
-        progress=1.0,
-        message='完成',
-        result_path=result_path,
-        frame_count=total,
-    )
+    except Exception as exc:
+        _job_update(task_id, status='failed', error='分析异常: %s' % exc)
 
 
 # ============ Flask 路由 ============
