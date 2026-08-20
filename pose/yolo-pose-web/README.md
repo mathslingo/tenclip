@@ -5,14 +5,18 @@
 
 ## 环境
 
+**务必用独立 venv**，不要装进已有 `mmpose` / `openxlab` 的 conda（会升 `filelock` 起冲突）。
+
 ```bash
 cd pose/yolo-pose-web
-python -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt
+python3 -m venv .venv && source .venv/bin/activate
+pip install -U pip && pip install -r requirements.txt
 python export_onnx.py              # → models/yolo11n-pose.onnx @ 640
 python download_assets.py          # → assets/bus.jpg
 python3 -m http.server 8765
 ```
+
+若已误装进共享环境：`pip install 'filelock~=3.14.0'` 可恢复 openxlab。
 
 本机：`http://127.0.0.1:8765/` · 真机需 HTTPS。
 

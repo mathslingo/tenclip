@@ -1,13 +1,15 @@
-# pose/yolo-pose-web — 导出 ONNX + 本机冒烟（浏览器侧不需要 Python）
+# pose/yolo-pose-web — 请用独立 venv，勿装进 mmpose/openxlab 的 conda 环境
 #
-# 系统：Python 3.9–3.12（推荐 3.10/3.11），CPU 即可
-# 安装：
-#   python -m venv .venv && source .venv/bin/activate
-#   pip install -U pip && pip install -r requirements.txt
-#
-# 导出（默认 640，与 demo 一致）：
+#   cd pose/yolo-pose-web
+#   python3 -m venv .venv
+#   source .venv/bin/activate          # Windows: .venv\Scripts\activate
+#   pip install -U pip
+#   pip install -r requirements.txt
 #   python export_onnx.py
-#   python download_assets.py   # 拉取 assets/bus.jpg
+#   python download_assets.py
+#
+# 若已误装进共享环境并弄坏 openxlab：
+#   pip install 'filelock~=3.14.0'
 
 ultralytics>=8.3.0,<9
 torch>=2.1.0
@@ -16,6 +18,9 @@ onnx>=1.15.0,<2
 onnxscript>=0.1.0
 onnxslim>=0.1.31
 onnxsim>=0.4.36
+
+# 与 openxlab 共存时再取消下一行注释；独立 venv 可忽略
+# filelock~=3.14.0
 
 onnxruntime>=1.17.0,<2
 numpy>=1.24.0,<3
