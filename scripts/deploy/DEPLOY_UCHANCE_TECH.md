@@ -229,7 +229,11 @@ HOST=127.0.0.1 PORT=5000 python pose_server.py
 
 ### 7.3 Nginx
 
-把 `scripts/deploy/nginx-pose-locations.conf.example` 中的三个 `location` 粘进 `api.uchance.tech` 的 **443 server**（放在 `location /` 之前），然后：
+把 `scripts/deploy/nginx-pose-locations.conf.example` 中的 `location`（含 **`/analyze-video`**）粘进 `api.uchance.tech` 的 **443 server**（放在 `location /` 之前）。
+
+若暂时不改 Nginx：主 API `app.py` 已把 `/analyze-video*` 转发到 `127.0.0.1:5000`，`git pull` 后重启 **`tenclip-api`** 即可（不要停 pose 服务）。
+
+然后：
 
 ```bash
 nginx -t && nginx -s reload

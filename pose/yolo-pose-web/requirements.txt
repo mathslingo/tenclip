@@ -1,0 +1,23 @@
+# pose/yolo-pose-web — 导出 ONNX + 本机冒烟（浏览器侧不需要 Python）
+#
+# 系统：Python 3.9–3.12（推荐 3.10/3.11），CPU 即可
+# 安装：
+#   python -m venv .venv && source .venv/bin/activate
+#   pip install -U pip && pip install -r requirements.txt
+#
+# 导出（默认 640，与 demo 一致）：
+#   python export_onnx.py
+#   python download_assets.py   # 拉取 assets/bus.jpg
+
+ultralytics>=8.3.0,<9
+torch>=2.1.0
+torchvision>=0.16.0
+onnx>=1.15.0,<2
+onnxscript>=0.1.0
+onnxslim>=0.1.31
+onnxsim>=0.4.36
+
+onnxruntime>=1.17.0,<2
+numpy>=1.24.0,<3
+opencv-python-headless>=4.8.0,<5
+Pillow>=10.0.0

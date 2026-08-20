@@ -65,7 +65,7 @@ function poseApiBaseFromHost(apiBase) {
 const POSE_API_BASE = LOCAL_DEV
   ? poseApiBaseFromHost(LOCAL_API_HOST)
   : PROD_API_BASE_URL;
-// 生产 Nginx 只反代 /detect、/health 到 5000；不要打 /api/detect（会进主 API 变 404）
+// 生产：/detect、/health 由 Nginx 转到 5000；/analyze-video 若 Nginx 未配，由主 API 转发
 const POSE_DETECT_URL = POSE_API_BASE + "/detect";
 const POSE_HEALTH_URL = POSE_API_BASE + "/health";
 

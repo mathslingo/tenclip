@@ -30,6 +30,13 @@ MMPose 项目的完整功能总结文档，包括：
 - **实时检测可行性分析**
 - 在网球场景的应用建议
 
+### 2b. `yolo-pose-web/` ⭐ 端侧实时（推荐验证）
+YOLO11n-pose + ONNX Runtime Web（WASM），iPhone Safari 可测真实 FPS：
+- letterbox 前处理 + NMS 后处理
+- 用户手势启动摄像头、`playsinline`、帧率上限 30
+- 导出：`python export_onnx.py` → `models/yolo11n-pose.onnx`
+- 说明见 [`yolo-pose-web/README.md`](yolo-pose-web/README.md)
+
 ### 2. `realtime_pose_detection.html`
 基于 MediaPipe Pose 的实时人体关键点检测网页，特性：
 - ✅ **浏览器原生运行**，无需后端服务器

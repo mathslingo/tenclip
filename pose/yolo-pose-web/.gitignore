@@ -1,0 +1,8 @@
+models/*.onnx
+models/*.pt
+assets/*.jpg
+assets/*.png
+assets/*.jpeg
+__pycache__/
+*.pyc
+.venv/
