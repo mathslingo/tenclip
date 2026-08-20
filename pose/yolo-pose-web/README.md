@@ -18,9 +18,50 @@ python3 -m http.server 8765
 
 若已误装进共享环境：`pip install 'filelock~=3.14.0'` 可恢复 openxlab。
 
-本机：`http://127.0.0.1:8765/` · 真机需 HTTPS。
+本机：`http://127.0.0.1:8765/` · 真机用 HTTPS（见下）。
 
 可选：`?imgsz=320&model=./models/yolo11n-pose.onnx`（须与导出一致）。
+
+## 公网 HTTPS（推荐）
+
+Nginx 静态反代，**不必**再跑 `http.server`。
+
+1. 确认已导出模型与测试图：
+   ```bash
+   ls /root/code/tenclip/pose/yolo-pose-web/models/yolo11n-pose.onnx
+   ls /root/code/tenclip/pose/yolo-pose-web/assets/bus.jpg
+   ```
+
+2. 宝塔 → 网站 → `api.uchance.tech` → 配置文件，在 `location /` **之前**粘贴：
+
+```nginx
+location = /yolo-pose {
+    return 301 /yolo-pose/;
+}
+location ^~ /yolo-pose/ {
+    alias /root/code/tenclip/pose/yolo-pose-web/;
+    index index.html;
+    include mime.types;
+    default_type application/octet-stream;
+    sendfile on;
+}
+```
+
+完整示例：`scripts/deploy/nginx-yolo-pose.conf.example`
+
+3. 重载：
+```bash
+nginx -t && nginx -s reload
+# 宝塔：/www/server/nginx/sbin/nginx -t && /www/server/nginx/sbin/nginx -s reload
+```
+
+4. 验证：
+```bash
+curl -sI https://api.uchance.tech/yolo-pose/
+curl -sI https://api.uchance.tech/yolo-pose/app.js
+curl -sI https://api.uchance.tech/yolo-pose/models/yolo11n-pose.onnx
+```
+手机 Safari 打开：`https://api.uchance.tech/yolo-pose/`
 
 ## 行为
 

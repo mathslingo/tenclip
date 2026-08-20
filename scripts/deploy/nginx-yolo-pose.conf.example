@@ -1,0 +1,19 @@
+# 只贴进 api.uchance.tech 的 443 server{}，放在 location / 之前
+#
+# 访问：https://api.uchance.tech/yolo-pose/
+# 文件：/root/code/tenclip/pose/yolo-pose-web/{index.html,app.js,models/,assets/}
+# 不需要再开 python3 -m http.server 8765
+
+    location = /yolo-pose {
+        return 301 /yolo-pose/;
+    }
+
+    location ^~ /yolo-pose/ {
+        alias /root/code/tenclip/pose/yolo-pose-web/;
+        index index.html;
+        include mime.types;
+        default_type application/octet-stream;
+        sendfile on;
+        tcp_nopush on;
+        add_header Cache-Control "public, max-age=3600";
+    }
