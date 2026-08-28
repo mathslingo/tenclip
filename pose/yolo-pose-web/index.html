@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
-  <title>YOLO Pose · ONNX Runtime Web</title>
+  <title>YOLO Pose + Tennis · ONNX Runtime Web</title>
   <style>
     * { box-sizing: border-box; }
     html, body {
@@ -23,7 +23,7 @@
     }
     h1 {
       margin: 4px 0 14px;
-      font-size: 1.55rem;
+      font-size: 1.45rem;
       font-weight: 700;
       letter-spacing: -0.02em;
       line-height: 1.25;
@@ -39,7 +39,7 @@
       border: 0;
       border-radius: 8px;
       padding: 10px 12px;
-      font-size: 0.92rem;
+      font-size: 0.88rem;
       font-weight: 600;
       color: #fff;
       background: #2f6bff;
@@ -47,6 +47,10 @@
       flex: 1 1 auto;
       min-width: calc(33% - 8px);
     }
+    .actions button.secondary { background: #5a6a85; }
+    .actions button.tennis-off { background: #6b7280; }
+    .actions button.tennis-on { background: #16a34a; }
+    .actions button.accent { background: #ea580c; }
     .actions button:active { opacity: 0.85; }
     .actions button:disabled { opacity: 0.45; }
     #fileInput { display: none; }
@@ -59,7 +63,7 @@
     }
     #metrics {
       margin: 0 0 10px;
-      font-size: 0.95rem;
+      font-size: 0.92rem;
       line-height: 1.4;
       color: #1a7f37;
       font-weight: 600;
@@ -96,16 +100,18 @@
 </head>
 <body>
   <div class="wrap">
-    <h1>YOLO Pose · ONNX Runtime Web</h1>
+    <h1>YOLO Pose + Tennis · ONNX Runtime Web</h1>
 
     <div class="actions">
       <button id="camBtn" type="button">开始摄像头</button>
       <button id="pickBtn" type="button">选择图片</button>
-      <button id="busBtn" type="button">跑测试图(bus.jpg)</button>
+      <button id="busBtn" type="button" class="secondary">跑测试图(人物)</button>
+      <button id="tennisBtn" type="button" class="tennis-off">网球：关</button>
+      <button id="tennisSampleBtn" type="button" class="accent">跑网球测试图</button>
     </div>
     <input id="fileInput" type="file" accept="image/*" />
 
-    <p id="status">正在加载模型…</p>
+    <p id="status">正在加载姿态模型…</p>
     <p id="metrics"></p>
 
     <div class="stage">
@@ -115,12 +121,16 @@
 
     <p class="tips">
       iPhone Safari：请用 <strong>HTTPS</strong>（或本机 localhost）。须点击「开始摄像头」授权。
-      摄像头帧率上限约 30。模型输入 <strong id="imgszTip">640×640</strong>，约 13.5MB；
-      同源加载后写入 <strong>IndexedDB</strong>，下次几乎秒开。
+      姿态模型约 13.5MB；网球检测模型约 6–12MB（点「网球」按需加载，IndexedDB 缓存）。
+      无网球 ONNX 时自动用 <strong>HSV 黄绿</strong>兜底。球速为单目平面估计（球直径标定）。
+      导出：<code>conda activate mmpose_gpu</code> →
+      <code>python export_onnx.py</code> /
+      <code>python export_tennis_onnx.py</code>
     </p>
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/onnxruntime-web@1.20.1/dist/ort.min.js"></script>
+  <script src="./lib/ball_tracker.js"></script>
   <script src="./app.js"></script>
 </body>
 </html>

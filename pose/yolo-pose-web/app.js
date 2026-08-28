@@ -1,7 +1,6 @@
 /**
- * YOLO Pose · ONNX Runtime Web
- * 布局对齐参考：摄像头 / 选图 / bus.jpg + IndexedDB 缓存
- * 输出：[1, 56, N] = xywh + score + 17×(x,y,conf)
+ * YOLO Pose + Tennis · ONNX Runtime Web
+ * Pose: [1, 56, N] · Detect: [1, 84, N] (COCO; class 32 = sports ball)
  */
 
 const COCO_EDGES = [
@@ -10,19 +9,27 @@ const COCO_EDGES = [
   [12, 14], [14, 16], [0, 1], [0, 2], [1, 3], [2, 4], [0, 5], [0, 6],
 ];
 
+/** COCO sports ball */
+const SPORTS_BALL_CLS = 32;
+
 const qs = new URLSearchParams(location.search);
 const cfg = {
   modelUrl: qs.get("model") || "./models/yolo11n-pose.onnx",
+  tennisModelUrl: qs.get("tennisModel") || "./models/yolo11n-tennis.onnx",
   imgsz: Number(qs.get("imgsz") || 640),
   confThresh: Number(qs.get("conf") || 0.25),
+  tennisConf: Number(qs.get("tennisConf") || 0.2),
   kptThresh: 0.3,
   iouThresh: 0.45,
   maxFps: 30,
   maxDet: 20,
+  maxTennis: 3,
   testImageUrl: "./assets/bus.jpg",
+  tennisSampleUrl: "./assets/tennis-sample.jpg",
   idbName: "tenclip-yolo-pose",
   idbStore: "models",
   idbKey: "yolo11n-pose.onnx",
+  tennisIdbKey: "yolo11n-tennis.onnx",
 };
 
 const els = {
@@ -31,16 +38,19 @@ const els = {
   camBtn: document.getElementById("camBtn"),
   pickBtn: document.getElementById("pickBtn"),
   busBtn: document.getElementById("busBtn"),
+  tennisBtn: document.getElementById("tennisBtn"),
+  tennisSampleBtn: document.getElementById("tennisSampleBtn"),
   fileInput: document.getElementById("fileInput"),
   status: document.getElementById("status"),
   metrics: document.getElementById("metrics"),
-  imgszTip: document.getElementById("imgszTip"),
 };
 
-els.imgszTip.textContent = cfg.imgsz + "×" + cfg.imgsz;
-
 let session = null;
-let inputName = "images";
+let tennisSession = null;
+let poseInputName = "images";
+let tennisInputName = "images";
+let tennisEnabled = false;
+let tennisMode = "off"; // off | onnx | hsv
 let camRunning = false;
 let stream = null;
 let rafId = 0;
@@ -50,18 +60,54 @@ const letterboxCanvas = document.createElement("canvas");
 const letterboxCtx = letterboxCanvas.getContext("2d", { willReadFrequently: true });
 const sourceCanvas = document.createElement("canvas");
 const sourceCtx = sourceCanvas.getContext("2d", { willReadFrequently: true });
+const ballTracker = createBallTracker({ maxMiss: 12, matchPx: 90, smooth: 0.55 });
 
 function setStatus(msg) {
   els.status.textContent = msg;
 }
 
-function setMetrics(persons, ms) {
-  if (persons == null) {
+function setMetrics(info) {
+  if (!info) {
     els.metrics.textContent = "";
     return;
   }
-  els.metrics.textContent =
-    "persons: " + persons + " | 推理 " + Math.round(ms) + "ms";
+  var parts = [
+    "persons: " + (info.persons || 0),
+    "tennis: " + (info.tennis || 0),
+  ];
+  if (info.distM != null && info.tennis > 0) {
+    parts.push("轨迹 " + info.distM.toFixed(2) + "m");
+  }
+  if (info.speedKmh != null && info.tennis > 0) {
+    parts.push("估速 " + Math.round(info.speedKmh) + " km/h");
+  }
+  if (info.poseMs != null) parts.push("姿态 " + Math.round(info.poseMs) + "ms");
+  if (info.tennisMs != null && tennisEnabled) {
+    parts.push("网球 " + Math.round(info.tennisMs) + "ms");
+  }
+  if (info.totalMs != null) {
+    parts.push(
+      "整帧 " +
+        Math.round(info.totalMs) +
+        "ms (~" +
+        Math.max(1, Math.round(1000 / Math.max(info.totalMs, 1))) +
+        " FPS)"
+    );
+  }
+  if (info.tennisMode) parts.push("[" + info.tennisMode + "]");
+  els.metrics.textContent = parts.join(" | ");
+}
+
+function syncTennisBtn() {
+  if (!els.tennisBtn) return;
+  if (tennisEnabled) {
+    els.tennisBtn.textContent =
+      tennisMode === "hsv" ? "网球：HSV" : "网球已开启";
+    els.tennisBtn.className = "tennis-on";
+  } else {
+    els.tennisBtn.textContent = "网球：关";
+    els.tennisBtn.className = "tennis-off";
+  }
 }
 
 function openIdb() {
@@ -98,25 +144,32 @@ async function idbPut(key, value) {
   });
 }
 
-async function fetchModelBuffer() {
-  const cacheKey = cfg.idbKey + "@" + cfg.modelUrl + "@" + cfg.imgsz;
+async function fetchModelBuffer(url, idbKey) {
+  const cacheKey = idbKey + "@" + url + "@" + cfg.imgsz;
   try {
     const cached = await idbGet(cacheKey);
     if (cached instanceof ArrayBuffer && cached.byteLength > 1000) {
-      setStatus("模型缓存命中（IndexedDB）…");
       return cached;
     }
   } catch (_) {}
 
-  setStatus("下载模型 " + cfg.modelUrl + " …");
-  const res = await fetch(cfg.modelUrl);
-  if (!res.ok) throw new Error("模型 HTTP " + res.status);
+  setStatus("下载模型 " + url + " …");
+  const res = await fetch(url);
+  if (!res.ok) throw new Error("模型 HTTP " + res.status + " · " + url);
   const buf = await res.arrayBuffer();
   try {
     await idbPut(cacheKey, buf);
-    setStatus("模型已缓存到 IndexedDB");
   } catch (_) {}
   return buf;
+}
+
+function ensureOrt() {
+  if (!window.ort) throw new Error("onnxruntime-web 未加载");
+  ort.env.wasm = ort.env.wasm || {};
+  ort.env.wasm.wasmPaths =
+    "https://cdn.jsdelivr.net/npm/onnxruntime-web@1.20.1/dist/";
+  ort.env.wasm.numThreads = 1;
+  ort.env.wasm.simd = true;
 }
 
 function letterbox(srcCanvas, imgsz) {
@@ -158,12 +211,13 @@ function iou(a, b) {
   return ua <= 0 ? 0 : inter / ua;
 }
 
-function nms(dets) {
+function nms(dets, maxKeep) {
   dets.sort((a, b) => b.score - a.score);
   const keep = [];
+  const limit = maxKeep != null ? maxKeep : cfg.maxDet;
   for (const d of dets) {
     if (keep.every((k) => iou(d, k) <= cfg.iouThresh)) keep.push(d);
-    if (keep.length >= cfg.maxDet) break;
+    if (keep.length >= limit) break;
   }
   return keep;
 }
@@ -184,7 +238,7 @@ function decodePose(out, meta) {
     num = dims[1];
     rows = data instanceof Float32Array ? data : new Float32Array(data);
   } else {
-    throw new Error("意外输出形状: " + dims.join("x"));
+    throw new Error("意外 pose 输出形状: " + dims.join("x"));
   }
 
   const { scale, padX, padY } = meta;
@@ -218,7 +272,152 @@ function decodePose(out, meta) {
   return nms(dets);
 }
 
-function draw(source, dets) {
+/** YOLO detect COCO: [1, 84, N] or [1, N, 84] */
+function decodeDetectSportsBall(out, meta) {
+  const dims = out.dims;
+  const data = out.data;
+  let num;
+  let channels;
+  let get;
+
+  if (dims.length === 3 && dims[1] >= 84 && dims[1] <= 144) {
+    channels = dims[1];
+    num = dims[2];
+    get = (c, i) => data[c * num + i];
+  } else if (dims.length === 3 && dims[2] >= 84 && dims[2] <= 144) {
+    num = dims[1];
+    channels = dims[2];
+    get = (c, i) => data[i * channels + c];
+  } else {
+    throw new Error("意外 detect 输出形状: " + dims.join("x"));
+  }
+
+  const clsCount = channels - 4;
+  if (SPORTS_BALL_CLS >= clsCount) {
+    throw new Error("输出类别数不足，无法取 sports ball");
+  }
+
+  const { scale, padX, padY } = meta;
+  const dets = [];
+  for (let i = 0; i < num; i++) {
+    const score = get(4 + SPORTS_BALL_CLS, i);
+    if (score < cfg.tennisConf) continue;
+    const cx = get(0, i);
+    const cy = get(1, i);
+    const w = get(2, i);
+    const h = get(3, i);
+    dets.push({
+      x1: (cx - w / 2 - padX) / scale,
+      y1: (cy - h / 2 - padY) / scale,
+      x2: (cx + w / 2 - padX) / scale,
+      y2: (cy + h / 2 - padY) / scale,
+      score,
+    });
+  }
+  return nms(dets, cfg.maxTennis);
+}
+
+/** HSV yellow-green blob fallback (no ONNX) */
+function detectTennisHsv(srcCanvas) {
+  const w = srcCanvas.width;
+  const h = srcCanvas.height;
+  const ctx = srcCanvas.getContext("2d", { willReadFrequently: true });
+  const img = ctx.getImageData(0, 0, w, h);
+  const d = img.data;
+  const mask = new Uint8Array(w * h);
+  let count = 0;
+
+  for (let i = 0, p = 0; i < d.length; i += 4, p++) {
+    const r = d[i] / 255;
+    const g = d[i + 1] / 255;
+    const b = d[i + 2] / 255;
+    const max = Math.max(r, g, b);
+    const min = Math.min(r, g, b);
+    const v = max;
+    const s = max === 0 ? 0 : (max - min) / max;
+    let hue = 0;
+    if (max !== min) {
+      if (max === r) hue = ((g - b) / (max - min)) * 60;
+      else if (max === g) hue = (2 + (b - r) / (max - min)) * 60;
+      else hue = (4 + (r - g) / (max - min)) * 60;
+      if (hue < 0) hue += 360;
+    }
+    // tennis yellow-green
+    if (hue >= 35 && hue <= 95 && s >= 0.35 && v >= 0.35) {
+      mask[p] = 1;
+      count++;
+    }
+  }
+
+  if (count < 8) return [];
+
+  // connected components (4-neigh), keep largest few blob bboxes
+  const visited = new Uint8Array(w * h);
+  const blobs = [];
+  const stack = [];
+
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      const start = y * w + x;
+      if (!mask[start] || visited[start]) continue;
+      let minX = x;
+      let maxX = x;
+      let minY = y;
+      let maxY = y;
+      let area = 0;
+      stack.length = 0;
+      stack.push(start);
+      visited[start] = 1;
+      while (stack.length) {
+        const idx = stack.pop();
+        const cx = idx % w;
+        const cy = (idx / w) | 0;
+        area++;
+        if (cx < minX) minX = cx;
+        if (cx > maxX) maxX = cx;
+        if (cy < minY) minY = cy;
+        if (cy > maxY) maxY = cy;
+        const neigh = [idx - 1, idx + 1, idx - w, idx + w];
+        for (const n of neigh) {
+          if (n < 0 || n >= mask.length) continue;
+          if (!mask[n] || visited[n]) continue;
+          visited[n] = 1;
+          stack.push(n);
+        }
+      }
+      const bw = maxX - minX + 1;
+      const bh = maxY - minY + 1;
+      if (area < 12 || bw < 4 || bh < 4) continue;
+      if (bw > w * 0.35 || bh > h * 0.35) continue; // too big = court paint
+      const aspect = bw / bh;
+      if (aspect < 0.45 || aspect > 2.2) continue;
+      blobs.push({
+        x1: minX,
+        y1: minY,
+        x2: maxX + 1,
+        y2: maxY + 1,
+        score: Math.min(0.95, 0.4 + area / 800),
+        area: area,
+      });
+    }
+  }
+
+  blobs.sort((a, b) => b.area - a.area);
+  return blobs.slice(0, cfg.maxTennis).map((b) => ({
+    x1: b.x1,
+    y1: b.y1,
+    x2: b.x2,
+    y2: b.y2,
+    score: b.score,
+  }));
+}
+
+function pickPrimaryBall(balls) {
+  if (!balls || !balls.length) return null;
+  return balls.slice().sort((a, b) => b.score - a.score)[0];
+}
+
+function draw(source, persons, balls, trailState) {
   const canvas = els.canvas;
   const w = source.width;
   const h = source.height;
@@ -228,12 +427,13 @@ function draw(source, dets) {
   }
   const ctx = canvas.getContext("2d");
   ctx.drawImage(source, 0, 0);
+  const lw = Math.max(2, Math.round(Math.min(w, h) / 320));
 
-  for (const d of dets) {
+  for (const d of persons) {
     const bw = d.x2 - d.x1;
     const bh = d.y2 - d.y1;
     ctx.strokeStyle = "#00ff00";
-    ctx.lineWidth = Math.max(2, Math.round(Math.min(w, h) / 320));
+    ctx.lineWidth = lw;
     ctx.strokeRect(d.x1, d.y1, bw, bh);
 
     const label = "person " + Math.round(d.score * 100) + "%";
@@ -265,47 +465,180 @@ function draw(source, dets) {
       ctx.fill();
     }
   }
+
+  if (trailState && trailState.trail && trailState.trail.length > 1) {
+    ctx.strokeStyle = "#ffb020";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    trailState.trail.forEach((p, i) => {
+      if (i === 0) ctx.moveTo(p.x, p.y);
+      else ctx.lineTo(p.x, p.y);
+    });
+    ctx.stroke();
+  }
+
+  for (const d of balls || []) {
+    const bw = d.x2 - d.x1;
+    const bh = d.y2 - d.y1;
+    ctx.strokeStyle = "#f5e000";
+    ctx.lineWidth = lw;
+    ctx.strokeRect(d.x1, d.y1, bw, bh);
+    const label = "tennis " + Math.round(d.score * 100) + "%";
+    ctx.font = "bold 14px -apple-system, sans-serif";
+    const tw = ctx.measureText(label).width + 8;
+    const th = 18;
+    const ly = Math.max(0, d.y1 - th);
+    ctx.fillStyle = "#f5e000";
+    ctx.fillRect(d.x1, ly, tw, th);
+    ctx.fillStyle = "#111";
+    ctx.fillText(label, d.x1 + 4, ly + 13);
+
+    const cx = (d.x1 + d.x2) / 2;
+    const cy = (d.y1 + d.y2) / 2;
+    ctx.strokeStyle = "#3b82f6";
+    ctx.beginPath();
+    ctx.moveTo(cx - 18, cy);
+    ctx.lineTo(cx + 18, cy);
+    ctx.stroke();
+    ctx.fillStyle = "#ef4444";
+    ctx.beginPath();
+    ctx.arc(cx, cy, 3, 0, Math.PI * 2);
+    ctx.fill();
+  }
 }
 
-async function loadModel() {
+async function loadPoseModel() {
   if (session) return;
-  if (!window.ort) throw new Error("onnxruntime-web 未加载");
-
-  ort.env.wasm = ort.env.wasm || {};
-  ort.env.wasm.wasmPaths =
-    "https://cdn.jsdelivr.net/npm/onnxruntime-web@1.20.1/dist/";
-  ort.env.wasm.numThreads = 1;
-  ort.env.wasm.simd = true;
-
-  const buf = await fetchModelBuffer();
-  setStatus("创建推理会话…");
+  ensureOrt();
+  setStatus("加载姿态模型…");
+  const buf = await fetchModelBuffer(cfg.modelUrl, cfg.idbKey);
+  setStatus("创建姿态推理会话…");
   session = await ort.InferenceSession.create(buf, {
     executionProviders: ["wasm"],
     graphOptimizationLevel: "all",
   });
-  inputName = session.inputNames[0] || "images";
-  setStatus("模型就绪，可选摄像头 / 图片 / 测试图");
+  poseInputName = session.inputNames[0] || "images";
+  setStatus("姿态模型就绪。可开摄像头 / 图片；点「网球」加载球检测");
   setMetrics(null);
 }
 
+async function loadTennisModel() {
+  if (tennisSession) {
+    tennisMode = "onnx";
+    return true;
+  }
+  ensureOrt();
+  try {
+    const t0 = performance.now();
+    setStatus("加载网球检测模型…");
+    const buf = await fetchModelBuffer(cfg.tennisModelUrl, cfg.tennisIdbKey);
+    tennisSession = await ort.InferenceSession.create(buf, {
+      executionProviders: ["wasm"],
+      graphOptimizationLevel: "all",
+    });
+    tennisInputName = tennisSession.inputNames[0] || "images";
+    tennisMode = "onnx";
+    setStatus(
+      "网球模型就绪（" +
+        ((performance.now() - t0) / 1000).toFixed(1) +
+        "s）。再点一次可关闭。"
+    );
+    return true;
+  } catch (e) {
+    console.warn("tennis onnx unavailable, HSV fallback", e);
+    tennisSession = null;
+    tennisMode = "hsv";
+    setStatus(
+      "未找到网球 ONNX（" +
+        (e.message || e) +
+        "），已用 HSV 黄绿兜底。可运行 python export_tennis_onnx.py"
+    );
+    return false;
+  }
+}
+
+async function toggleTennis() {
+  if (tennisEnabled) {
+    tennisEnabled = false;
+    tennisMode = "off";
+    ballTracker.reset();
+    syncTennisBtn();
+    setStatus("网球检测已关闭");
+    return;
+  }
+  tennisEnabled = true;
+  syncTennisBtn();
+  await loadTennisModel();
+  syncTennisBtn();
+}
+
 async function runOnCanvas(src) {
-  if (!session) await loadModel();
+  if (!session) await loadPoseModel();
+  const tAll = performance.now();
   const { tensor, meta } = letterbox(src, cfg.imgsz);
-  const feeds = {};
-  feeds[inputName] = new ort.Tensor("float32", tensor, [
+  const poseFeeds = {};
+  poseFeeds[poseInputName] = new ort.Tensor("float32", tensor, [
     1,
     3,
     cfg.imgsz,
     cfg.imgsz,
   ]);
-  const t0 = performance.now();
-  const outMap = await session.run(feeds);
-  const ms = performance.now() - t0;
-  const dets = decodePose(outMap[session.outputNames[0]], meta);
-  draw(src, dets);
-  setStatus("检测完成：" + dets.length + " 个人");
-  setMetrics(dets.length, ms);
-  return dets;
+
+  const tPose0 = performance.now();
+  const poseOut = await session.run(poseFeeds);
+  const poseMs = performance.now() - tPose0;
+  const persons = decodePose(poseOut[session.outputNames[0]], meta);
+
+  let balls = [];
+  let tennisMs = 0;
+  if (tennisEnabled) {
+    const t1 = performance.now();
+    if (tennisMode === "onnx" && tennisSession) {
+      const tennisFeeds = {};
+      tennisFeeds[tennisInputName] = new ort.Tensor("float32", tensor, [
+        1,
+        3,
+        cfg.imgsz,
+        cfg.imgsz,
+      ]);
+      const tennisOut = await tennisSession.run(tennisFeeds);
+      balls = decodeDetectSportsBall(
+        tennisOut[tennisSession.outputNames[0]],
+        meta
+      );
+    } else {
+      balls = detectTennisHsv(src);
+    }
+    tennisMs = performance.now() - t1;
+  } else {
+    ballTracker.reset();
+  }
+
+  const primary = pickPrimaryBall(balls);
+  const trail = tennisEnabled
+    ? ballTracker.update(primary, performance.now())
+    : { active: false, trail: [], distM: 0, speedKmh: 0 };
+
+  draw(src, persons, balls, trail);
+
+  const totalMs = performance.now() - tAll;
+  setStatus(
+    "检测完成：" +
+      persons.length +
+      " 人" +
+      (tennisEnabled ? " · " + balls.length + " 球" : "")
+  );
+  setMetrics({
+    persons: persons.length,
+    tennis: balls.length,
+    distM: trail.distM,
+    speedKmh: trail.speedKmh,
+    poseMs: poseMs,
+    tennisMs: tennisEnabled ? tennisMs : null,
+    totalMs: totalMs,
+    tennisMode: tennisEnabled ? tennisMode : null,
+  });
+  return { persons: persons, balls: balls, trail: trail };
 }
 
 function stopCamera() {
@@ -326,7 +659,7 @@ async function startCamera() {
     setStatus("摄像头已停止");
     return;
   }
-  if (!session) await loadModel();
+  if (!session) await loadPoseModel();
 
   stream = await navigator.mediaDevices.getUserMedia({
     audio: false,
@@ -401,6 +734,7 @@ async function runImageSource(img) {
   }
   sourceCtx.drawImage(img, 0, 0);
   setStatus("推理中…");
+  ballTracker.reset();
   await runOnCanvas(sourceCanvas);
 }
 
@@ -430,17 +764,38 @@ els.busBtn.addEventListener("click", () => {
     .then((img) => runImageSource(img))
     .catch((e) =>
       setStatus(
-        (e.message || e) +
-          " · 请把 Ultralytics bus.jpg 放到 assets/bus.jpg"
+        (e.message || e) + " · 请把 bus.jpg 放到 assets/bus.jpg"
       )
     );
 });
 
-loadModel().catch((e) => {
+els.tennisBtn.addEventListener("click", () => {
+  toggleTennis().catch((e) => {
+    console.error(e);
+    setStatus("网球开关失败: " + (e.message || e));
+  });
+});
+
+els.tennisSampleBtn.addEventListener("click", async () => {
+  try {
+    if (!tennisEnabled) await toggleTennis();
+    setStatus("加载网球测试图…");
+    const img = await loadImageUrl(cfg.tennisSampleUrl);
+    await runImageSource(img);
+  } catch (e) {
+    setStatus(
+      (e.message || e) +
+        " · 可将任意图片放到 assets/tennis-sample.jpg，或用「选择图片」"
+    );
+  }
+});
+
+syncTennisBtn();
+loadPoseModel().catch((e) => {
   console.error(e);
   setStatus(
-    "模型未就绪: " +
+    "姿态模型未就绪: " +
       (e.message || e) +
-      " · 先 python export_onnx.py --imgsz 640"
+      " · conda activate mmpose_gpu && python export_onnx.py"
   );
 });
