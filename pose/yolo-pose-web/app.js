@@ -17,6 +17,7 @@ const cfg = {
   modelUrl: qs.get("model") || "./models/yolo11n-pose.onnx",
   tennisModelUrl: qs.get("tennisModel") || "./models/yolo11n-tennis.onnx",
   imgsz: Number(qs.get("imgsz") || 640),
+  webgpu: qs.get("webgpu") !== "0",
   confThresh: Number(qs.get("conf") || 0.25),
   tennisConf: Number(qs.get("tennisConf") || 0.2),
   kptThresh: 0.3,
@@ -51,11 +52,13 @@ let poseInputName = "images";
 let tennisInputName = "images";
 let tennisEnabled = false;
 let tennisMode = "off"; // off | onnx | hsv
+let backendName = "wasm";
 let camRunning = false;
 let stream = null;
 let rafId = 0;
 let lastInferTs = 0;
 let inferBusy = false;
+let inputBuf = null;
 const letterboxCanvas = document.createElement("canvas");
 const letterboxCtx = letterboxCanvas.getContext("2d", { willReadFrequently: true });
 const sourceCanvas = document.createElement("canvas");
@@ -95,6 +98,7 @@ function setMetrics(info) {
     );
   }
   if (info.tennisMode) parts.push("[" + info.tennisMode + "]");
+  parts.push("[" + backendName + "]");
   els.metrics.textContent = parts.join(" | ");
 }
 
@@ -168,8 +172,33 @@ function ensureOrt() {
   ort.env.wasm = ort.env.wasm || {};
   ort.env.wasm.wasmPaths =
     "https://cdn.jsdelivr.net/npm/onnxruntime-web@1.20.1/dist/";
-  ort.env.wasm.numThreads = 1;
+  // 多线程依赖 SharedArrayBuffer，只有跨源隔离（Nginx 发 COOP/COEP）时可用
+  ort.env.wasm.numThreads = self.crossOriginIsolated
+    ? Math.max(1, Math.min(4, navigator.hardwareConcurrency || 1))
+    : 1;
   ort.env.wasm.simd = true;
+}
+
+async function createSession(buf) {
+  if (cfg.webgpu && navigator.gpu) {
+    try {
+      const s = await ort.InferenceSession.create(buf, {
+        executionProviders: ["webgpu"],
+        graphOptimizationLevel: "all",
+      });
+      backendName = "webgpu";
+      return s;
+    } catch (e) {
+      console.warn("webgpu 不可用，回退 wasm", e);
+    }
+  }
+  const s = await ort.InferenceSession.create(buf, {
+    executionProviders: ["wasm"],
+    graphOptimizationLevel: "all",
+  });
+  const n = ort.env.wasm.numThreads || 1;
+  backendName = n > 1 ? "wasm x" + n : "wasm";
+  return s;
 }
 
 function letterbox(srcCanvas, imgsz) {
@@ -190,8 +219,12 @@ function letterbox(srcCanvas, imgsz) {
   letterboxCtx.drawImage(srcCanvas, 0, 0, iw, ih, left, top, nw, nh);
 
   const { data } = letterboxCtx.getImageData(0, 0, imgsz, imgsz);
-  const float = new Float32Array(3 * imgsz * imgsz);
   const plane = imgsz * imgsz;
+  // 复用输入缓冲，避免每帧新分配 ~5MB 触发 GC
+  if (!inputBuf || inputBuf.length !== 3 * plane) {
+    inputBuf = new Float32Array(3 * plane);
+  }
+  const float = inputBuf;
   for (let i = 0, p = 0; i < data.length; i += 4, p++) {
     float[p] = data[i] / 255;
     float[p + plane] = data[i + 1] / 255;
@@ -513,10 +546,7 @@ async function loadPoseModel() {
   setStatus("加载姿态模型…");
   const buf = await fetchModelBuffer(cfg.modelUrl, cfg.idbKey);
   setStatus("创建姿态推理会话…");
-  session = await ort.InferenceSession.create(buf, {
-    executionProviders: ["wasm"],
-    graphOptimizationLevel: "all",
-  });
+  session = await createSession(buf);
   poseInputName = session.inputNames[0] || "images";
   setStatus("姿态模型就绪。可开摄像头 / 图片；点「网球」加载球检测");
   setMetrics(null);
@@ -532,10 +562,7 @@ async function loadTennisModel() {
     const t0 = performance.now();
     setStatus("加载网球检测模型…");
     const buf = await fetchModelBuffer(cfg.tennisModelUrl, cfg.tennisIdbKey);
-    tennisSession = await ort.InferenceSession.create(buf, {
-      executionProviders: ["wasm"],
-      graphOptimizationLevel: "all",
-    });
+    tennisSession = await createSession(buf);
     tennisInputName = tennisSession.inputNames[0] || "images";
     tennisMode = "onnx";
     setStatus(

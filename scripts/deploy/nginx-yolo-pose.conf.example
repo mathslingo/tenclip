@@ -15,4 +15,9 @@
         sendfile on;
         tcp_nopush on;
         add_header Cache-Control "public, max-age=3600";
+
+        # 跨源隔离 → 浏览器可用 SharedArrayBuffer → ONNX Runtime Web 多线程 WASM
+        # 去掉这两行只会退回单线程，不影响功能
+        add_header Cross-Origin-Opener-Policy "same-origin";
+        add_header Cross-Origin-Embedder-Policy "require-corp";
     }

@@ -82,6 +82,76 @@ curl -sI https://api.uchance.tech/yolo-pose/models/yolo11n-pose.onnx
 | 缓存 | 姿态 / 网球模型均写 IndexedDB |
 | iOS | HTTPS、手势开摄像头、playsinline、≤30 FPS |
 
+## 性能
+
+### 耗时在哪
+
+推理全部发生在**打开页面的那台设备**（手机 / 电脑）的浏览器里，云主机只用 Nginx 发静态文件。
+所以云主机的 CPU / 内存 **不影响帧耗时**，只影响首次下载模型的速度。
+
+```
+云主机 Nginx  ──静态 html/js/onnx──►  浏览器 ONNX Runtime Web  ──► 每帧推理
+```
+
+开启网球后每帧**串行**跑两个 640 模型：
+
+```
+姿态 ~246ms  +  网球 ~221ms  ≈  整帧 480ms (~2 FPS)   ← iPhone Safari 实测量级
+```
+
+状态栏末尾显示当前后端：`[webgpu]` / `[wasm]` / `[wasm x4]`，可直接判断走了哪条路。
+
+### 已实现的优化（不改模型、不降精度）
+
+模型权重、`imgsz=640`、`conf` 阈值均未改动，输出与优化前一致。
+
+| 手段 | 做法 | 预期 |
+|------|------|------|
+| **WebGPU 后端** | `createSession()` 优先 `executionProviders: ["webgpu"]`，失败自动回退 wasm；`?webgpu=0` 强制关闭 | 支持的设备常 2–5× |
+| **WASM 多线程** | `numThreads` 按核数（上限 4），仅在 `self.crossOriginIsolated` 时启用 | 多核约 1.5–3× |
+| **输入缓冲复用** | letterbox 不再逐帧 `new Float32Array(3×640×640)`（约 5MB） | 减少 GC 抖动 |
+| **按需关模型** | 不看网球时关掉「网球」 | 单帧约减半 |
+
+多线程依赖 `SharedArrayBuffer`，需要 Nginx 在 `/yolo-pose/` 里发跨源隔离头：
+
+```nginx
+add_header Cross-Origin-Opener-Policy "same-origin";
+add_header Cross-Origin-Embedder-Policy "require-corp";
+```
+
+见 `scripts/deploy/nginx-yolo-pose.conf.example`。开了 COEP 后跨源脚本必须带 `crossorigin`，
+`index.html` 里的 onnxruntime-web CDN 标签已加。**不配这两个头也能正常用**，只是退回单线程。
+
+### 未来可选方案
+
+按对精度的影响分三组。
+
+**A. 不降精度（推荐优先做）**
+
+| 方案 | 思路 | 代价 |
+|------|------|------|
+| **网球 ROI 裁剪** | 用上一帧球心在**原分辨率**上裁 320 区域再检测，跟丢时回退整帧 | 算量约 1/4，小球像素占比更大，**远距精度反而更好**；需处理跟丢/多球 |
+| **Web Worker 推理** | 推理移出主线程（`ort.env.wasm.proxy`），主线程只画 | 帧耗时不变，但 UI 不卡、绘制更跟手 |
+| **双 Worker 并行** | 姿态与网球各占一个 Worker 同时跑 | 理论上整帧≈max 而非 sum；内存翻倍，低端机可能反而更慢 |
+| **预处理换 WebGL/WebGPU** | letterbox + 归一化改用 GPU，省掉 `getImageData` 与 JS 循环 | 省几十 ms；代码复杂度上升 |
+| **升级 onnxruntime-web** | 新版 WASM/WebGPU 算子持续优化 | 需回归测试，注意 `ort.min.js` 与 `wasmPaths` 版本要一致 |
+| **本地托管 ort 运行时** | 把 `dist/` 放到 `lib/ort/`，不依赖 CDN | 首屏更稳（国内 CDN 偶发慢），也省去 COEP 跨源顾虑 |
+
+**B. 以精度换速度（按场景取舍）**
+
+| 方案 | 思路 | 精度影响 |
+|------|------|----------|
+| `?imgsz=320` / `416` | 缩小输入 | 远处小球明显更易漏检 |
+| 网球隔帧（2 姿态 : 1 网球） | 降低网球检测频率 | 单帧框仍准，但轨迹采样变稀 → 估速更抖 |
+| FP16 / INT8 量化 | 导出时量化模型 | FP16 损失小、INT8 需校准，小目标风险较高 |
+| 更小骨干 | 换 `yolov8n` 之类更轻的检测 | 直接掉 mAP |
+
+**C. 精度方向（与速度无关，见 P2/P3）**
+
+- 微调**单类 tennis ball** 模型替代 COCO `sports ball`（类 32）代理
+- 球场线 / 手动标尺标定，替代球直径标定 → 估速更准
+- 与手腕关键点耦合做击球分段
+
 ## 稳定性（.venv 会不会被回收？）
 
 **不会。** `.venv` 只是磁盘上的目录，conda/系统不会自动删它。
