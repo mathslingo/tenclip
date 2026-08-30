@@ -1,0 +1,23 @@
+<view class="page">
+  <view class="hero">
+    <text class="title">实时关键点检测</text>
+    <text class="sub">端侧 YOLO Pose · 17 点骨架</text>
+  </view>
+
+  <view class="card">
+    <button class="btn-browser" bindtap="onOpenNative">小程序原生检测</button>
+    <text class="hint hint-em">推荐：原生摄像头 + 端侧 ONNX（实验）。需基础库 ≥ 2.30，首次下载约 12MB 模型。</text>
+
+    <button class="btn-primary" bindtap="onOpenEmbed">H5 内嵌打开</button>
+    <text class="hint">可预览页面与选图；多数机型在微信内无法调用网页摄像头。</text>
+
+    <button class="btn-ghost" bindtap="onOpenBrowser">在系统浏览器打开</button>
+    <text class="hint">复制链接后用 Safari 打开，与桌面 H5 demo 一致，帧率通常更好。</text>
+  </view>
+
+  <view class="url-box" bindtap="onCopyOnly">
+    <text class="url-label">H5 地址</text>
+    <text class="url-text">{{poseUrl}}</text>
+    <text class="url-copy">点此复制</text>
+  </view>
+</view>

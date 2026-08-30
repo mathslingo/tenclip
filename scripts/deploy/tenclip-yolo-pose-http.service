@@ -1,0 +1,24 @@
+# YOLO Pose 静态 H5：用 systemd 保活 http.server（仅当 Nginx 反代到 8765 时需要）
+#
+# 更稳做法：把目录 rsync 到 /var/www/yolo-pose-web，Nginx alias 直出，不必本 unit。
+#
+#   sudo cp scripts/deploy/tenclip-yolo-pose-http.service /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now tenclip-yolo-pose-http
+#   curl -sI http://127.0.0.1:8765/
+
+[Unit]
+Description=TenClip YOLO Pose static http.server (127.0.0.1:8765)
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/root/code/tenclip/pose/yolo-pose-web
+# 只提供静态文件，不依赖 .venv / ultralytics
+ExecStart=/usr/bin/python3 -m http.server 8765 --bind 127.0.0.1
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target

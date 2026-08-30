@@ -1,4 +1,3 @@
-const app = getApp();
 const cfg = require("../../utils/config");
 
 Page({
@@ -8,7 +7,7 @@ Page({
     poseStatus: "检查中...",
   },
 
-  onLoad(options) {
+  onLoad() {
     const devMode = wx.getStorageSync("dev_mode") || false;
     this.setData({ devMode });
     if (devMode) {
@@ -33,7 +32,12 @@ Page({
     wx.navigateTo({ url: "/pages/action-analyze/index" });
   },
 
-  onGoPose() {
+  /** 实时关键点：引导页（内嵌 + 浏览器） */
+  onGoPoseLive() {
+    wx.navigateTo({ url: "/pages/pose-realtime/index" });
+  },
+
+  onGoPoseClip() {
     wx.navigateTo({ url: "/pages/pose-live/index" });
   },
 
@@ -52,19 +56,17 @@ Page({
     });
 
     wx.request({
-      url: cfg.POSE_HEALTH_URL,
+      url: cfg.WEB_POSE_URL,
+      method: "HEAD",
       timeout: 5000,
       success: (res) => {
-        const ok =
-          res.statusCode === 200 &&
-          res.data &&
-          (res.data.status === "ok" || res.data.ok === true);
+        const ok = res.statusCode >= 200 && res.statusCode < 400;
         this.setData({
-          poseStatus: ok ? "✓ 正常" : `✗ 异常 ${res.statusCode}`,
+          poseStatus: ok ? "✓ YOLO H5 可达" : `✗ HTTP ${res.statusCode}`,
         });
       },
       fail: () => {
-        this.setData({ poseStatus: "✗ 无法连接" });
+        this.setData({ poseStatus: "✗ YOLO H5 无法连接" });
       },
     });
   },

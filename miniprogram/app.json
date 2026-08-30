@@ -20,6 +20,8 @@
     "pages/pose-detect/index",
     "pages/pose-live/index",
     "pages/pose-rtmpose/index",
+    "pages/pose-realtime/index",
+    "pages/pose-yolo/index",
     "pages/pose-webview/index"
   ],
   "window": {
@@ -67,6 +69,7 @@
   "requiredPrivateInfos": ["getLocation", "chooseLocation"],
   "navigateToMiniProgramAppIdList": [
     "wx734c1ad7b3562129",
-    "wxa43e880705719304"
+    "wxa43e880705719304",
+    "wxd0286fb3b0e39384"
   ]
 }

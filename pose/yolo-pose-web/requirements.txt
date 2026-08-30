@@ -1,15 +1,14 @@
-# pose/yolo-pose-web — 请用独立 venv，勿装进 mmpose/openxlab 的 conda 环境
+# pose/yolo-pose-web
 #
-#   cd pose/yolo-pose-web
-#   python3 -m venv .venv
-#   source .venv/bin/activate          # Windows: .venv\Scripts\activate
-#   pip install -U pip
+# 推荐：conda activate mmpose_gpu 后只补缺包（通常只要 ultralytics）
+#   pip install -i https://pypi.tuna.tsinghua.edu.cn/simple 'ultralytics>=8.3.0,<9'
+#   若 openxlab 报错：pip install 'filelock~=3.14.0'
+#
+# 可选独立 venv（不想动 conda 时）：
+#   python3 -m venv .venv && source .venv/bin/activate
 #   pip install -r requirements.txt
-#   python export_onnx.py
-#   python download_assets.py
 #
-# 若已误装进共享环境并弄坏 openxlab：
-#   pip install 'filelock~=3.14.0'
+# 浏览器推理不依赖本文件；仅 export_onnx / 训练网球模型需要。
 
 ultralytics>=8.3.0,<9
 torch>=2.1.0
@@ -19,7 +18,7 @@ onnxscript>=0.1.0
 onnxslim>=0.1.31
 onnxsim>=0.4.36
 
-# 与 openxlab 共存时再取消下一行注释；独立 venv 可忽略
+# 与 openxlab 共存时建议钉住：
 # filelock~=3.14.0
 
 onnxruntime>=1.17.0,<2

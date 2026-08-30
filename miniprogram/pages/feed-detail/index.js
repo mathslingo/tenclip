@@ -2,6 +2,7 @@ const { getFeedItemById } = require("../../utils/feed_api");
 const { isLiked, isBookmarked, toggleLike, toggleBookmark } = require("../../utils/me_store");
 const { API_BASE_URL } = require("../../utils/config");
 const { authHeaders, isLoggedIn, requireLogin } = require("../../utils/auth_api");
+const { FALLBACK_COVER } = require("../../utils/feed_mock");
 
 function normalizeNoteId(id) {
   var nid = (id || "").trim();
@@ -112,6 +113,12 @@ Page({
   },
 
   onCoverError() {
+    var item = this.data.item || {};
+    // 先退本地打包图，再退字母块
+    if (item.cover && item.cover !== FALLBACK_COVER) {
+      this.setData({ "item.cover": FALLBACK_COVER });
+      return;
+    }
     this.setData({ coverFailed: true });
   },
 

@@ -2,7 +2,7 @@
   <view class="page-inner">
     <view class="hero">
       <text class="hero-title">分析工具</text>
-      <text class="hero-sub">剪辑 · 动作 · 姿态回放</text>
+      <text class="hero-sub">剪辑 · 动作 · 实时关键点</text>
     </view>
 
     <view class="feature-grid">
@@ -24,11 +24,20 @@
         <text class="feature-arrow">›</text>
       </view>
 
-      <view class="feature-card feature-card-pose" bindtap="onGoPose">
+      <view class="feature-card feature-card-pose" bindtap="onGoPoseLive">
         <view class="feature-icon icon-pose">◇</view>
         <view class="feature-info">
-          <text class="feature-title">姿态关键点</text>
-          <text class="feature-desc">录一段动作，生成带骨架的回放</text>
+          <text class="feature-title">实时关键点检测</text>
+          <text class="feature-desc">端侧 YOLO Pose，手机浏览器实时骨架</text>
+        </view>
+        <text class="feature-arrow">›</text>
+      </view>
+
+      <view class="feature-card" bindtap="onGoPoseClip">
+        <view class="feature-icon icon-analyze">▣</view>
+        <view class="feature-info">
+          <text class="feature-title">姿态骨架回放</text>
+          <text class="feature-desc">录 3–8 秒，云端出带回放的骨架视频</text>
         </view>
         <text class="feature-arrow">›</text>
       </view>
@@ -46,7 +55,11 @@
       </view>
       <view class="tip-item">
         <view class="tip-bar"></view>
-        <text class="tip-text">姿态关键点：真机录 3–8 秒，生成骨架回放</text>
+        <text class="tip-text">实时关键点：可小程序内嵌；开摄像头请用浏览器打开（效果更好）</text>
+      </view>
+      <view class="tip-item">
+        <view class="tip-bar"></view>
+        <text class="tip-text">骨架回放：真机录短视频，云端生成骨架回放</text>
       </view>
     </view>
 

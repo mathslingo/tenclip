@@ -1,0 +1,40 @@
+<view class="live-page">
+  <camera
+    class="cam"
+    device-position="{{devicePosition}}"
+    flash="off"
+    resolution="medium"
+    frame-size="medium"
+    binderror="onCamError"
+    bindinitdone="onCamReady"
+  />
+
+  <!-- 骨架叠画：每帧把带关键点的图铺满（camera 上方用 image 盖住） -->
+  <image
+    wx:if="{{overlaySrc}}"
+    class="overlay"
+    src="{{overlaySrc}}"
+    mode="aspectFill"
+  />
+
+  <cover-view class="hud">
+    <cover-view class="hud-top">
+      <cover-view class="pill">{{statusText}}</cover-view>
+      <cover-view class="pill" wx:if="{{metricsText}}">{{metricsText}}</cover-view>
+    </cover-view>
+    <cover-view class="hud-bottom">
+      <cover-view class="btn" bindtap="onToggleDevice" wx:if="{{!running}}">翻转</cover-view>
+      <cover-view class="btn primary" bindtap="onToggleRun">
+        {{running ? '停止' : '开始检测'}}
+      </cover-view>
+      <cover-view class="btn" bindtap="onBack">返回</cover-view>
+    </cover-view>
+  </cover-view>
+
+  <!-- 离屏：letterbox / 画骨架（不展示） -->
+  <canvas
+    type="2d"
+    id="workCanvas"
+    class="work-canvas"
+  />
+</view>

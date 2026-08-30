@@ -1,5 +1,4 @@
-# 只贴进 api.uchance.tech 的 443 server{}，放在 location / 之前
-#
+# 站点配置（本机实际路径）：/etc/nginx/conf.d/tenclip-api.conf
 # 访问：https://api.uchance.tech/yolo-pose/
 # 文件：/root/code/tenclip/pose/yolo-pose-web/{index.html,app.js,models/,assets/}
 # 不需要再开 python3 -m http.server 8765

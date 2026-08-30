@@ -1,0 +1,114 @@
+.page {
+  min-height: 100vh;
+  box-sizing: border-box;
+  padding: 48rpx 40rpx calc(80rpx + env(safe-area-inset-bottom));
+  background:
+    radial-gradient(ellipse 120% 50% at 50% -8%, rgba(19, 216, 168, 0.14), transparent 55%),
+    #f7f8fa;
+}
+
+.hero {
+  margin-bottom: 36rpx;
+}
+
+.title {
+  display: block;
+  font-size: 44rpx;
+  font-weight: 700;
+  color: #0d3d32;
+}
+
+.sub {
+  display: block;
+  margin-top: 12rpx;
+  font-size: 26rpx;
+  color: #6e8580;
+  line-height: 1.4;
+}
+
+.card {
+  background: #fff;
+  border-radius: 28rpx;
+  padding: 32rpx 28rpx 36rpx;
+  border: 1rpx solid rgba(13, 61, 50, 0.06);
+  box-shadow: 0 8rpx 28rpx rgba(13, 61, 50, 0.05);
+}
+
+.btn-primary,
+.btn-browser {
+  margin: 0;
+  border-radius: 999rpx;
+  font-size: 30rpx;
+  font-weight: 600;
+  line-height: 2.6;
+}
+
+.btn-primary {
+  background: #eefaf6;
+  color: #0d6b52;
+}
+
+.btn-browser {
+  margin-top: 8rpx;
+  background: #13d8a8;
+  color: #fff;
+}
+
+.btn-ghost {
+  margin-top: 8rpx;
+  background: #2a3340;
+  color: #fff;
+  border-radius: 999rpx;
+  font-size: 30rpx;
+  font-weight: 600;
+  line-height: 2.6;
+}
+
+.btn-primary::after,
+.btn-browser::after,
+.btn-ghost::after {
+  border: none;
+}
+
+.hint {
+  display: block;
+  margin: 16rpx 8rpx 28rpx;
+  font-size: 22rpx;
+  color: #8a9399;
+  line-height: 1.55;
+}
+
+.hint-em {
+  margin-bottom: 0;
+  color: #5a6a66;
+}
+
+.url-box {
+  margin-top: 28rpx;
+  padding: 24rpx;
+  border-radius: 20rpx;
+  background: rgba(255, 255, 255, 0.85);
+  border: 1rpx dashed rgba(13, 61, 50, 0.12);
+}
+
+.url-label {
+  display: block;
+  font-size: 22rpx;
+  color: #8a9399;
+}
+
+.url-text {
+  display: block;
+  margin-top: 8rpx;
+  font-size: 24rpx;
+  color: #2a3330;
+  word-break: break-all;
+  line-height: 1.45;
+}
+
+.url-copy {
+  display: block;
+  margin-top: 12rpx;
+  font-size: 22rpx;
+  color: #0d9b78;
+}

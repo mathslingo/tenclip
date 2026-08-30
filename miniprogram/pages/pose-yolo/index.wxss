@@ -1,0 +1,79 @@
+.live-page {
+  position: relative;
+  width: 100vw;
+  height: 100vh;
+  background: #000;
+  overflow: hidden;
+}
+
+.cam,
+.overlay {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.overlay {
+  z-index: 1;
+}
+
+.hud {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.hud-top {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12rpx;
+  padding: 24rpx 24rpx 0;
+}
+
+.pill {
+  padding: 10rpx 20rpx;
+  border-radius: 999rpx;
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+  font-size: 22rpx;
+  max-width: 92vw;
+}
+
+.hud-bottom {
+  display: flex;
+  justify-content: center;
+  gap: 20rpx;
+  padding: 0 24rpx calc(40rpx + env(safe-area-inset-bottom));
+}
+
+.btn {
+  min-width: 140rpx;
+  padding: 18rpx 28rpx;
+  border-radius: 999rpx;
+  background: rgba(255, 255, 255, 0.2);
+  color: #fff;
+  font-size: 26rpx;
+  text-align: center;
+}
+
+.btn.primary {
+  background: rgba(19, 216, 168, 0.92);
+  color: #08352a;
+  font-weight: 600;
+}
+
+.work-canvas {
+  position: fixed;
+  left: -9999px;
+  top: -9999px;
+  width: 640px;
+  height: 640px;
+}

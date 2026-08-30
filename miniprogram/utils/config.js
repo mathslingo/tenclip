@@ -44,8 +44,11 @@ const API_BASE_URL = LOCAL_DEV ? LOCAL_API_HOST : PROD_API_BASE_URL;
 /** web-view / 复制链接（本地调试时同样走 LOCAL_API_HOST） */
 const WEB_STROKE_URL = API_BASE_URL + "/web/stroke";
 const WEB_ANALYZE_URL = API_BASE_URL + "/web";
-/** 实时关键点检测 H5（MediaPipe）；微信内 web-view 通常无法开摄像头，优先用原生页 */
-const WEB_POSE_URL = API_BASE_URL + "/web/pose";
+/** 实时关键点检测 H5（YOLO Pose ONNX Web）；微信内 web-view 常无法开摄像头，优先「复制链接」用系统浏览器/Safari */
+const WEB_POSE_URL = API_BASE_URL + "/yolo-pose/";
+/** 小程序原生 YOLO Pose：同源下载 ONNX 到本地再 InferenceSession */
+const YOLO_POSE_MODEL_URL = WEB_POSE_URL + "models/yolo11n-pose.onnx";
+const YOLO_POSE_IMGSZ = 640;
 
 /**
  * 姿态检测后端（pose_server.py，默认 5000）
@@ -171,6 +174,8 @@ module.exports = {
   WEB_STROKE_URL,
   WEB_ANALYZE_URL,
   WEB_POSE_URL,
+  YOLO_POSE_MODEL_URL,
+  YOLO_POSE_IMGSZ,
   POSE_API_BASE,
   POSE_DETECT_URL,
   POSE_HEALTH_URL,

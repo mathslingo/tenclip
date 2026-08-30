@@ -150,10 +150,31 @@
 5. **预定渠道**：详情页根据 `bookingOptions` 类型分发到电话、小程序或 Web 提示。
 6. **外部评价**：`onExtSource` 跳转大众点评/小红书小程序搜索关键词。
 
+### 跳转第三方订场小程序（韵动吧 / 勾勾运动）
+
+实现位置：`pages/court-detail/index.js` 的 `_doBooking`。当前约定：
+
+- 主按钮统一 `bindtap` → `_doBooking`（**不要**混用 `button open-type="navigateToMiniProgram"` 与 API，两套路径行为不一致，难排查）。
+- 有 `shortLink` 时**优先** `wx.navigateToMiniProgram({ shortLink })`，失败再降级 `appId`。
+- 仅有 `appId` 时走 `wx.navigateToMiniProgram({ appId, envVersion: "release" })`；空 `path` 不要传该字段；`path` 去掉前导 `/`。
+- 已知 AppID：韵动吧 `wxd0286fb3b0e39384`（已用对方「更多资料」核对）；勾勾运动用 shortLink `#小程序://勾勾运动/...`。
+
+#### 之前不行、后来能跳的原因（排查结论）
+
+| 现象 | 真实原因 | 误判点 |
+|------|----------|--------|
+| 开发者工具报 `navigateToMiniProgram:fail appid missing` | **模拟器不会真实打开**其他小程序，常误报；日志里 `platform: "devtools"` 时不能当真 | 以为业务没传 AppID；其实 `callArgs.appId` 已是正确值 |
+| 真机一度「没反应」/ 勾勾也挂 | 主按钮改成 `open-type` 后，有 shortLink 的渠道（勾勾）丢了 API 兜底；跳转路径分裂 | 以为是「全局 AppID 配置坏了」 |
+| 真机报 `fail cancel`，AppID 却正确 | 微信会先弹「即将打开 xxx」确认框；点取消 / 弹窗被盖住 / 真机调试分心 → `cancel`。韵动吧官方 AppID 已核对无误 | 以为 AppID 写错或小程序下架 |
+| 韵动吧最终能进主页 | 统一走与勾勾相同的 **tap → `wx.navigateToMiniProgram`（appId）**；用**预览扫码**测，在确认框点「允许」 | — |
+
+**调试建议**：跳转类问题只用「预览 / 体验版」真机测；看 `[book-jump]` 日志时先看 `platform` 与 `errMsg`（`appid missing` vs `cancel` vs `invalid appId` 含义完全不同）。若某渠道只有 appId 仍不稳，到对方小程序「··· → 复制链接」配 `shortLink`。
+
 ### 配置要点
 
 - 地图能力：需在 `app.json` 中声明 `permission` 字段（如使用 `getLocation`），并配置腾讯地图 Key 到 `utils/config.js` 的 `TENCENT_MAP_KEY`。
 - 当前 `courts/index` 直接读取本地 Mock，未调用 `court_api.js`；如想启用真实 POI，将 `_loadCourts` 中的 `courtData.fetchNearbyCourts` 替换为 `courtApi.searchCourts` 即可。
+- `app.json` 的 `navigateToMiniProgramAppIdList` 可保留目标 AppID（2020 后官方已不强制校验，但留着无害）。
 
 ## 注意
 

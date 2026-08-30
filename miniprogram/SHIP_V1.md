@@ -158,9 +158,12 @@ wx.navigateToMiniProgram({
 
 球场预约缺的不是「deep link 字符串」，而是：
 
-1. **对方 AppID**（在微信搜「韵动吧」→ 右上角 ··· → 更多资料 / 或问对方运营）  
+1. **对方 AppID**（已知：**韵动吧** `wxd0286fb3b0e39384`；勾勾运动 / 大众点评见 `app.json` 白名单）  
 2. **可选 path**（没有官方文档时 `path` 留空，只进首页）  
 3. **跳转白名单**已添加该 AppID  
+
+本仓库：`app.json` → `navigateToMiniProgramAppIdList` 已含韵动吧；`court_data.js` / 详情页补丁会填入 `bookingOptions[].appId`。  
+公众平台仍须：**设置 → 第三方设置 → 跳转其他小程序** 添加 `wxd0286fb3b0e39384` 后，体验版/正式版才能跳。
 
 配置好后写入 [`utils/court_data.js`](utils/court_data.js) 的 `bookingOptions[].appId`。  
 大众点评 / 小红书已有示例 AppID（`getExtSourceJump`），**仍须加入跳转白名单**才可能成功。

@@ -3,7 +3,8 @@
  * channel: 推荐池全量；顶栏「赛事」「教学」按 channel 过滤
  */
 
-var FALLBACK_COVER = "/assets/feed-fallback.png";
+// 本地打包图：真机不依赖任何外网域名（Unsplash 在国内常被墙，不能当兜底）
+var FALLBACK_COVER = "/image/pic0.png";
 
 /** 无真实封面时轮换的 mock 图（仅保留已验证 HTTP 200 的 Unsplash） */
 var MOCK_COVERS = [

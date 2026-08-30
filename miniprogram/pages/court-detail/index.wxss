@@ -117,23 +117,132 @@
   display: flex; align-items: center;
   padding: 16rpx 24rpx; gap: 16rpx;
 }
-.bottom-actions { display: flex; flex-shrink: 0; }
-.action-btn {
-  display: flex; flex-direction: column; align-items: center;
-  padding: 12rpx 16rpx;
+.bottom-actions {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 4rpx;
 }
+.action-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  width: 96rpx;
+  padding: 0;
+  box-sizing: border-box;
+}
+/* button 默认样式会破坏对齐，全部清掉 */
 .action-btn.share-btn {
-  background: none; border: none; margin: 0; line-height: 1; padding: 12rpx 16rpx;
+  background: transparent;
+  border: none;
+  margin: 0;
+  padding: 0;
+  line-height: normal;
+  font-size: inherit;
+  font-weight: normal;
+  min-height: 0;
+  height: auto;
+  width: 96rpx;
 }
 .action-btn.share-btn::after { border: none; }
-.action-icon { font-size: 36rpx; }
-.action-label { font-size: 20rpx; color: #6e7582; margin-top: 4rpx; }
+
+.action-icon-wrap {
+  width: 48rpx;
+  height: 48rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.action-label {
+  margin-top: 6rpx;
+  font-size: 20rpx;
+  line-height: 1.2;
+  color: #6e7582;
+  height: 24rpx;
+}
+
+/* 地图钉：线框水滴 + 薄荷绿圆心 */
+.ico-map {
+  position: relative;
+  width: 28rpx;
+  height: 36rpx;
+}
+.ico-map-pin {
+  position: absolute;
+  left: 0; right: 0; top: 0;
+  width: 28rpx;
+  height: 28rpx;
+  border: 3rpx solid #2a3330;
+  border-radius: 50% 50% 50% 0;
+  transform: rotate(-45deg);
+  box-sizing: border-box;
+}
+.ico-map-dot {
+  position: absolute;
+  left: 50%;
+  top: 10rpx;
+  width: 8rpx;
+  height: 8rpx;
+  margin-left: -4rpx;
+  border-radius: 50%;
+  background: #13d8a8;
+}
+
+/* 分享：三点连线 */
+.ico-share {
+  position: relative;
+  width: 36rpx;
+  height: 36rpx;
+}
+.ico-share-node {
+  position: absolute;
+  width: 10rpx;
+  height: 10rpx;
+  border: 3rpx solid #2a3330;
+  border-radius: 50%;
+  box-sizing: border-box;
+  background: #fff;
+}
+.ico-share-node.n1 { right: 0; top: 0; }
+.ico-share-node.n2 { left: 0; top: 13rpx; }
+.ico-share-node.n3 { right: 0; bottom: 0; }
+.ico-share-line {
+  position: absolute;
+  height: 3rpx;
+  background: #13d8a8;
+  border-radius: 2rpx;
+  transform-origin: left center;
+}
+.ico-share-line.l1 {
+  width: 18rpx;
+  left: 10rpx;
+  top: 16rpx;
+  transform: rotate(-38deg);
+}
+.ico-share-line.l2 {
+  width: 18rpx;
+  left: 10rpx;
+  top: 20rpx;
+  transform: rotate(38deg);
+}
 
 .main-book-btn {
   flex: 1;
   display: flex; flex-direction: column; align-items: center; justify-content: center;
   background: linear-gradient(135deg, #3bf0bf 0%, #13d8a8 100%);
   border-radius: 20rpx; padding: 18rpx 0;
+}
+/* button 版主预约：去掉默认边框/内边距 */
+button.main-book-btn {
+  margin: 0;
+  line-height: normal;
+  border: none;
+  box-sizing: border-box;
+}
+button.main-book-btn::after {
+  border: none;
 }
 .main-book-btn.disabled {
   background: #d0d5dd;

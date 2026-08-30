@@ -169,9 +169,29 @@ def map_seed_item(item: dict[str, Any]) -> dict[str, Any] | None:
 
     platform = (item.get("ReservationPlatform") or "").strip()
     phone = (item.get("StadiumTel") or "").strip()
+    # 已知订场小程序 AppID（跳转白名单见 miniprogram/app.json）
+    _BOOKING_APP_IDS = {
+        "韵动吧": "wxd0286fb3b0e39384",
+        "勾勾运动": "wxa43e880705719304",
+        "大众点评": "wx734c1ad7b3562129",
+    }
     booking = []
     if platform:
-        booking.append({"name": platform, "type": "miniprogram", "appId": ""})
+        # 支持「韵动吧,至臻网球」多平台
+        for part in [p.strip() for p in platform.replace("，", ",").split(",") if p.strip()]:
+            app_id = _BOOKING_APP_IDS.get(part, "")
+            if not app_id:
+                for key, val in _BOOKING_APP_IDS.items():
+                    if key in part:
+                        app_id = val
+                        break
+            booking.append(
+                {
+                    "name": part,
+                    "type": "miniprogram",
+                    "appId": app_id,
+                }
+            )
     if phone:
         booking.append({"name": "电话预约", "type": "phone", "phone": phone})
 

@@ -1,6 +1,6 @@
 const { fetchFeedPage } = require("../../utils/feed_api");
 const { LOCAL_DEV } = require("../../utils/config");
-const { pickMockCover } = require("../../utils/feed_mock");
+const { FALLBACK_COVER } = require("../../utils/feed_mock");
 
 const PAGE_SIZE = 6;
 
@@ -136,11 +136,15 @@ Page({
     var key = col === "right" ? "rightList" : "leftList";
     var list = (this.data[key] || []).map(function (it) {
       if (String(it.id) !== String(id)) return it;
-      var mock = pickMockCover(it.id);
+      // 外网封面（含 Unsplash 备用图）在国内真机经常加载失败：
+      // 先换本地打包图，本地图再失败才退字母块
+      if (it.cover === FALLBACK_COVER) {
+        return Object.assign({}, it, { coverFailed: true });
+      }
       return Object.assign({}, it, {
         coverFailed: false,
-        cover: mock.url,
-        cover_ratio: mock.ratio,
+        cover: FALLBACK_COVER,
+        cover_ratio: 0.75,
         cover_is_mock: true,
       });
     });
