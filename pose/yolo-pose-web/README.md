@@ -101,13 +101,34 @@ curl -sI https://api.uchance.tech/yolo-pose/models/yolo11n-pose.onnx
 
 状态栏末尾显示当前后端：`[webgpu]` / `[wasm]` / `[wasm x4]`，可直接判断走了哪条路。
 
+### GPU 开关
+
+「GPU」按钮三种显示：
+
+| 显示 | 含义 |
+|------|------|
+| `GPU：WebGPU` | 已用 GPU 推理 |
+| `GPU：不可用` | 想用但设备/浏览器不支持，已回退 CPU；按钮 `title` 与状态栏给出原因 |
+| `GPU：关(CPU)` | 手动强制 CPU(WASM) |
+
+选择记在 `localStorage`，刷新后保持；`?webgpu=1` / `?webgpu=0` 可临时覆盖。
+切换会释放并重建两个会话，模型走 IndexedDB 缓存，不重新下载。
+
+**Mac / iPhone 注意**：WebGPU 需 **Safari 18+**（macOS Sequoia / iOS 18）。更老的版本要在
+「设置 → Safari → 高级 → 功能标志」里手动开 WebGPU，否则按钮会显示「不可用」。
+Chrome / Edge 桌面版默认已支持。
+
+`index.html` 引的是 **`ort.webgpu.min.js`** 而不是 `ort.min.js`——后者不保证打包 WebGPU EP，
+是之前后端一直停在 `[wasm]` 的原因之一。若升级 onnxruntime-web 版本，
+`<script src>` 与 `ort.env.wasm.wasmPaths` 必须同版本，且 dist 里要有 `*.jsep.wasm`（WebGPU 所需）。
+
 ### 已实现的优化（不改模型、不降精度）
 
 模型权重、`imgsz=640`、`conf` 阈值均未改动，输出与优化前一致。
 
 | 手段 | 做法 | 预期 |
 |------|------|------|
-| **WebGPU 后端** | `createSession()` 优先 `executionProviders: ["webgpu"]`，失败自动回退 wasm；`?webgpu=0` 强制关闭 | 支持的设备常 2–5× |
+| **WebGPU 后端** | 页面「GPU」按钮切换；`createSession()` 先探测 `navigator.gpu` + `requestAdapter()`，建会话后**试跑一帧**校验，任一步失败自动回退 wasm | 支持的设备常 2–5× |
 | **WASM 多线程** | `numThreads` 按核数（上限 4），仅在 `self.crossOriginIsolated` 时启用 | 多核约 1.5–3× |
 | **输入缓冲复用** | letterbox 不再逐帧 `new Float32Array(3×640×640)`（约 5MB） | 减少 GC 抖动 |
 | **按需关模型** | 不看网球时关掉「网球」 | 单帧约减半 |

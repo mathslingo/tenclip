@@ -51,6 +51,9 @@
     .actions button.tennis-off { background: #6b7280; }
     .actions button.tennis-on { background: #16a34a; }
     .actions button.accent { background: #ea580c; }
+    .actions button.gpu-off { background: #6b7280; }
+    .actions button.gpu-on { background: #7c3aed; }
+    .actions button.gpu-warn { background: #b45309; }
     .actions button:active { opacity: 0.85; }
     .actions button:disabled { opacity: 0.45; }
     #fileInput { display: none; }
@@ -108,6 +111,7 @@
       <button id="busBtn" type="button" class="secondary">跑测试图(人物)</button>
       <button id="tennisBtn" type="button" class="tennis-off">网球：关</button>
       <button id="tennisSampleBtn" type="button" class="accent">跑网球测试图</button>
+      <button id="gpuBtn" type="button" class="gpu-off">GPU：检测中</button>
     </div>
     <input id="fileInput" type="file" accept="image/*" />
 
@@ -123,14 +127,17 @@
       iPhone Safari：请用 <strong>HTTPS</strong>（或本机 localhost）。须点击「开始摄像头」授权。
       姿态模型约 13.5MB；网球检测模型约 6–12MB（点「网球」按需加载，IndexedDB 缓存）。
       无网球 ONNX 时自动用 <strong>HSV 黄绿</strong>兜底。球速为单目平面估计（球直径标定）。
+      「GPU」按钮切换 WebGPU / CPU(WASM)，选择记在本机；Mac 与 iPhone 需 <strong>Safari 18+</strong>，
+      不支持时按钮显示「不可用」并自动回退 CPU。
       导出：<code>conda activate mmpose_gpu</code> →
       <code>python export_onnx.py</code> /
       <code>python export_tennis_onnx.py</code>
     </p>
   </div>
 
+  <!-- ort.webgpu.min.js 才带 WebGPU EP（ort.min.js 不一定包含）；同时含 WASM 回退 -->
   <!-- crossorigin：开启 COOP/COEP 跨源隔离（WASM 多线程）后 CDN 脚本仍可加载 -->
-  <script src="https://cdn.jsdelivr.net/npm/onnxruntime-web@1.20.1/dist/ort.min.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/onnxruntime-web@1.20.1/dist/ort.webgpu.min.js" crossorigin="anonymous"></script>
   <script src="./lib/ball_tracker.js"></script>
   <script src="./app.js"></script>
 </body>

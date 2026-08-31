@@ -17,7 +17,6 @@ const cfg = {
   modelUrl: qs.get("model") || "./models/yolo11n-pose.onnx",
   tennisModelUrl: qs.get("tennisModel") || "./models/yolo11n-tennis.onnx",
   imgsz: Number(qs.get("imgsz") || 640),
-  webgpu: qs.get("webgpu") !== "0",
   confThresh: Number(qs.get("conf") || 0.25),
   tennisConf: Number(qs.get("tennisConf") || 0.2),
   kptThresh: 0.3,
@@ -31,7 +30,20 @@ const cfg = {
   idbStore: "models",
   idbKey: "yolo11n-pose.onnx",
   tennisIdbKey: "yolo11n-tennis.onnx",
+  backendKey: "tenclip-yolo-backend",
 };
+
+/** "gpu"（试 WebGPU，失败回退 CPU）| "cpu"（强制 WASM）；?webgpu=0/1 优先于本地记忆 */
+function readBackendPref() {
+  const q = qs.get("webgpu");
+  if (q === "0") return "cpu";
+  if (q === "1") return "gpu";
+  try {
+    const v = localStorage.getItem(cfg.backendKey);
+    if (v === "cpu" || v === "gpu") return v;
+  } catch (_) {}
+  return "gpu";
+}
 
 const els = {
   video: document.getElementById("video"),
@@ -40,6 +52,7 @@ const els = {
   pickBtn: document.getElementById("pickBtn"),
   busBtn: document.getElementById("busBtn"),
   tennisBtn: document.getElementById("tennisBtn"),
+  gpuBtn: document.getElementById("gpuBtn"),
   tennisSampleBtn: document.getElementById("tennisSampleBtn"),
   fileInput: document.getElementById("fileInput"),
   status: document.getElementById("status"),
@@ -52,7 +65,10 @@ let poseInputName = "images";
 let tennisInputName = "images";
 let tennisEnabled = false;
 let tennisMode = "off"; // off | onnx | hsv
+let backendPref = readBackendPref();
 let backendName = "wasm";
+let gpuNote = "";
+let gpuProbe = null;
 let camRunning = false;
 let stream = null;
 let rafId = 0;
@@ -100,6 +116,25 @@ function setMetrics(info) {
   if (info.tennisMode) parts.push("[" + info.tennisMode + "]");
   parts.push("[" + backendName + "]");
   els.metrics.textContent = parts.join(" | ");
+}
+
+function syncGpuBtn() {
+  if (!els.gpuBtn) return;
+  if (backendPref !== "gpu") {
+    els.gpuBtn.textContent = "GPU：关(CPU)";
+    els.gpuBtn.className = "gpu-off";
+    els.gpuBtn.title = "点按尝试 WebGPU";
+    return;
+  }
+  if (backendName === "webgpu") {
+    els.gpuBtn.textContent = "GPU：WebGPU";
+    els.gpuBtn.className = "gpu-on";
+    els.gpuBtn.title = "点按切回 CPU(WASM)";
+  } else {
+    els.gpuBtn.textContent = "GPU：不可用";
+    els.gpuBtn.className = "gpu-warn";
+    els.gpuBtn.title = gpuNote || "已回退 CPU(WASM)";
+  }
 }
 
 function syncTennisBtn() {
@@ -179,18 +214,56 @@ function ensureOrt() {
   ort.env.wasm.simd = true;
 }
 
+async function probeWebGpu() {
+  if (gpuProbe) return gpuProbe;
+  if (!navigator.gpu) {
+    gpuProbe = { ok: false, reason: "浏览器无 WebGPU（Safari 需 18+ / macOS Sequoia）" };
+    return gpuProbe;
+  }
+  try {
+    const adapter = await navigator.gpu.requestAdapter();
+    gpuProbe = adapter
+      ? { ok: true, reason: "" }
+      : { ok: false, reason: "无可用 GPU 适配器" };
+  } catch (e) {
+    gpuProbe = { ok: false, reason: "requestAdapter 失败：" + (e.message || e) };
+  }
+  return gpuProbe;
+}
+
+/** Safari 上部分算子要到首次 run 才报错，故建会话后立即试跑一次 */
+async function warmup(sess) {
+  const feeds = {};
+  feeds[sess.inputNames[0] || "images"] = new ort.Tensor(
+    "float32",
+    new Float32Array(3 * cfg.imgsz * cfg.imgsz),
+    [1, 3, cfg.imgsz, cfg.imgsz]
+  );
+  await sess.run(feeds);
+}
+
 async function createSession(buf) {
-  if (cfg.webgpu && navigator.gpu) {
-    try {
-      const s = await ort.InferenceSession.create(buf, {
-        executionProviders: ["webgpu"],
-        graphOptimizationLevel: "all",
-      });
-      backendName = "webgpu";
-      return s;
-    } catch (e) {
-      console.warn("webgpu 不可用，回退 wasm", e);
+  if (backendPref === "gpu") {
+    const probe = await probeWebGpu();
+    if (probe.ok) {
+      try {
+        const s = await ort.InferenceSession.create(buf, {
+          executionProviders: ["webgpu"],
+          graphOptimizationLevel: "all",
+        });
+        await warmup(s);
+        backendName = "webgpu";
+        gpuNote = "";
+        return s;
+      } catch (e) {
+        console.warn("WebGPU 会话不可用，回退 CPU", e);
+        gpuNote = "WebGPU 失败：" + (e.message || e);
+      }
+    } else {
+      gpuNote = probe.reason;
     }
+  } else {
+    gpuNote = "";
   }
   const s = await ort.InferenceSession.create(buf, {
     executionProviders: ["wasm"],
@@ -199,6 +272,50 @@ async function createSession(buf) {
   const n = ort.env.wasm.numThreads || 1;
   backendName = n > 1 ? "wasm x" + n : "wasm";
   return s;
+}
+
+function releaseSession(s) {
+  if (s && typeof s.release === "function") {
+    try {
+      s.release();
+    } catch (_) {}
+  }
+}
+
+async function rebuildSessions() {
+  const needTennis = tennisSession != null;
+  // 等在途推理结束，避免释放正在 run 的会话
+  for (let i = 0; i < 40 && inferBusy; i++) {
+    await new Promise((r) => setTimeout(r, 50));
+  }
+  inferBusy = true;
+  if (els.gpuBtn) els.gpuBtn.disabled = true;
+  try {
+    releaseSession(session);
+    releaseSession(tennisSession);
+    session = null;
+    tennisSession = null;
+    setStatus("切换推理后端…");
+    await loadPoseModel();
+    if (needTennis) await loadTennisModel();
+    setStatus(
+      "当前后端：" + backendName + (gpuNote ? "（" + gpuNote + "）" : "")
+    );
+  } finally {
+    if (els.gpuBtn) els.gpuBtn.disabled = false;
+    inferBusy = false;
+    syncGpuBtn();
+    syncTennisBtn();
+  }
+}
+
+async function toggleGpu() {
+  backendPref = backendPref === "gpu" ? "cpu" : "gpu";
+  try {
+    localStorage.setItem(cfg.backendKey, backendPref);
+  } catch (_) {}
+  gpuProbe = null;
+  await rebuildSessions();
 }
 
 function letterbox(srcCanvas, imgsz) {
@@ -548,7 +665,12 @@ async function loadPoseModel() {
   setStatus("创建姿态推理会话…");
   session = await createSession(buf);
   poseInputName = session.inputNames[0] || "images";
-  setStatus("姿态模型就绪。可开摄像头 / 图片；点「网球」加载球检测");
+  setStatus(
+    "姿态模型就绪（后端 " +
+      backendName +
+      (gpuNote ? " · " + gpuNote : "") +
+      "）。可开摄像头 / 图片；点「网球」加载球检测"
+  );
   setMetrics(null);
 }
 
@@ -597,6 +719,7 @@ async function toggleTennis() {
   syncTennisBtn();
   await loadTennisModel();
   syncTennisBtn();
+  syncGpuBtn();
 }
 
 async function runOnCanvas(src) {
@@ -817,12 +940,22 @@ els.tennisSampleBtn.addEventListener("click", async () => {
   }
 });
 
-syncTennisBtn();
-loadPoseModel().catch((e) => {
-  console.error(e);
-  setStatus(
-    "姿态模型未就绪: " +
-      (e.message || e) +
-      " · conda activate mmpose_gpu && python export_onnx.py"
-  );
+els.gpuBtn.addEventListener("click", () => {
+  toggleGpu().catch((e) => {
+    console.error(e);
+    setStatus("切换后端失败: " + (e.message || e));
+  });
 });
+
+syncTennisBtn();
+syncGpuBtn();
+loadPoseModel()
+  .then(syncGpuBtn)
+  .catch((e) => {
+    console.error(e);
+    setStatus(
+      "姿态模型未就绪: " +
+        (e.message || e) +
+        " · conda activate mmpose_gpu && python export_onnx.py"
+    );
+  });
