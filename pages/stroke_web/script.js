@@ -1,8 +1,8 @@
 const API = "";
 
-const CHUNK_SIZE = 4 * 1024 * 1024;
+const CHUNK_SIZE = 8 * 1024 * 1024;
 const CHUNK_THRESHOLD = 16 * 1024 * 1024;
-const CONCURRENCY = 2;
+const CONCURRENCY = 4;
 const CHUNK_RETRY = 3;
 
 let detectMode = "spike";
