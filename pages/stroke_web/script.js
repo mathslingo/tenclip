@@ -26,6 +26,9 @@ const progressBar = document.getElementById("progressBar");
 const errorBox = document.getElementById("errorBox");
 const summaryBox = document.getElementById("summaryBox");
 const downloadLink = document.getElementById("downloadLink");
+const uploadStats = document.getElementById("uploadStats");
+
+let fileDurationSec = 0;
 
 const MODE_DESC = {
   combined: "画面运动 + 击球声双重判断，回合保留更完整，但可能带入少量等待画面。",
@@ -88,6 +91,7 @@ videoInput.addEventListener("change", () => {
   probe.src = url;
   probe.onloadedmetadata = () => {
     URL.revokeObjectURL(url);
+    fileDurationSec = probe.duration || 0;
     const dur = fmtDuration(probe.duration);
     if (dur) fileMeta.textContent = `时长 ${dur} · ` + fileMeta.textContent;
   };
@@ -224,6 +228,32 @@ function fmtEta(sec) {
   return `约 ${Math.floor(sec / 60)} 分 ${Math.ceil(sec % 60)} 秒`;
 }
 
+function reportUploadStats(file, uploadSec, sessionBytes, peakBps) {
+  const avgBps = uploadSec > 0 ? sessionBytes / uploadSec : 0;
+  const parts = [
+    `视频大小 ${(file.size / 1048576).toFixed(1)} MB`,
+    fileDurationSec > 0 ? `时长 ${Math.round(fileDurationSec)}s` : "",
+    `上传 ${uploadSec.toFixed(0)}s`,
+    `峰值 ${(peakBps / 1048576).toFixed(1)} MB/s`,
+    `平均 ${(avgBps / 1048576).toFixed(1)} MB/s`,
+  ].filter(Boolean);
+  const text = parts.join(" · ");
+  uploadStats.textContent = text;
+  uploadStats.hidden = false;
+  console.info("[stroke-upload]", {
+    file: file.name,
+    sizeBytes: file.size,
+    durationSec: Math.round(fileDurationSec),
+    uploadSec: Number(uploadSec.toFixed(1)),
+    uploadedBytesThisRun: sessionBytes,
+    peakBps: Math.round(peakBps),
+    avgBps: Math.round(avgBps),
+    concurrency: CONCURRENCY,
+    chunkSize: CHUNK_SIZE,
+    ua: navigator.userAgent,
+  });
+}
+
 async function uploadChunked(file) {
   const sig = fileSig(file);
   const storeKey = "stroke_upload_" + sig;
@@ -257,8 +287,17 @@ async function uploadChunked(file) {
   }
 
   let doneBytes = uploaded.size * CHUNK_SIZE;
+  let sessionBytes = 0;
+  let peakBps = 0;
   const startedAt = Date.now();
   let cursor = 0;
+  console.info("[stroke-upload] start", {
+    file: file.name,
+    sizeBytes: file.size,
+    totalChunks,
+    resumedFrom: uploaded.size,
+    sessionId,
+  });
 
   async function worker() {
     while (cursor < pending.length) {
@@ -272,13 +311,16 @@ async function uploadChunked(file) {
           break;
         } catch (err) {
           lastErr = err;
+          console.warn("[stroke-upload] chunk retry", { idx, attempt, err: String(err) });
           await new Promise((r) => setTimeout(r, 800 * (attempt + 1)));
         }
       }
       if (lastErr) throw lastErr;
       doneBytes += blob.size;
+      sessionBytes += blob.size;
       const elapsed = (Date.now() - startedAt) / 1000;
-      const speed = elapsed > 0.5 ? doneBytes / elapsed : 0;
+      const speed = elapsed > 0.5 ? sessionBytes / elapsed : 0;
+      if (speed > peakBps) peakBps = speed;
       const remain = (file.size - doneBytes) / (speed || 1);
       const pct = 5 + Math.round((doneBytes / file.size) * 90);
       showStatus(
@@ -295,6 +337,9 @@ async function uploadChunked(file) {
   for (let i = 0; i < CONCURRENCY; i++) workers.push(worker());
   await Promise.all(workers);
 
+  const uploadSec = (Date.now() - startedAt) / 1000;
+  reportUploadStats(file, uploadSec, sessionBytes, peakBps);
+
   showStatus("合并中", "服务器正在合并分片并提交分析…", 97);
   const task = await completeSession(sessionId);
   localStorage.removeItem(storeKey);
@@ -302,6 +347,7 @@ async function uploadChunked(file) {
 }
 
 async function uploadDirect(file) {
+  const t0 = Date.now();
   const form = new FormData();
   form.append("video", file);
   form.append("detect_mode", detectMode);
@@ -310,6 +356,8 @@ async function uploadDirect(file) {
   const res = await fetch(`${API}/api/mobile/stroke-extract/submit`, { method: "POST", body: form });
   const body = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(body.detail || `上传失败 (${res.status})`);
+  const sec = (Date.now() - t0) / 1000;
+  reportUploadStats(file, sec, file.size, sec > 0 ? file.size / sec : 0);
   return body;
 }
 
@@ -322,6 +370,7 @@ submitBtn.addEventListener("click", async () => {
   stopPoll();
   submitBtn.disabled = true;
   submitBtn.textContent = "上传中…";
+  uploadStats.hidden = true;
   showStatus("上传中", "正在提交视频…", 5);
   await acquireWakeLock();
 
