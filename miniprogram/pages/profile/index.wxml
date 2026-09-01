@@ -51,13 +51,15 @@
       <text class="quick-icon">✂</text>
       <text class="quick-text">击球剪辑</text>
     </view>
+    <!-- 暂时下线：动作分析
     <view class="quick-item" bindtap="onGoAnalyze">
       <text class="quick-icon">◎</text>
       <text class="quick-text">动作分析</text>
     </view>
+    -->
     <view class="quick-item" bindtap="onGoPose">
       <text class="quick-icon">◇</text>
-      <text class="quick-text">姿态关键点</text>
+      <text class="quick-text">实时关键点</text>
     </view>
     <view class="quick-item" bindtap="onGoFeed">
       <text class="quick-icon">▣</text>

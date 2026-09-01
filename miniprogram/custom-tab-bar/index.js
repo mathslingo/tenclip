@@ -50,7 +50,7 @@ Component({
     handleAction() {
       var auth = require("../utils/auth_api");
       wx.showActionSheet({
-        itemList: ["发笔记", "击球剪辑", "动作分析", "实时关键点"],
+        itemList: ["发笔记", "击球剪辑", "实时关键点"],
         success: function (res) {
           var tapIndex = res.tapIndex;
           if (tapIndex === 0) {
@@ -62,10 +62,9 @@ Component({
           } else if (tapIndex === 1) {
             wx.navigateTo({ url: "/pages/stroke-extract/index" });
           } else if (tapIndex === 2) {
-            wx.navigateTo({ url: "/pages/action-analyze/index" });
-          } else if (tapIndex === 3) {
             wx.navigateTo({ url: "/pages/pose-realtime/index" });
           }
+          // 暂时下线：动作分析 → /pages/action-analyze/index
         },
       });
     },

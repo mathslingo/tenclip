@@ -28,18 +28,20 @@ Page({
     wx.navigateTo({ url: "/pages/stroke-extract/index" });
   },
 
-  onGoAnalyze() {
-    wx.navigateTo({ url: "/pages/action-analyze/index" });
-  },
+  // 暂时下线：动作分析
+  // onGoAnalyze() {
+  //   wx.navigateTo({ url: "/pages/action-analyze/index" });
+  // },
 
   /** 实时关键点：引导页（内嵌 + 浏览器） */
   onGoPoseLive() {
     wx.navigateTo({ url: "/pages/pose-realtime/index" });
   },
 
-  onGoPoseClip() {
-    wx.navigateTo({ url: "/pages/pose-live/index" });
-  },
+  // 暂时下线：姿态骨架回放（云端 pose-live）
+  // onGoPoseClip() {
+  //   wx.navigateTo({ url: "/pages/pose-live/index" });
+  // },
 
   checkBackendStatus() {
     wx.request({

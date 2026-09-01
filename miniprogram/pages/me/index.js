@@ -325,12 +325,13 @@ Page({
     wx.navigateTo({ url: "/pages/stroke-extract/index" });
   },
 
-  onGoAnalyze() {
-    wx.navigateTo({ url: "/pages/action-analyze/index" });
-  },
+  // 暂时下线：动作分析
+  // onGoAnalyze() {
+  //   wx.navigateTo({ url: "/pages/action-analyze/index" });
+  // },
 
   onGoPose() {
-    wx.navigateTo({ url: "/pages/pose-detect/index" });
+    wx.navigateTo({ url: "/pages/pose-realtime/index" });
   },
 
   onGoFeed() {

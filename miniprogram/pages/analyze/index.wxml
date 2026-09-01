@@ -2,7 +2,7 @@
   <view class="page-inner">
     <view class="hero">
       <text class="hero-title">分析工具</text>
-      <text class="hero-sub">剪辑 · 动作 · 实时关键点</text>
+      <text class="hero-sub">击球剪辑 · 实时关键点</text>
     </view>
 
     <view class="feature-grid">
@@ -15,6 +15,7 @@
         <text class="feature-arrow">›</text>
       </view>
 
+      <!-- 暂时下线：动作分析
       <view class="feature-card" bindtap="onGoAnalyze">
         <view class="feature-icon icon-analyze">◎</view>
         <view class="feature-info">
@@ -23,6 +24,7 @@
         </view>
         <text class="feature-arrow">›</text>
       </view>
+      -->
 
       <view class="feature-card feature-card-pose" bindtap="onGoPoseLive">
         <view class="feature-icon icon-pose">◇</view>
@@ -33,6 +35,7 @@
         <text class="feature-arrow">›</text>
       </view>
 
+      <!-- 暂时下线：姿态骨架回放（云端 pose-live）
       <view class="feature-card" bindtap="onGoPoseClip">
         <view class="feature-icon icon-analyze">▣</view>
         <view class="feature-info">
@@ -41,6 +44,7 @@
         </view>
         <text class="feature-arrow">›</text>
       </view>
+      -->
     </view>
 
     <view class="tips-card">
@@ -49,18 +53,22 @@
         <view class="tip-bar"></view>
         <text class="tip-text">击球剪辑：上传完整训练视频，自动提取击球片段</text>
       </view>
+      <!-- 暂时下线
       <view class="tip-item">
         <view class="tip-bar"></view>
         <text class="tip-text">动作分析：上传单个击球视频，获得技术建议</text>
       </view>
+      -->
       <view class="tip-item">
         <view class="tip-bar"></view>
         <text class="tip-text">实时关键点：可小程序内嵌；开摄像头请用浏览器打开（效果更好）</text>
       </view>
+      <!-- 暂时下线
       <view class="tip-item">
         <view class="tip-bar"></view>
         <text class="tip-text">骨架回放：真机录短视频，云端生成骨架回放</text>
       </view>
+      -->
     </view>
 
     <view class="dev-info" wx:if="{{devMode}}">
