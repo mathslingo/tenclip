@@ -1,0 +1,7 @@
+{
+  "note": {
+    "max_images_per_note": 10,
+    "max_notes_per_user_per_day": 10,
+    "day_timezone": "Asia/Shanghai"
+  }
+}

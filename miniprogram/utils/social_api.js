@@ -259,6 +259,74 @@ function deleteNote(noteId) {
   });
 }
 
+function fetchMessages(limit, offset) {
+  var q = "?limit=" + (limit || 50) + "&offset=" + (offset || 0);
+  return request({
+    url: API_BASE_URL + "/api/social/notifications" + q,
+    header: authHeaders(),
+  }).then(function (body) {
+    var items = (body && body.items) || [];
+    return items.map(function (n) {
+      return Object.assign({}, n, {
+        actor_avatar: usableAvatarUrl(n.actor_avatar || ""),
+      });
+    });
+  });
+}
+
+function fetchUnreadCount() {
+  return request({
+    url: API_BASE_URL + "/api/social/notifications/unread-count",
+    header: authHeaders(),
+  }).then(function (body) {
+    return (body && body.count) || 0;
+  });
+}
+
+function markAllMessagesRead() {
+  return request({
+    url: API_BASE_URL + "/api/social/notifications/read-all",
+    method: "POST",
+    header: authHeaders(),
+  });
+}
+
+function fetchPublishLimits() {
+  return request({
+    url: API_BASE_URL + "/api/config/publish-limits",
+    header: authHeaders(),
+  })
+    .then(function (body) {
+      var limits = (body && body.limits && body.limits.note) || {};
+      var usage = (body && body.usage) || null;
+      var maxImages = Number(limits.max_images_per_note) || 10;
+      var maxNotesPerDay = Number(limits.max_notes_per_user_per_day) || 10;
+      return {
+        maxImages: maxImages,
+        maxNotesPerDay: maxNotesPerDay,
+        notesToday: usage ? Number(usage.notes_today) || 0 : null,
+        notesRemainingToday: usage
+          ? Number(usage.notes_remaining_today)
+          : null,
+        imageHint: "最多 " + maxImages + " 张",
+        dayHint:
+          usage != null
+            ? "今日还可发 " + Math.max(0, usage.notes_remaining_today) + " 篇"
+            : "每日最多 " + maxNotesPerDay + " 篇",
+      };
+    })
+    .catch(function () {
+      return {
+        maxImages: 10,
+        maxNotesPerDay: 10,
+        notesToday: null,
+        notesRemainingToday: null,
+        imageHint: "最多 10 张",
+        dayHint: "每日最多 10 篇",
+      };
+    });
+}
+
 function normalizeNote(n) {
   if (!n) return n;
   var images = (n.images || []).map(absUrl);
@@ -290,10 +358,14 @@ module.exports = {
   fetchFollowList: fetchFollowList,
   uploadNoteImage: uploadNoteImage,
   publishNote: publishNote,
+  fetchPublishLimits: fetchPublishLimits,
   listNotes: listNotes,
   searchNotes: searchNotes,
   searchFeed: searchFeed,
   getNote: getNote,
   deleteNote: deleteNote,
   normalizeNote: normalizeNote,
+  fetchMessages: fetchMessages,
+  fetchUnreadCount: fetchUnreadCount,
+  markAllMessagesRead: markAllMessagesRead,
 };

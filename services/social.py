@@ -13,6 +13,12 @@ from typing import Any
 from fastapi import File, Form, Header, HTTPException, Query, UploadFile
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
+from services.publish_limits import (
+    day_bounds_unix,
+    load_publish_limits,
+    note_max_images,
+    note_max_per_day,
+)
 
 _REPO_ROOT = Path(__file__).resolve().parent.parent
 DB_PATH = _REPO_ROOT / "data" / "social.db"
@@ -220,6 +226,23 @@ def init_social_db() -> None:
         conn.execute("CREATE INDEX IF NOT EXISTS idx_likes_note ON likes(note_id)")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_bookmarks_user ON bookmarks(user_id, created_at DESC)")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_bookmarks_note ON bookmarks(note_id)")
+        conn.executescript(
+            """
+            CREATE TABLE IF NOT EXISTS notifications (
+                id TEXT PRIMARY KEY,
+                recipient_id TEXT NOT NULL,
+                actor_id TEXT NOT NULL DEFAULT '',
+                type TEXT NOT NULL DEFAULT '',
+                note_id TEXT NOT NULL DEFAULT '',
+                comment_id TEXT NOT NULL DEFAULT '',
+                preview TEXT NOT NULL DEFAULT '',
+                is_read INTEGER NOT NULL DEFAULT 0,
+                created_at REAL NOT NULL
+            );
+            CREATE INDEX IF NOT EXISTS idx_notifications_recipient
+                ON notifications(recipient_id, is_read, created_at DESC);
+            """
+        )
         # 登录与会话
         _ensure_column(conn, "users", "openid", "openid TEXT")
         _ensure_column(conn, "users", "unionid", "unionid TEXT NOT NULL DEFAULT ''")
@@ -520,6 +543,7 @@ def follow(follower_id: str, followee_id: str) -> dict[str, Any]:
             (a, b, now),
         )
         conn.commit()
+    create_notification(b, a, "follow")
     return {"ok": True, "following": True, **(get_user(b) or {})}
 
 
@@ -577,6 +601,133 @@ def list_follow_users(user_id: str, *, kind: str) -> list[dict[str, Any]]:
         }
         for r in rows
     ]
+
+
+# ---------- 消息通知 ----------
+
+def _note_owner(note_id: str) -> str:
+    nid = (note_id or "").strip()
+    if nid.startswith("note-"):
+        nid = nid[5:]
+    if not nid:
+        return ""
+    with _conn() as conn:
+        row = conn.execute("SELECT user_id FROM notes WHERE id = ?", (nid,)).fetchone()
+    return str(row["user_id"]) if row else ""
+
+
+def _note_title(note_id: str) -> str:
+    nid = (note_id or "").strip()
+    if nid.startswith("note-"):
+        nid = nid[5:]
+    if not nid:
+        return ""
+    with _conn() as conn:
+        row = conn.execute(
+            "SELECT title, body FROM notes WHERE id = ?", (nid,)
+        ).fetchone()
+    if not row:
+        return ""
+    return (row["title"] or row["body"] or "")[:30]
+
+
+def create_notification(
+    recipient_id: str,
+    actor_id: str,
+    ntype: str,
+    note_id: str = "",
+    comment_id: str = "",
+    preview: str = "",
+) -> None:
+    rid = (recipient_id or "").strip()
+    aid = (actor_id or "").strip()
+    if not rid or not aid or rid == aid:
+        return
+    if ntype not in ("like", "comment", "follow"):
+        return
+    nid = (note_id or "").strip()
+    if nid.startswith("note-"):
+        nid = nid[5:]
+    with _conn() as conn:
+        conn.execute(
+            """
+            INSERT INTO notifications
+                (id, recipient_id, actor_id, type, note_id, comment_id, preview, is_read, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?)
+            """,
+            (
+                uuid.uuid4().hex[:16],
+                rid,
+                aid,
+                ntype,
+                nid,
+                (comment_id or "").strip(),
+                (preview or "")[:80],
+                time.time(),
+            ),
+        )
+        conn.commit()
+
+
+def list_notifications(
+    recipient_id: str, limit: int = 50, offset: int = 0
+) -> list[dict[str, Any]]:
+    rid = (recipient_id or "").strip()
+    if not rid:
+        return []
+    limit = max(1, min(int(limit), 100))
+    offset = max(0, int(offset))
+    with _conn() as conn:
+        rows = conn.execute(
+            """
+            SELECT n.*, u.nickname AS actor_name, u.avatar_url AS actor_avatar
+            FROM notifications n
+            LEFT JOIN users u ON u.user_id = n.actor_id
+            WHERE n.recipient_id = ?
+            ORDER BY n.created_at DESC
+            LIMIT ? OFFSET ?
+            """,
+            (rid, limit, offset),
+        ).fetchall()
+    return [
+        {
+            "id": r["id"],
+            "type": r["type"],
+            "note_id": r["note_id"],
+            "comment_id": r["comment_id"],
+            "preview": r["preview"],
+            "is_read": bool(r["is_read"]),
+            "created_at": r["created_at"],
+            "actor_id": r["actor_id"],
+            "actor_name": r["actor_name"] or "球友",
+            "actor_avatar": r["actor_avatar"] or "",
+        }
+        for r in rows
+    ]
+
+
+def unread_notification_count(recipient_id: str) -> int:
+    rid = (recipient_id or "").strip()
+    if not rid:
+        return 0
+    with _conn() as conn:
+        row = conn.execute(
+            "SELECT COUNT(*) AS c FROM notifications WHERE recipient_id = ? AND is_read = 0",
+            (rid,),
+        ).fetchone()
+    return int(row["c"]) if row else 0
+
+
+def mark_notifications_read(recipient_id: str) -> None:
+    rid = (recipient_id or "").strip()
+    if not rid:
+        return
+    with _conn() as conn:
+        conn.execute(
+            "UPDATE notifications SET is_read = 1 WHERE recipient_id = ? AND is_read = 0",
+            (rid,),
+        )
+        conn.commit()
 
 
 def _row_get(row: sqlite3.Row, key: str, default: Any = None) -> Any:
@@ -689,9 +840,27 @@ def create_note(
     if not uid:
         raise ValueError("user_id required")
     upsert_user(uid)
-    images = [str(x).strip() for x in (image_urls or []) if str(x).strip()][:9]
+    max_images = note_max_images()
+    raw_images = [str(x).strip() for x in (image_urls or []) if str(x).strip()]
+    if len(raw_images) > max_images:
+        raise ValueError(f"单篇笔记最多 {max_images} 张图片")
+    images = raw_images[:max_images]
     if not (title or "").strip() and not (body or "").strip() and not images:
         raise ValueError("请填写正文或添加图片")
+
+    max_day = note_max_per_day()
+    start_ts, end_ts = day_bounds_unix()
+    with _conn() as conn:
+        row = conn.execute(
+            """
+            SELECT COUNT(*) AS c FROM notes
+            WHERE user_id = ? AND created_at >= ? AND created_at < ?
+            """,
+            (uid, start_ts, end_ts),
+        ).fetchone()
+        today_count = int(row["c"] if row else 0)
+    if today_count >= max_day:
+        raise ValueError(f"今日已发布 {today_count} 篇，每日最多 {max_day} 篇")
     loc_name = (location_name or "").strip()[:80]
     loc_addr = (location_address or "").strip()[:200]
     lat_v: float | None = None
@@ -1072,6 +1241,35 @@ def register_social_routes(api) -> None:
         except ValueError as e:
             raise HTTPException(status_code=400, detail=str(e)) from e
 
+    @api.get("/api/config/publish-limits")
+    @api.get("/api/social/publish-limits")
+    def api_publish_limits(authorization: str | None = Header(default=None)):
+        """公开读取 config/publish_limits.json；登录时附带当日已发篇数。"""
+        limits = load_publish_limits()
+        out: dict[str, Any] = {"limits": limits}
+        try:
+            me = _auth_user(authorization)
+            start_ts, end_ts = day_bounds_unix()
+            with _conn() as conn:
+                row = conn.execute(
+                    """
+                    SELECT COUNT(*) AS c FROM notes
+                    WHERE user_id = ? AND created_at >= ? AND created_at < ?
+                    """,
+                    (me["user_id"], start_ts, end_ts),
+                ).fetchone()
+                today = int(row["c"] if row else 0)
+            max_day = note_max_per_day()
+            out["usage"] = {
+                "notes_today": today,
+                "notes_remaining_today": max(0, max_day - today),
+            }
+        except HTTPException:
+            pass
+        except Exception:
+            pass
+        return out
+
     @api.get("/api/social/notes/search")
     def api_search_notes(
         q: str = Query(..., min_length=1),
@@ -1195,6 +1393,26 @@ def register_social_routes(api) -> None:
             raise HTTPException(status_code=404, detail="无法删除")
         return {"ok": True}
 
+    @api.get("/api/social/notifications")
+    def api_list_notifications(
+        limit: int = Query(50, ge=1, le=100),
+        offset: int = Query(0, ge=0),
+        authorization: str | None = Header(default=None),
+    ):
+        me = _auth_user(authorization)
+        return {"items": list_notifications(me["user_id"], limit=limit, offset=offset)}
+
+    @api.get("/api/social/notifications/unread-count")
+    def api_unread_count(authorization: str | None = Header(default=None)):
+        me = _auth_user(authorization)
+        return {"count": unread_notification_count(me["user_id"])}
+
+    @api.post("/api/social/notifications/read-all")
+    def api_read_all_notifications(authorization: str | None = Header(default=None)):
+        me = _auth_user(authorization)
+        mark_notifications_read(me["user_id"])
+        return {"ok": True}
+
     @api.post("/api/social/notes/{note_id}/like")
     def api_like_note(
         note_id: str,
@@ -1251,6 +1469,9 @@ def toggle_like(note_id: str, user_id: str) -> bool:
                 conn.commit()
             except sqlite3.IntegrityError:
                 pass
+            owner = _note_owner(nid)
+            if owner:
+                create_notification(owner, uid, "like", note_id=nid, preview=_note_title(nid))
             return True
 
 
@@ -1334,6 +1555,9 @@ def create_comment(note_id: str, user_id: str, body: str) -> dict[str, Any]:
             conn.commit()
     except sqlite3.IntegrityError as e:
         raise ValueError("评论保存失败") from e
+    owner = _note_owner(nid)
+    if owner:
+        create_notification(owner, uid, "comment", note_id=nid, comment_id=cid, preview=text)
     return get_comment(cid, uid) or {}
 
 

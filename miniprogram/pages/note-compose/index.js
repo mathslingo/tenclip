@@ -1,4 +1,4 @@
-const { publishNote, upsertMe } = require("../../utils/social_api");
+const { publishNote, upsertMe, fetchPublishLimits } = require("../../utils/social_api");
 const { requirePrivacyIfNeeded } = require("../../utils/api");
 const { isLoggedIn, requireLogin } = require("../../utils/auth_api");
 
@@ -59,6 +59,10 @@ Page({
     body: "",
     images: [],
     busy: false,
+    maxImages: 10,
+    imageHint: "最多 10 张",
+    dayHint: "每日最多 10 篇",
+    notesRemainingToday: null,
     locationEnabled: false,
     locationName: "",
     locationAddress: "",
@@ -71,22 +75,40 @@ Page({
   },
 
   onLoad() {
+    var that = this;
     var value = defaultPickerValue();
     var now = new Date();
     var range = buildPickerRange(now.getFullYear(), now.getMonth() + 1);
-    // clamp day index if needed
     if (value[2] >= range[2].length) value[2] = range[2].length - 1;
     this.setData({
       dtRange: range,
       dtValue: value,
       eventTimeText: formatFromPicker(range, value),
     });
+    fetchPublishLimits().then(function (cfg) {
+      that.setData({
+        maxImages: cfg.maxImages,
+        imageHint: cfg.imageHint,
+        dayHint: cfg.dayHint,
+        notesRemainingToday: cfg.notesRemainingToday,
+      });
+    });
   },
 
   onShow() {
     if (!isLoggedIn()) {
       requireLogin("note-compose");
+      return;
     }
+    var that = this;
+    fetchPublishLimits().then(function (cfg) {
+      that.setData({
+        maxImages: cfg.maxImages,
+        imageHint: cfg.imageHint,
+        dayHint: cfg.dayHint,
+        notesRemainingToday: cfg.notesRemainingToday,
+      });
+    });
   },
 
   onTitle(e) {
@@ -210,8 +232,12 @@ Page({
 
   onAddImages() {
     var that = this;
-    var remain = 9 - (this.data.images || []).length;
-    if (remain <= 0) return;
+    var maxImages = this.data.maxImages || 10;
+    var remain = maxImages - (this.data.images || []).length;
+    if (remain <= 0) {
+      wx.showToast({ title: "最多 " + maxImages + " 张图片", icon: "none" });
+      return;
+    }
 
     requirePrivacyIfNeeded()
       .then(function () {
@@ -229,7 +255,9 @@ Page({
         var files = (res.tempFiles || []).map(function (f) {
           return f.tempFilePath;
         });
-        that.setData({ images: that.data.images.concat(files).slice(0, 9) });
+        that.setData({
+          images: that.data.images.concat(files).slice(0, that.data.maxImages || 10),
+        });
       })
       .catch(function () {});
   },
@@ -265,6 +293,17 @@ Page({
     }
     if (this.data.locationEnabled && !this.data.locationName && !this.data.locationAddress) {
       wx.showToast({ title: "请选择地图位置，或关闭地点", icon: "none" });
+      return;
+    }
+
+    if (
+      this.data.notesRemainingToday != null &&
+      this.data.notesRemainingToday <= 0
+    ) {
+      wx.showToast({
+        title: "今日发布已达上限",
+        icon: "none",
+      });
       return;
     }
 

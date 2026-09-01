@@ -22,14 +22,14 @@
   <view class="card">
     <view class="section-head">
       <text class="section-title">图片</text>
-      <text class="section-hint">最多 9 张</text>
+      <text class="section-hint">{{imageHint}}</text>
     </view>
     <view class="img-grid">
       <view class="img-cell" wx:for="{{images}}" wx:key="*this">
         <image class="img" src="{{item}}" mode="aspectFill" data-index="{{index}}" bindtap="onPreview" />
         <view class="img-del" data-index="{{index}}" catchtap="onRemoveImage">×</view>
       </view>
-      <view class="img-add" bindtap="onAddImages" wx:if="{{images.length < 9}}">
+      <view class="img-add" bindtap="onAddImages" wx:if="{{images.length < maxImages}}">
         <text class="add-plus">＋</text>
         <text class="add-text">添加</text>
       </view>
@@ -89,5 +89,5 @@
   </view>
 
   <button class="publish-btn" loading="{{busy}}" disabled="{{busy}}" bindtap="onPublish">发布</button>
-  <text class="tip">笔记保存在服务器，会出现在「发现」和「我的 · 作品」。</text>
+  <text class="tip">{{dayHint}} · 笔记会出现在「发现」和「我的 · 作品」。</text>
 </view>
