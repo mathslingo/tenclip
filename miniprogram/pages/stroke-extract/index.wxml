@@ -26,6 +26,11 @@
       <text class="choose-notice-link" bindtap="onShowChooseHelp">查看说明</text>
     </view>
 
+    <button class="web-secondary-btn" bindtap="onCopyWebLink">
+      视频超 10 分钟？复制链接到 Chrome / Safari 上传
+    </button>
+    <text class="web-entry-hint">浏览器上传支持分片断点续传，大文件更稳</text>
+
     <text class="field-label">尖峰灵敏度 {{motionPercentile}}（越低检出越多击球，每段约 2～4 秒）</text>
     <slider
       min="60"

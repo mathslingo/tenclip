@@ -67,3 +67,15 @@
   font-size: 30rpx;
   font-weight: 600;
 }
+
+.web-secondary-btn::after {
+  border: none;
+}
+
+.web-entry-hint {
+  display: block;
+  margin-top: 10rpx;
+  text-align: center;
+  font-size: 24rpx;
+  color: #9aa3ad;
+}

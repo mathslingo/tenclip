@@ -12,6 +12,7 @@ const {
   mapUploadProgressPercent,
 } = require("../../utils/api");
 const { startTaskPoll } = require("../../utils/poll");
+const { copyStrokeLink } = require("../../utils/web_link");
 
 const STATS_KEY = "tenclip_user_stats";
 
@@ -106,6 +107,10 @@ Page({
 
   onShowChooseHelp() {
     showChooseVideoHelp();
+  },
+
+  onCopyWebLink() {
+    copyStrokeLink();
   },
 
   onMotionChange(e) {

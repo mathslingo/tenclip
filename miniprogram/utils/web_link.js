@@ -22,7 +22,11 @@ function copyAndHint(url, name, tip) {
 }
 
 function copyStrokeLink() {
-  copyAndHint(WEB_STROKE_URL, "击球片段提取");
+  copyAndHint(
+    WEB_STROKE_URL,
+    "击球片段提取",
+    "网页版击球剪辑地址已复制。\n\n大视频请用系统浏览器打开（iPhone 推荐 Safari / Chrome），支持分片断点续传：\n1. 打开聊天粘贴发送，点击链接\n2. 或粘贴到浏览器地址栏\n\n上传期间请勿切出浏览器。"
+  );
 }
 
 function copyAnalyzeLink() {
