@@ -17,6 +17,7 @@
     "pages/user/index",
     "pages/follow-list/index",
     "pages/feed-search/index",
+    "pages/messages/index",
     "pages/pose-detect/index",
     "pages/pose-live/index",
     "pages/pose-rtmpose/index",

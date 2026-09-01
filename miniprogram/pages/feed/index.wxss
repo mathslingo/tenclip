@@ -26,6 +26,31 @@
   flex: 1;
 }
 
+.msg-bell {
+  position: relative;
+  padding: 4rpx 8rpx;
+}
+
+.bell-icon {
+  font-size: 34rpx;
+}
+
+.bell-badge {
+  position: absolute;
+  top: -6rpx;
+  right: -10rpx;
+  min-width: 28rpx;
+  height: 28rpx;
+  line-height: 28rpx;
+  padding: 0 6rpx;
+  border-radius: 999rpx;
+  background: #ff4d4f;
+  color: #fff;
+  font-size: 18rpx;
+  text-align: center;
+  box-sizing: border-box;
+}
+
 /* 顶部「我的」栏已注释，样式保留备查
 .feed-header {
   display: flex;

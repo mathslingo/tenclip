@@ -3,6 +3,12 @@
   <view class="search-bar" bindtap="onGoSearch">
     <text class="search-icon">🔍</text>
     <text class="search-placeholder">搜索笔记</text>
+    <view class="msg-bell" catchtap="onGoMessages">
+      <text class="bell-icon">🔔</text>
+      <view wx:if="{{unreadCount > 0}}" class="bell-badge">
+        {{unreadCount > 99 ? "99+" : unreadCount}}
+      </view>
+    </view>
   </view>
 
   <view class="top-tabs">

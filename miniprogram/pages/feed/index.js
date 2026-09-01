@@ -1,4 +1,5 @@
 const { fetchFeedPage } = require("../../utils/feed_api");
+const { fetchUnreadCount } = require("../../utils/social_api");
 const { LOCAL_DEV } = require("../../utils/config");
 const { FALLBACK_COVER } = require("../../utils/feed_mock");
 
@@ -15,6 +16,7 @@ Page({
     loading: false,
     sourceLabel: "",
     emptyHint: "",
+    unreadCount: 0,
   },
 
   _leftH: 0,
@@ -29,6 +31,18 @@ Page({
     if (tabBar && tabBar.updateSelected) {
       tabBar.updateSelected();
     }
+    this.refreshUnread();
+  },
+
+  refreshUnread() {
+    fetchUnreadCount()
+      .then((count) => this.setData({ unreadCount: count || 0 }))
+      .catch(() => {});
+  },
+
+  onGoMessages() {
+    this.setData({ unreadCount: 0 });
+    wx.navigateTo({ url: "/pages/messages/index" });
   },
 
   onPullDownRefresh() {

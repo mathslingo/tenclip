@@ -1,0 +1,35 @@
+<view class="msg-page">
+  <view class="msg-list" wx:if="{{list.length}}">
+    <view
+      class="msg-item"
+      wx:for="{{list}}"
+      wx:key="id"
+      data-item="{{item}}"
+      bindtap="onTapItem"
+    >
+      <image
+        wx:if="{{item.actor_avatar}}"
+        class="avatar"
+        src="{{item.actor_avatar}}"
+        mode="aspectFill"
+      />
+      <view wx:else class="avatar avatar-fallback">{{item.actor_initial}}</view>
+      <view class="msg-body">
+        <view class="msg-line">
+          <text class="actor-name">{{item.actor_name}}</text>
+          <text class="action-text">{{item.typeText}}</text>
+        </view>
+        <view wx:if="{{item.preview}}" class="preview">{{item.preview}}</view>
+        <view class="time">{{item.timeText}}</view>
+      </view>
+      <view wx:if="{{!item.is_read}}" class="dot" />
+    </view>
+  </view>
+
+  <view class="empty" wx:if="{{empty && !loading}}">
+    <text>暂无消息</text>
+  </view>
+  <view class="loading" wx:if="{{loading}}">
+    <text>加载中…</text>
+  </view>
+</view>
