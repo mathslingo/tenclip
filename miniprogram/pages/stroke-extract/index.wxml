@@ -6,7 +6,7 @@
 
   <view class="card">
     <text class="card-title">选择视频</text>
-    <text class="card-sub">支持相册或拍摄；较长视频将自动压缩后上传，请保持 WiFi 并耐心等待。</text>
+    <text class="card-sub">支持相册或拍摄；超过 10 分钟将自动强压缩并分片上传，请用 WiFi 并保持在本页。</text>
 
     <view class="video-pick" bindtap="onChooseVideo">
       <block wx:if="{{!videoName}}">
@@ -15,6 +15,7 @@
       </block>
       <block wx:else>
         <text class="pick-name">{{videoName}}</text>
+        <text class="pick-meta" wx:if="{{videoDurationText}}">时长 {{videoDurationText}}</text>
         <text class="pick-meta" wx:if="{{videoSizeText}}">{{videoSizeText}}</text>
         <text class="pick-change">重新选择</text>
       </block>
@@ -95,6 +96,6 @@
       <text class="upload-overlay-pct">{{progressPercent}}%</text>
     </view>
     <text class="upload-overlay-message" wx:if="{{progressMessage}}">{{progressMessage}}</text>
-    <text class="upload-overlay-hint">视频较大时压缩与上传各需数分钟，请保持在本页等待</text>
+    <text class="upload-overlay-hint">超过 10 分钟：压缩约 3～8 分钟 + 分片上传约 5～15 分钟，请保持 WiFi 与本页</text>
   </view>
 </view>

@@ -36,8 +36,11 @@ const APP_BUILD_TAG = "2026-08-12-uchance-tech";
 /** 发现页：true=本地 Mock；false=请求 /api/news/feed（失败回退 Mock；空库显示空态） */
 const FEED_USE_MOCK = false;
 
-/** 超过此大小（MB）自动走分片上传（用户无感知，入口不变） */
-const UPLOAD_LARGE_ROUTE_MB = 50;
+/** 超过此大小（MB）自动走分片上传（10 分钟视频压缩后常 30～80MB，原 50MB 阈值过高） */
+const UPLOAD_LARGE_ROUTE_MB = 15;
+
+/** 超过此时长（秒）也走分片上传 */
+const UPLOAD_CHUNK_DURATION_SEC = 300;
 
 const API_BASE_URL = LOCAL_DEV ? LOCAL_API_HOST : PROD_API_BASE_URL;
 
@@ -80,14 +83,21 @@ const POSE_ANALYZE_VIDEO_URL = POSE_API_BASE + "/analyze-video";
 const POSE_ANALYZE_STATUS_URL = POSE_API_BASE + "/analyze-video/status";
 const POSE_ANALYZE_FILE_URL = POSE_API_BASE + "/analyze-video/file";
 
-/** wx.uploadFile / wx.downloadFile 超时（毫秒，约 10 分钟；大视频 + 3Mbps 带宽可能仍较慢） */
-const UPLOAD_TIMEOUT_MS = 600000;
+/** wx.uploadFile / 分片上传 / wx.downloadFile 超时（毫秒，约 30 分钟） */
+const UPLOAD_TIMEOUT_MS = 1800000;
 
 /** 超过此大小（MB）选视频时提示用户 */
-const UPLOAD_WARN_SIZE_MB = 50;
+const UPLOAD_WARN_SIZE_MB = 30;
+
+/** 超过此时长（秒）选视频时提示用户（10 分钟） */
+const UPLOAD_WARN_DURATION_SEC = 600;
 
 /** 超过此大小（MB）才走 wx.compressVideo（过小文件压缩收益低） */
 const UPLOAD_COMPRESS_ABOVE_MB = 0.5;
+
+/** 超过此大小或时长时，压缩档位更激进 */
+const UPLOAD_COMPRESS_AGGRESSIVE_MB = 60;
+const UPLOAD_COMPRESS_AGGRESSIVE_SEC = 600;
 
 /** compressVideo 默认档位 */
 const UPLOAD_COMPRESS_QUALITY = "low";
@@ -100,7 +110,7 @@ const REQUEST_TIMEOUT_MS = 30000;
 const HEALTH_TIMEOUT_MS = 12000;
 
 /** 下载集锦 MP4 超时（毫秒） */
-const DOWNLOAD_TIMEOUT_MS = 600000;
+const DOWNLOAD_TIMEOUT_MS = 1800000;
 
 const PLACEHOLDER_PATTERNS = [
   "your-domain",
@@ -166,8 +176,12 @@ module.exports = {
   DOWNLOAD_TIMEOUT_MS,
   HEALTH_TIMEOUT_MS,
   UPLOAD_WARN_SIZE_MB,
+  UPLOAD_WARN_DURATION_SEC,
   UPLOAD_LARGE_ROUTE_MB,
+  UPLOAD_CHUNK_DURATION_SEC,
   UPLOAD_COMPRESS_ABOVE_MB,
+  UPLOAD_COMPRESS_AGGRESSIVE_MB,
+  UPLOAD_COMPRESS_AGGRESSIVE_SEC,
   UPLOAD_COMPRESS_QUALITY,
   FEED_USE_MOCK,
   APP_BUILD_TAG,

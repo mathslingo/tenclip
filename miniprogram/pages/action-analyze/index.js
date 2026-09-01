@@ -1,4 +1,3 @@
-const { UPLOAD_WARN_SIZE_MB } = require("../../utils/config");
 const {
   uploadAnalyzeSubmit,
   getAnalyzeTask,
@@ -7,6 +6,7 @@ const {
   showChooseVideoHelp,
   prepareVideoForUpload,
   formatUploadProgress,
+  formatDurationShort,
   setKeepScreenOn,
   mapUploadProgressPercent,
 } = require("../../utils/api");
@@ -51,8 +51,10 @@ Page({
   data: {
     videoPath: "",
     videoSizeBytes: 0,
+    videoDurationSec: 0,
     videoName: "",
     videoSizeText: "",
+    videoDurationText: "",
     perfMode: "eco",
     perfOptions: PERF_OPTIONS,
     promptProfile: "default",
@@ -97,21 +99,14 @@ Page({
       .then((file) => {
         const sizeMbNum = file.size ? file.size / (1024 * 1024) : 0;
         const sizeMb = sizeMbNum ? sizeMbNum.toFixed(1) : "";
-        if (sizeMbNum > UPLOAD_WARN_SIZE_MB) {
-          wx.showModal({
-            title: "视频较长",
-            content:
-              "约 " +
-              sizeMb +
-              " MB，将自动压缩后上传。分析默认只处理前约 5 分钟，请使用 WiFi 并耐心等待。",
-            showCancel: false,
-          });
-        }
+        const durSec = file.duration || 0;
         this.setData({
           videoPath: file.tempFilePath,
           videoSizeBytes: file.size || 0,
+          videoDurationSec: durSec,
           videoName: file.tempFilePath.split("/").pop() || "已选视频",
           videoSizeText: sizeMb ? `${sizeMb} MB` : "",
+          videoDurationText: durSec ? formatDurationShort(durSec) : "",
           guidanceBody: "",
           guidanceMeta: "",
           showMeta: false,
@@ -187,11 +182,13 @@ Page({
       queueSize: 0,
     });
 
+    setKeepScreenOn(true);
     try {
       const prepared = await prepareVideoForUpload(
         this.data.videoPath,
         this.data.videoSizeBytes,
         {
+          durationSec: this.data.videoDurationSec,
           onCompressProgress: (pct, msg) => {
             this.setData({
               progressText: "压缩中…",
@@ -215,6 +212,7 @@ Page({
       const submit = await uploadAnalyzeSubmit({
         filePath: prepared.filePath,
         fileSize: prepared.size,
+        durationSec: this.data.videoDurationSec,
         perfMode: this.data.perfMode,
         promptProfile: this.data.promptProfile,
         onProgress: (ev) => {

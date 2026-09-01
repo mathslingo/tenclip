@@ -1,4 +1,3 @@
-const { UPLOAD_WARN_SIZE_MB } = require("../../utils/config");
 const {
   uploadStrokeExtract,
   getStrokeTask,
@@ -8,6 +7,7 @@ const {
   showChooseVideoHelp,
   prepareVideoForUpload,
   formatUploadProgress,
+  formatDurationShort,
   setKeepScreenOn,
   mapUploadProgressPercent,
 } = require("../../utils/api");
@@ -40,8 +40,10 @@ Page({
   data: {
     videoPath: "",
     videoSizeBytes: 0,
+    videoDurationSec: 0,
     videoName: "",
     videoSizeText: "",
+    videoDurationText: "",
     motionPercentile: 74,
     vlmFilter: false,
     busy: false,
@@ -84,21 +86,14 @@ Page({
       .then((file) => {
         const sizeMbNum = file.size ? file.size / (1024 * 1024) : 0;
         const sizeMb = sizeMbNum ? sizeMbNum.toFixed(1) : "";
-        if (sizeMbNum > UPLOAD_WARN_SIZE_MB) {
-          wx.showModal({
-            title: "视频较长",
-            content:
-              "约 " +
-              sizeMb +
-              " MB，将自动压缩后上传。请使用 WiFi，上传与分析可能需要数分钟。",
-            showCancel: false,
-          });
-        }
+        const durSec = file.duration || 0;
         this.setData({
           videoPath: file.tempFilePath,
           videoSizeBytes: file.size || 0,
+          videoDurationSec: durSec,
           videoName: file.tempFilePath.split("/").pop() || "已选视频",
           videoSizeText: sizeMb ? `${sizeMb} MB` : "",
+          videoDurationText: durSec ? formatDurationShort(durSec) : "",
           summary: "",
           segments: [],
           previewUrl: "",
@@ -152,11 +147,13 @@ Page({
       queueSize: 0,
     });
 
+    setKeepScreenOn(true);
     try {
       const prepared = await prepareVideoForUpload(
         this.data.videoPath,
         this.data.videoSizeBytes,
         {
+          durationSec: this.data.videoDurationSec,
           onCompressProgress: (pct, msg) => {
             this.setData({
               progressText: "压缩中…",
@@ -180,6 +177,7 @@ Page({
       const submit = await uploadStrokeExtract({
         filePath: prepared.filePath,
         fileSize: prepared.size,
+        durationSec: this.data.videoDurationSec,
         detectMode: DETECT_MODE,
         motionPercentile: this.data.motionPercentile,
         vlmFilter: this.data.vlmFilter,
@@ -217,7 +215,9 @@ Page({
         busy: false,
         status: "failed",
         statusLabel: STATUS_LABEL.failed,
-        progressMessage: isUpload ? "上传失败，请换 WiFi 或选较短视频" : "提交失败",
+        progressMessage: isUpload
+          ? "上传失败：请用 WiFi，长视频压缩+上传约 10～20 分钟，勿切后台"
+          : "提交失败",
         errorText: msg,
       });
     }

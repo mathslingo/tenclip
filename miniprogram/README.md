@@ -176,9 +176,24 @@
 - 当前 `courts/index` 直接读取本地 Mock，未调用 `court_api.js`；如想启用真实 POI，将 `_loadCourts` 中的 `courtData.fetchNearbyCourts` 替换为 `courtApi.searchCourts` 即可。
 - `app.json` 的 `navigateToMiniProgramAppIdList` 可保留目标 AppID（2020 后官方已不强制校验，但留着无害）。
 
+## 笔记发布限制
+
+统一配置：`config/publish_limits.json`（服务端与小程序通过 API 读取）。
+
+| 项 | 默认 |
+|----|------|
+| 单篇最多图片 | 10 |
+| 单用户每日最多篇数 | 10 |
+| 计日时区 | `Asia/Shanghai` |
+
+- 服务端 `POST /api/social/notes` 强制校验；客户端发笔记页会显示「今日还可发 N 篇」。
+- 查询：`GET /api/config/publish-limits`（登录时返回 `usage.notes_remaining_today`）。
+
 ## 注意
 
-- 长任务均为 **异步提交 + 2 秒轮询**；上传/下载超时默认 **10 分钟**（`utils/config.js`）。
+- 长任务均为 **异步提交 + 2 秒轮询**；上传/下载超时默认 **30 分钟**（`utils/config.js`）。
+- **超过 10 分钟** 的视频：自动强压缩 + **15MB 起分片上传**（原 50MB 阈值易超时）；选片时会弹窗提示预计耗时，请用 WiFi 并保持在本页。
+- 云主机 Nginx 建议 `client_body_timeout` / `proxy_read_timeout` **1800s**（见 `scripts/deploy/nginx-tenclip-api.conf.example`）。
 - 本地调试：`GRADIO_SERVER_NAME=0.0.0.0 bash run-wsl.sh`，`LOCAL_API_HOST` 填可访问的 IP。
 - 动作分析依赖 GPU；击球剪辑主要依赖 `ffmpeg`，可先用 CPU 云机过审。
 - 保存集锦到相册需用户授权。
