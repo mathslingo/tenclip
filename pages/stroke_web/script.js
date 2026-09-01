@@ -5,7 +5,7 @@ const CHUNK_THRESHOLD = 16 * 1024 * 1024;
 const CONCURRENCY = 2;
 const CHUNK_RETRY = 3;
 
-let detectMode = "combined";
+let detectMode = "spike";
 let pollTimer = null;
 let wakeLock = null;
 
@@ -28,8 +28,8 @@ const summaryBox = document.getElementById("summaryBox");
 const downloadLink = document.getElementById("downloadLink");
 
 const MODE_DESC = {
-  combined: "画面运动 + 击球声双重判断，最均衡，大多数视频选它。",
-  spike: "只抓击球瞬间的尖峰，每段约 2～4 秒，适合想要纯击球集锦。",
+  combined: "画面运动 + 击球声双重判断，回合保留更完整，但可能带入少量等待画面。",
+  spike: "只抓击球瞬间的尖峰，每段约 2～4 秒，实测效果最好，默认推荐。",
   motion: "只看画面运动幅度，适合环境嘈杂、击球声不清的场地。",
   audio: "只凭击球声判断，适合机位固定、画面变化少的视频。",
 };
