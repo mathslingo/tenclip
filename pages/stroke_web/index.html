@@ -16,8 +16,20 @@
 
     <section class="card">
       <h2>选择视频</h2>
-      <input id="videoInput" type="file" accept=".mp4,.mov,.avi,video/*">
-      <p id="fileMeta" class="meta"></p>
+
+      <div id="picker" class="picker">
+        <div class="picker-empty" id="pickerEmpty">
+          <span class="picker-plus">＋</span>
+          <span class="picker-text">点击选择视频</span>
+          <span class="picker-sub">支持 MP4 / MOV；10 分钟以上建议连 WiFi</span>
+        </div>
+        <div class="picker-file" id="pickerFile" hidden>
+          <span class="picker-name" id="fileName"></span>
+          <span class="picker-meta" id="fileMeta"></span>
+          <span class="picker-change">重新选择</span>
+        </div>
+      </div>
+      <input id="videoInput" type="file" accept=".mp4,.mov,.avi,video/*" hidden>
 
       <p class="label">检测模式</p>
       <div class="chips" id="modeRow">
@@ -26,6 +38,7 @@
         <button type="button" class="chip" data-mode="motion">仅画面运动</button>
         <button type="button" class="chip" data-mode="audio">仅击球声</button>
       </div>
+      <p class="mode-desc" id="modeDesc"></p>
 
       <p class="label">运动灵敏度 <span id="motionVal">72</span></p>
       <input id="motionRange" type="range" min="55" max="90" value="72">

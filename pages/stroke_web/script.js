@@ -10,7 +10,12 @@ let pollTimer = null;
 let wakeLock = null;
 
 const videoInput = document.getElementById("videoInput");
+const picker = document.getElementById("picker");
+const pickerEmpty = document.getElementById("pickerEmpty");
+const pickerFile = document.getElementById("pickerFile");
+const fileName = document.getElementById("fileName");
 const fileMeta = document.getElementById("fileMeta");
+const modeDesc = document.getElementById("modeDesc");
 const motionRange = document.getElementById("motionRange");
 const motionVal = document.getElementById("motionVal");
 const submitBtn = document.getElementById("submitBtn");
@@ -22,13 +27,26 @@ const errorBox = document.getElementById("errorBox");
 const summaryBox = document.getElementById("summaryBox");
 const downloadLink = document.getElementById("downloadLink");
 
+const MODE_DESC = {
+  combined: "画面运动 + 击球声双重判断，最均衡，大多数视频选它。",
+  spike: "只抓击球瞬间的尖峰，每段约 2～4 秒，适合想要纯击球集锦。",
+  motion: "只看画面运动幅度，适合环境嘈杂、击球声不清的场地。",
+  audio: "只凭击球声判断，适合机位固定、画面变化少的视频。",
+};
+
+function updateModeDesc() {
+  modeDesc.textContent = MODE_DESC[detectMode] || "";
+}
+
 document.querySelectorAll("#modeRow .chip").forEach((btn) => {
   btn.addEventListener("click", () => {
     document.querySelectorAll("#modeRow .chip").forEach((b) => b.classList.remove("active"));
     btn.classList.add("active");
     detectMode = btn.dataset.mode || "combined";
+    updateModeDesc();
   });
 });
+updateModeDesc();
 
 motionRange.addEventListener("input", () => {
   motionVal.textContent = motionRange.value;
@@ -38,17 +56,41 @@ function fileSig(f) {
   return `${f.name}_${f.size}_${f.lastModified}`;
 }
 
+function fmtDuration(sec) {
+  if (!isFinite(sec) || sec <= 0) return "";
+  const m = Math.floor(sec / 60);
+  const s = Math.round(sec % 60);
+  return m > 0 ? `${m} 分 ${s} 秒` : `${s} 秒`;
+}
+
+picker.addEventListener("click", () => videoInput.click());
+
 videoInput.addEventListener("change", () => {
   const f = videoInput.files?.[0];
   if (!f) {
-    fileMeta.textContent = "";
+    pickerFile.hidden = true;
+    pickerEmpty.hidden = false;
     return;
   }
-  let text = `${f.name} · ${(f.size / (1024 * 1024)).toFixed(1)} MB`;
+  pickerEmpty.hidden = true;
+  pickerFile.hidden = false;
+  fileName.textContent = f.name;
+
+  let meta = `${(f.size / (1024 * 1024)).toFixed(1)} MB`;
   if (localStorage.getItem("stroke_upload_" + fileSig(f))) {
-    text += " · 检测到有未完成的上传，可断点续传";
+    meta += " · 有未完成的上传，可断点续传";
   }
-  fileMeta.textContent = text;
+  fileMeta.textContent = meta;
+
+  const url = URL.createObjectURL(f);
+  const probe = document.createElement("video");
+  probe.preload = "metadata";
+  probe.src = url;
+  probe.onloadedmetadata = () => {
+    URL.revokeObjectURL(url);
+    const dur = fmtDuration(probe.duration);
+    if (dur) fileMeta.textContent = `时长 ${dur} · ` + fileMeta.textContent;
+  };
 });
 
 function showStatus(label, msg, pct) {
