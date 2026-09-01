@@ -1,0 +1,30 @@
+---
+description: Auto-commit significant functional changes after implementation
+alwaysApply: true
+---
+
+# 默认提交较大功能性改动
+
+完成功能性改动后，**默认主动 commit**（不必等用户要求）。仅当用户明确说「先别提交」时才跳过。
+
+## 适用范围
+
+需要默认 commit 的改动：
+
+- 新功能 / 新页面 / 新接口（如新增页面、数据库表、API 端点）
+- 跨多个文件的功能性修改（如发布限额、消息通知、上传策略）
+- 行为变更（如下线某功能入口、修改默认配置）
+
+不需要 commit 的改动：
+
+- 纯问答、探索、方案讨论（未改代码）
+- 单行 typo、注释微调（除非用户要求）
+- 临时调试代码、实验性改动（先与用户确认）
+
+## 提交规范
+
+- **按功能拆分**：一次会话涉及多个独立功能时，分成多个 commit（如「消息功能」「发布限额」「UI 精简」各一个），方便 review 与回滚
+- **不提交的内容**：临时脚本（如 `tmp_*.sh`）、submodule 内部改动、疑似密钥文件（`.env`、`credentials.json` 等），跳过并告知用户
+- **提交信息**：遵循仓库现有风格（`feat(scope): ...` / `fix(scope): ...` / `docs(scope): ...`），中文项目可用中文描述要点
+- **PowerShell 环境**：heredoc 不可用，多行提交信息写入临时文件后用 `git commit -F <file>`，提交完删除临时文件
+- **只 commit 不 push**：除非用户明确要求 push
