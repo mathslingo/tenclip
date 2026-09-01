@@ -131,6 +131,21 @@ def write_chunk(session_id: str, chunk_index: int, data: bytes) -> None:
         sess.chunks_received.add(chunk_index)
 
 
+def get_session_status(session_id: str) -> dict[str, Any]:
+    with _LOCK:
+        sess = _SESSIONS.get(session_id)
+        if sess is None:
+            raise HTTPException(status_code=404, detail="上传会话不存在或已过期")
+        return {
+            "session_id": sess.session_id,
+            "purpose": sess.purpose,
+            "file_size": sess.file_size,
+            "chunk_size": sess.chunk_size,
+            "total_chunks": sess.total_chunks,
+            "uploaded": sorted(sess.chunks_received),
+        }
+
+
 def take_session(session_id: str) -> UploadSession:
     with _LOCK:
         sess = _SESSIONS.pop(session_id, None)

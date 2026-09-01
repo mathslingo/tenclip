@@ -1033,6 +1033,10 @@ def create_app() -> FastAPI:
             meta=meta,
         )
 
+    @api.get("/api/mobile/upload-sessions/{session_id}")
+    def mobile_upload_session_status(session_id: str):
+        return mcu.get_session_status(session_id)
+
     @api.put("/api/mobile/upload-sessions/{session_id}/chunks/{chunk_index}")
     async def mobile_upload_session_chunk(
         session_id: str,

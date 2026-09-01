@@ -52,6 +52,12 @@
   margin: 8px 0 0;
 }
 
+.hero-tip {
+  margin-top: 8px !important;
+  font-size: 0.8rem !important;
+  color: #0a6b52 !important;
+}
+
 .chips {
   display: flex;
   flex-wrap: wrap;
