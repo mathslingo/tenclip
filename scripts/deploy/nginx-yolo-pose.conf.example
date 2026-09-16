@@ -1,23 +1,39 @@
 # 站点配置（本机实际路径）：/etc/nginx/conf.d/tenclip-api.conf
 # 访问：https://api.uchance.tech/yolo-pose/
-# 文件：/root/code/tenclip/pose/yolo-pose-web/{index.html,app.js,models/,assets/}
-# 不需要再开 python3 -m http.server 8765
+#
+# 两种托管：
+# A) 文件在 nginx 可读目录（如 /var/www/yolo-pose-web）→ alias（不必 8765）
+# B) 文件在 /root/code/... → 必须 proxy_pass 到 tenclip-yolo-pose-http（8765）
+#    直接 alias /root/... 会 403（worker 无权穿越 /root）。
+#
+# add_header 必须写在本 location 内并加 always。
 
     location = /yolo-pose {
         return 301 /yolo-pose/;
     }
 
+    # B) 当前生产
     location ^~ /yolo-pose/ {
-        alias /root/code/tenclip/pose/yolo-pose-web/;
-        index index.html;
-        include mime.types;
-        default_type application/octet-stream;
-        sendfile on;
-        tcp_nopush on;
-        add_header Cache-Control "public, max-age=3600";
-
-        # 跨源隔离 → 浏览器可用 SharedArrayBuffer → ONNX Runtime Web 多线程 WASM
-        # 去掉这两行只会退回单线程，不影响功能
-        add_header Cross-Origin-Opener-Policy "same-origin";
-        add_header Cross-Origin-Embedder-Policy "require-corp";
+        proxy_pass http://127.0.0.1:8765/;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        add_header Cache-Control "public, max-age=3600" always;
+        add_header Cross-Origin-Opener-Policy "same-origin" always;
+        add_header Cross-Origin-Embedder-Policy "require-corp" always;
+        add_header Cross-Origin-Resource-Policy "same-origin" always;
     }
+
+    # A) 若目录对 nginx 可读，可改用：
+    # location ^~ /yolo-pose/ {
+    #     alias /var/www/yolo-pose-web/;
+    #     index index.html;
+    #     include mime.types;
+    #     default_type application/octet-stream;
+    #     sendfile on;
+    #     add_header Cache-Control "public, max-age=3600" always;
+    #     add_header Cross-Origin-Opener-Policy "same-origin" always;
+    #     add_header Cross-Origin-Embedder-Policy "require-corp" always;
+    #     add_header Cross-Origin-Resource-Policy "same-origin" always;
+    # }

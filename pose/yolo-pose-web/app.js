@@ -1,6 +1,6 @@
 /**
- * YOLO Pose + Tennis · ONNX Runtime Web
- * Pose: [1, 56, N] · Detect: [1, 84, N] (COCO; class 32 = sports ball)
+ * YOLO Pose + Tennis · UI / camera / HUD
+ * Inference: Worker (lib/infer.worker.js) with main-thread fallback.
  */
 
 const COCO_EDGES = [
@@ -9,14 +9,19 @@ const COCO_EDGES = [
   [12, 14], [14, 16], [0, 1], [0, 2], [1, 3], [2, 4], [0, 5], [0, 6],
 ];
 
-/** COCO sports ball */
-const SPORTS_BALL_CLS = 32;
-
 const qs = new URLSearchParams(location.search);
 const cfg = {
   modelUrl: qs.get("model") || "./models/yolo11n-pose.onnx",
   tennisModelUrl: qs.get("tennisModel") || "./models/yolo11n-tennis.onnx",
+  tennisRoiModelUrl: qs.get("tennisRoiModel") || "./models/yolo11n-tennis-roi.onnx",
   imgsz: Number(qs.get("imgsz") || 640),
+  tennisRoiImgsz: Number(qs.get("tennisImgsz") || 320),
+  tennisFullImgsz: Number(qs.get("tennisFullImgsz") || qs.get("imgsz") || 640),
+  tennisRoiMin: 256,
+  tennisRoiMax: 384,
+  tennisRoiMissMax: 2,
+  tennisRoi: qs.get("roi") !== "0",
+  useWorker: qs.get("worker") !== "0",
   confThresh: Number(qs.get("conf") || 0.25),
   tennisConf: Number(qs.get("tennisConf") || 0.2),
   kptThresh: 0.3,
@@ -30,10 +35,29 @@ const cfg = {
   idbStore: "models",
   idbKey: "yolo11n-pose.onnx",
   tennisIdbKey: "yolo11n-tennis.onnx",
+  tennisRoiIdbKey: "yolo11n-tennis-roi.onnx",
   backendKey: "tenclip-yolo-backend",
+  facingKey: "tenclip-yolo-facing",
+  camWidth: 960,
 };
 
-/** "gpu"（试 WebGPU，失败回退 CPU）| "cpu"（强制 WASM）；?webgpu=0/1 优先于本地记忆 */
+function engineCfg() {
+  return {
+    imgsz: cfg.imgsz,
+    tennisRoiImgsz: cfg.tennisRoiImgsz,
+    tennisFullImgsz: cfg.tennisFullImgsz,
+    tennisRoiMin: cfg.tennisRoiMin,
+    tennisRoiMax: cfg.tennisRoiMax,
+    tennisRoiMissMax: cfg.tennisRoiMissMax,
+    tennisRoi: cfg.tennisRoi,
+    confThresh: cfg.confThresh,
+    tennisConf: cfg.tennisConf,
+    iouThresh: cfg.iouThresh,
+    maxDet: cfg.maxDet,
+    maxTennis: cfg.maxTennis,
+  };
+}
+
 function readBackendPref() {
   const q = qs.get("webgpu");
   if (q === "0") return "cpu";
@@ -45,6 +69,16 @@ function readBackendPref() {
   return "gpu";
 }
 
+function readFacing() {
+  const q = qs.get("facing");
+  if (q === "user" || q === "environment") return q;
+  try {
+    const v = localStorage.getItem(cfg.facingKey);
+    if (v === "user" || v === "environment") return v;
+  } catch (_) {}
+  return "environment";
+}
+
 const els = {
   video: document.getElementById("video"),
   canvas: document.getElementById("canvas"),
@@ -53,30 +87,32 @@ const els = {
   busBtn: document.getElementById("busBtn"),
   tennisBtn: document.getElementById("tennisBtn"),
   gpuBtn: document.getElementById("gpuBtn"),
+  faceBtn: document.getElementById("faceBtn"),
   tennisSampleBtn: document.getElementById("tennisSampleBtn"),
   fileInput: document.getElementById("fileInput"),
   status: document.getElementById("status"),
   metrics: document.getElementById("metrics"),
 };
 
-let session = null;
-let tennisSession = null;
-let poseInputName = "images";
-let tennisInputName = "images";
+let inferWorker = null;
+let localEngine = null;
+let poseBuf = null;
+let tennisBuf = null;
+let tennisRoiBuf = null;
 let tennisEnabled = false;
-let tennisMode = "off"; // off | onnx | hsv
+let tennisMode = "off";
 let backendPref = readBackendPref();
 let backendName = "wasm";
 let gpuNote = "";
-let gpuProbe = null;
+let facingMode = readFacing();
 let camRunning = false;
 let stream = null;
 let rafId = 0;
 let lastInferTs = 0;
 let inferBusy = false;
-let inputBuf = null;
-const letterboxCanvas = document.createElement("canvas");
-const letterboxCtx = letterboxCanvas.getContext("2d", { willReadFrequently: true });
+let roiHint = { miss: 99 };
+let workerPending = null;
+
 const sourceCanvas = document.createElement("canvas");
 const sourceCtx = sourceCanvas.getContext("2d", { willReadFrequently: true });
 const ballTracker = createBallTracker({ maxMiss: 12, matchPx: 90, smooth: 0.55 });
@@ -100,10 +136,8 @@ function setMetrics(info) {
   if (info.speedKmh != null && info.tennis > 0) {
     parts.push("估速 " + Math.round(info.speedKmh) + " km/h");
   }
-  if (info.poseMs != null) parts.push("姿态 " + Math.round(info.poseMs) + "ms");
-  if (info.tennisMs != null && tennisEnabled) {
-    parts.push("网球 " + Math.round(info.tennisMs) + "ms");
-  }
+  if (info.poseMs != null) parts.push("推理 " + Math.round(info.poseMs) + "ms");
+  if (info.usedRoi) parts.push("网球ROI");
   if (info.totalMs != null) {
     parts.push(
       "整帧 " +
@@ -114,6 +148,7 @@ function setMetrics(info) {
     );
   }
   if (info.tennisMode) parts.push("[" + info.tennisMode + "]");
+  if (info.viaWorker) parts.push("[worker]");
   parts.push("[" + backendName + "]");
   els.metrics.textContent = parts.join(" | ");
 }
@@ -147,6 +182,21 @@ function syncTennisBtn() {
     els.tennisBtn.textContent = "网球：关";
     els.tennisBtn.className = "tennis-off";
   }
+}
+
+function syncFaceBtn() {
+  if (!els.faceBtn) return;
+  els.faceBtn.textContent = facingMode === "user" ? "镜头：前" : "镜头：后";
+  els.faceBtn.title = "切换前置 / 后置";
+}
+
+function applyMeta(meta) {
+  if (!meta) return;
+  if (meta.backendName) backendName = meta.backendName;
+  if (meta.gpuNote != null) gpuNote = meta.gpuNote;
+  if (meta.tennisMode) tennisMode = meta.tennisMode;
+  syncGpuBtn();
+  syncTennisBtn();
 }
 
 function openIdb() {
@@ -191,7 +241,6 @@ async function fetchModelBuffer(url, idbKey) {
       return cached;
     }
   } catch (_) {}
-
   setStatus("下载模型 " + url + " …");
   const res = await fetch(url);
   if (!res.ok) throw new Error("模型 HTTP " + res.status + " · " + url);
@@ -202,111 +251,185 @@ async function fetchModelBuffer(url, idbKey) {
   return buf;
 }
 
-function ensureOrt() {
-  if (!window.ort) throw new Error("onnxruntime-web 未加载");
-  ort.env.wasm = ort.env.wasm || {};
-  ort.env.wasm.wasmPaths =
-    "https://cdn.jsdelivr.net/npm/onnxruntime-web@1.20.1/dist/";
-  // 多线程依赖 SharedArrayBuffer，只有跨源隔离（Nginx 发 COOP/COEP）时可用
-  ort.env.wasm.numThreads = self.crossOriginIsolated
-    ? Math.max(1, Math.min(4, navigator.hardwareConcurrency || 1))
-    : 1;
-  ort.env.wasm.simd = true;
+function wasmPaths() {
+  return new URL("./lib/ort/", location.href).href;
 }
 
-async function probeWebGpu() {
-  if (gpuProbe) return gpuProbe;
-  if (!navigator.gpu) {
-    gpuProbe = { ok: false, reason: "浏览器无 WebGPU（Safari 需 18+ / macOS Sequoia）" };
-    return gpuProbe;
-  }
-  try {
-    const adapter = await navigator.gpu.requestAdapter();
-    gpuProbe = adapter
-      ? { ok: true, reason: "" }
-      : { ok: false, reason: "无可用 GPU 适配器" };
-  } catch (e) {
-    gpuProbe = { ok: false, reason: "requestAdapter 失败：" + (e.message || e) };
-  }
-  return gpuProbe;
-}
-
-/** Safari 上部分算子要到首次 run 才报错，故建会话后立即试跑一次 */
-async function warmup(sess) {
-  const feeds = {};
-  feeds[sess.inputNames[0] || "images"] = new ort.Tensor(
-    "float32",
-    new Float32Array(3 * cfg.imgsz * cfg.imgsz),
-    [1, 3, cfg.imgsz, cfg.imgsz]
-  );
-  await sess.run(feeds);
-}
-
-async function createSession(buf) {
-  if (backendPref === "gpu") {
-    const probe = await probeWebGpu();
-    if (probe.ok) {
-      try {
-        const s = await ort.InferenceSession.create(buf, {
-          executionProviders: ["webgpu"],
-          graphOptimizationLevel: "all",
-        });
-        await warmup(s);
-        backendName = "webgpu";
-        gpuNote = "";
-        return s;
-      } catch (e) {
-        console.warn("WebGPU 会话不可用，回退 CPU", e);
-        gpuNote = "WebGPU 失败：" + (e.message || e);
-      }
-    } else {
-      gpuNote = probe.reason;
-    }
-  } else {
-    gpuNote = "";
-  }
-  const s = await ort.InferenceSession.create(buf, {
-    executionProviders: ["wasm"],
-    graphOptimizationLevel: "all",
+async function loadOrtScript() {
+  if (window.ort) return;
+  await new Promise((resolve, reject) => {
+    const s = document.createElement("script");
+    s.src = "./lib/ort/ort.webgpu.min.js";
+    s.onload = resolve;
+    s.onerror = () => reject(new Error("无法加载本地 onnxruntime-web"));
+    document.head.appendChild(s);
   });
-  const n = ort.env.wasm.numThreads || 1;
-  backendName = n > 1 ? "wasm x" + n : "wasm";
-  return s;
+  ort.env.wasm = ort.env.wasm || {};
+  ort.env.wasm.wasmPaths = wasmPaths();
 }
 
-function releaseSession(s) {
-  if (s && typeof s.release === "function") {
+function workerPost(payload, transfer) {
+  return new Promise((resolve, reject) => {
+    if (!inferWorker) {
+      reject(new Error("no worker"));
+      return;
+    }
+    workerPending = { resolve, reject };
+    inferWorker.postMessage(payload, transfer || []);
+  });
+}
+
+function attachWorker(w) {
+  w.onmessage = (ev) => {
+    const msg = ev.data || {};
+    if (msg.type === "error") {
+      if (workerPending) {
+        workerPending.reject(new Error(msg.message || "worker error"));
+        workerPending = null;
+      } else {
+        setStatus("推理错误: " + (msg.message || ""));
+      }
+      return;
+    }
+    applyMeta(msg);
+    if (workerPending) {
+      workerPending.resolve(msg);
+      workerPending = null;
+    }
+  };
+  w.onerror = (ev) => {
+    if (workerPending) {
+      workerPending.reject(ev.error || new Error(ev.message || "worker error"));
+      workerPending = null;
+    }
+  };
+}
+
+async function startLocalEngine() {
+  await loadOrtScript();
+  localEngine = window.createYoloEngine(window.ort, engineCfg(), {
+    wasmPaths: wasmPaths(),
+    inWorker: false,
+  });
+  await localEngine.loadPose(poseBuf, backendPref);
+  applyMeta({
+    backendName: localEngine.backendName,
+    gpuNote: localEngine.gpuNote,
+    tennisMode: localEngine.tennisMode || "off",
+  });
+}
+
+async function initInference() {
+  poseBuf = await fetchModelBuffer(cfg.modelUrl, cfg.idbKey);
+  setStatus("创建推理会话…");
+  if (cfg.useWorker && typeof Worker !== "undefined") {
     try {
-      s.release();
-    } catch (_) {}
+      inferWorker = new Worker("./lib/infer.worker.js");
+      attachWorker(inferWorker);
+      await workerPost({
+        type: "init",
+        cfg: engineCfg(),
+        backendPref: backendPref,
+        poseBuf: poseBuf,
+      });
+      setStatus(
+        "姿态模型就绪（" +
+          backendName +
+          (gpuNote ? " · " + gpuNote : "") +
+          " · worker）。可开摄像头；点「网球」加载球检测"
+      );
+      return;
+    } catch (e) {
+      console.warn("Worker 不可用，回退主线程", e);
+      if (inferWorker) {
+        try {
+          inferWorker.terminate();
+        } catch (_) {}
+        inferWorker = null;
+      }
+    }
+  }
+  await startLocalEngine();
+  setStatus(
+    "姿态模型就绪（" +
+      backendName +
+      (gpuNote ? " · " + gpuNote : "") +
+      "）。可开摄像头；点「网球」加载球检测"
+  );
+}
+
+async function loadTennisModel() {
+  if (tennisMode === "onnx") return true;
+  try {
+    const t0 = performance.now();
+    setStatus("加载网球检测模型…");
+    tennisBuf = await fetchModelBuffer(cfg.tennisModelUrl, cfg.tennisIdbKey);
+    try {
+      tennisRoiBuf = await fetchModelBuffer(
+        cfg.tennisRoiModelUrl,
+        cfg.tennisRoiIdbKey
+      );
+    } catch (_) {
+      tennisRoiBuf = null;
+    }
+    if (inferWorker) {
+      const msg = await workerPost({
+        type: "load-tennis",
+        tennisBuf: tennisBuf,
+        tennisRoiBuf: tennisRoiBuf,
+      });
+      tennisMode = msg.onnx ? "onnx" : "hsv";
+    } else {
+      const ok = await localEngine.loadTennis(tennisBuf, tennisRoiBuf);
+      tennisMode = ok ? "onnx" : "hsv";
+      applyMeta({
+        backendName: localEngine.backendName,
+        gpuNote: localEngine.gpuNote,
+        tennisMode: tennisMode,
+      });
+    }
+    setStatus(
+      tennisMode === "onnx"
+        ? "网球模型就绪（" + ((performance.now() - t0) / 1000).toFixed(1) + "s）。再点一次可关闭。"
+        : "网球 ONNX 失败，已用 HSV 黄绿兜底。"
+    );
+    return tennisMode === "onnx";
+  } catch (e) {
+    console.warn("tennis onnx unavailable, HSV fallback", e);
+    tennisBuf = null;
+    if (inferWorker) {
+      await workerPost({ type: "load-tennis", tennisBuf: null });
+    } else if (localEngine) {
+      await localEngine.loadTennis(null);
+    }
+    tennisMode = "hsv";
+    setStatus(
+      "未找到网球 ONNX（" + (e.message || e) + "），已用 HSV 黄绿兜底。"
+    );
+    return false;
   }
 }
 
-async function rebuildSessions() {
-  const needTennis = tennisSession != null;
-  // 等在途推理结束，避免释放正在 run 的会话
-  for (let i = 0; i < 40 && inferBusy; i++) {
-    await new Promise((r) => setTimeout(r, 50));
-  }
-  inferBusy = true;
-  if (els.gpuBtn) els.gpuBtn.disabled = true;
-  try {
-    releaseSession(session);
-    releaseSession(tennisSession);
-    session = null;
-    tennisSession = null;
-    setStatus("切换推理后端…");
-    await loadPoseModel();
-    if (needTennis) await loadTennisModel();
-    setStatus(
-      "当前后端：" + backendName + (gpuNote ? "（" + gpuNote + "）" : "")
-    );
-  } finally {
-    if (els.gpuBtn) els.gpuBtn.disabled = false;
-    inferBusy = false;
-    syncGpuBtn();
+async function toggleTennis() {
+  if (tennisEnabled) {
+    tennisEnabled = false;
+    tennisMode = "off";
+    roiHint = { miss: 99 };
+    ballTracker.reset();
+    if (inferWorker) {
+      workerPost({ type: "drop-tennis" }).catch(function () {});
+    } else if (localEngine) {
+      localEngine.dropTennis();
+    }
     syncTennisBtn();
+    setStatus("网球检测已关闭");
+    return;
   }
+  tennisEnabled = true;
+  syncTennisBtn();
+  await loadTennisModel();
+  syncTennisBtn();
+  syncGpuBtn();
 }
 
 async function toggleGpu() {
@@ -314,257 +437,83 @@ async function toggleGpu() {
   try {
     localStorage.setItem(cfg.backendKey, backendPref);
   } catch (_) {}
-  gpuProbe = null;
-  await rebuildSessions();
-}
-
-function letterbox(srcCanvas, imgsz) {
-  const iw = srcCanvas.width;
-  const ih = srcCanvas.height;
-  const scale = Math.min(imgsz / iw, imgsz / ih);
-  const nw = Math.round(iw * scale);
-  const nh = Math.round(ih * scale);
-  const left = Math.floor((imgsz - nw) / 2);
-  const top = Math.floor((imgsz - nh) / 2);
-
-  if (letterboxCanvas.width !== imgsz || letterboxCanvas.height !== imgsz) {
-    letterboxCanvas.width = imgsz;
-    letterboxCanvas.height = imgsz;
+  for (let i = 0; i < 40 && inferBusy; i++) {
+    await new Promise((r) => setTimeout(r, 50));
   }
-  letterboxCtx.fillStyle = "#000";
-  letterboxCtx.fillRect(0, 0, imgsz, imgsz);
-  letterboxCtx.drawImage(srcCanvas, 0, 0, iw, ih, left, top, nw, nh);
-
-  const { data } = letterboxCtx.getImageData(0, 0, imgsz, imgsz);
-  const plane = imgsz * imgsz;
-  // 复用输入缓冲，避免每帧新分配 ~5MB 触发 GC
-  if (!inputBuf || inputBuf.length !== 3 * plane) {
-    inputBuf = new Float32Array(3 * plane);
-  }
-  const float = inputBuf;
-  for (let i = 0, p = 0; i < data.length; i += 4, p++) {
-    float[p] = data[i] / 255;
-    float[p + plane] = data[i + 1] / 255;
-    float[p + plane * 2] = data[i + 2] / 255;
-  }
-  return { tensor: float, meta: { scale, padX: left, padY: top, iw, ih } };
-}
-
-function iou(a, b) {
-  const x1 = Math.max(a.x1, b.x1);
-  const y1 = Math.max(a.y1, b.y1);
-  const x2 = Math.min(a.x2, b.x2);
-  const y2 = Math.min(a.y2, b.y2);
-  const inter = Math.max(0, x2 - x1) * Math.max(0, y2 - y1);
-  const ua =
-    (a.x2 - a.x1) * (a.y2 - a.y1) + (b.x2 - b.x1) * (b.y2 - b.y1) - inter;
-  return ua <= 0 ? 0 : inter / ua;
-}
-
-function nms(dets, maxKeep) {
-  dets.sort((a, b) => b.score - a.score);
-  const keep = [];
-  const limit = maxKeep != null ? maxKeep : cfg.maxDet;
-  for (const d of dets) {
-    if (keep.every((k) => iou(d, k) <= cfg.iouThresh)) keep.push(d);
-    if (keep.length >= limit) break;
-  }
-  return keep;
-}
-
-function decodePose(out, meta) {
-  const dims = out.dims;
-  const data = out.data;
-  let num;
-  let rows;
-
-  if (dims.length === 3 && dims[1] === 56) {
-    num = dims[2];
-    rows = new Float32Array(num * 56);
-    for (let i = 0; i < num; i++) {
-      for (let c = 0; c < 56; c++) rows[i * 56 + c] = data[c * num + i];
-    }
-  } else if (dims.length === 3 && dims[2] === 56) {
-    num = dims[1];
-    rows = data instanceof Float32Array ? data : new Float32Array(data);
-  } else {
-    throw new Error("意外 pose 输出形状: " + dims.join("x"));
-  }
-
-  const { scale, padX, padY } = meta;
-  const dets = [];
-  for (let i = 0; i < num; i++) {
-    const o = i * 56;
-    const score = rows[o + 4];
-    if (score < cfg.confThresh) continue;
-    const cx = rows[o];
-    const cy = rows[o + 1];
-    const w = rows[o + 2];
-    const h = rows[o + 3];
-    const kpts = [];
-    for (let k = 0; k < 17; k++) {
-      const base = o + 5 + k * 3;
-      kpts.push({
-        x: (rows[base] - padX) / scale,
-        y: (rows[base + 1] - padY) / scale,
-        conf: rows[base + 2],
+  inferBusy = true;
+  if (els.gpuBtn) els.gpuBtn.disabled = true;
+  try {
+    setStatus("切换推理后端…");
+    if (inferWorker) {
+      await workerPost({
+        type: "rebuild",
+        backendPref: backendPref,
+        poseBuf: poseBuf,
+        tennisBuf: tennisEnabled ? tennisBuf : null,
+        tennisRoiBuf: tennisEnabled ? tennisRoiBuf : null,
+      });
+    } else if (localEngine) {
+      await localEngine.rebuild(
+        backendPref,
+        poseBuf,
+        tennisEnabled ? tennisBuf : null,
+        tennisEnabled ? tennisRoiBuf : null
+      );
+      applyMeta({
+        backendName: localEngine.backendName,
+        gpuNote: localEngine.gpuNote,
+        tennisMode: localEngine.tennisMode,
       });
     }
-    dets.push({
-      x1: (cx - w / 2 - padX) / scale,
-      y1: (cy - h / 2 - padY) / scale,
-      x2: (cx + w / 2 - padX) / scale,
-      y2: (cy + h / 2 - padY) / scale,
-      score,
-      kpts,
-    });
+    setStatus("当前后端：" + backendName + (gpuNote ? "（" + gpuNote + "）" : ""));
+  } finally {
+    if (els.gpuBtn) els.gpuBtn.disabled = false;
+    inferBusy = false;
+    syncGpuBtn();
   }
-  return nms(dets);
-}
-
-/** YOLO detect COCO: [1, 84, N] or [1, N, 84] */
-function decodeDetectSportsBall(out, meta) {
-  const dims = out.dims;
-  const data = out.data;
-  let num;
-  let channels;
-  let get;
-
-  if (dims.length === 3 && dims[1] >= 84 && dims[1] <= 144) {
-    channels = dims[1];
-    num = dims[2];
-    get = (c, i) => data[c * num + i];
-  } else if (dims.length === 3 && dims[2] >= 84 && dims[2] <= 144) {
-    num = dims[1];
-    channels = dims[2];
-    get = (c, i) => data[i * channels + c];
-  } else {
-    throw new Error("意外 detect 输出形状: " + dims.join("x"));
-  }
-
-  const clsCount = channels - 4;
-  if (SPORTS_BALL_CLS >= clsCount) {
-    throw new Error("输出类别数不足，无法取 sports ball");
-  }
-
-  const { scale, padX, padY } = meta;
-  const dets = [];
-  for (let i = 0; i < num; i++) {
-    const score = get(4 + SPORTS_BALL_CLS, i);
-    if (score < cfg.tennisConf) continue;
-    const cx = get(0, i);
-    const cy = get(1, i);
-    const w = get(2, i);
-    const h = get(3, i);
-    dets.push({
-      x1: (cx - w / 2 - padX) / scale,
-      y1: (cy - h / 2 - padY) / scale,
-      x2: (cx + w / 2 - padX) / scale,
-      y2: (cy + h / 2 - padY) / scale,
-      score,
-    });
-  }
-  return nms(dets, cfg.maxTennis);
-}
-
-/** HSV yellow-green blob fallback (no ONNX) */
-function detectTennisHsv(srcCanvas) {
-  const w = srcCanvas.width;
-  const h = srcCanvas.height;
-  const ctx = srcCanvas.getContext("2d", { willReadFrequently: true });
-  const img = ctx.getImageData(0, 0, w, h);
-  const d = img.data;
-  const mask = new Uint8Array(w * h);
-  let count = 0;
-
-  for (let i = 0, p = 0; i < d.length; i += 4, p++) {
-    const r = d[i] / 255;
-    const g = d[i + 1] / 255;
-    const b = d[i + 2] / 255;
-    const max = Math.max(r, g, b);
-    const min = Math.min(r, g, b);
-    const v = max;
-    const s = max === 0 ? 0 : (max - min) / max;
-    let hue = 0;
-    if (max !== min) {
-      if (max === r) hue = ((g - b) / (max - min)) * 60;
-      else if (max === g) hue = (2 + (b - r) / (max - min)) * 60;
-      else hue = (4 + (r - g) / (max - min)) * 60;
-      if (hue < 0) hue += 360;
-    }
-    // tennis yellow-green
-    if (hue >= 35 && hue <= 95 && s >= 0.35 && v >= 0.35) {
-      mask[p] = 1;
-      count++;
-    }
-  }
-
-  if (count < 8) return [];
-
-  // connected components (4-neigh), keep largest few blob bboxes
-  const visited = new Uint8Array(w * h);
-  const blobs = [];
-  const stack = [];
-
-  for (let y = 0; y < h; y++) {
-    for (let x = 0; x < w; x++) {
-      const start = y * w + x;
-      if (!mask[start] || visited[start]) continue;
-      let minX = x;
-      let maxX = x;
-      let minY = y;
-      let maxY = y;
-      let area = 0;
-      stack.length = 0;
-      stack.push(start);
-      visited[start] = 1;
-      while (stack.length) {
-        const idx = stack.pop();
-        const cx = idx % w;
-        const cy = (idx / w) | 0;
-        area++;
-        if (cx < minX) minX = cx;
-        if (cx > maxX) maxX = cx;
-        if (cy < minY) minY = cy;
-        if (cy > maxY) maxY = cy;
-        const neigh = [idx - 1, idx + 1, idx - w, idx + w];
-        for (const n of neigh) {
-          if (n < 0 || n >= mask.length) continue;
-          if (!mask[n] || visited[n]) continue;
-          visited[n] = 1;
-          stack.push(n);
-        }
-      }
-      const bw = maxX - minX + 1;
-      const bh = maxY - minY + 1;
-      if (area < 12 || bw < 4 || bh < 4) continue;
-      if (bw > w * 0.35 || bh > h * 0.35) continue; // too big = court paint
-      const aspect = bw / bh;
-      if (aspect < 0.45 || aspect > 2.2) continue;
-      blobs.push({
-        x1: minX,
-        y1: minY,
-        x2: maxX + 1,
-        y2: maxY + 1,
-        score: Math.min(0.95, 0.4 + area / 800),
-        area: area,
-      });
-    }
-  }
-
-  blobs.sort((a, b) => b.area - a.area);
-  return blobs.slice(0, cfg.maxTennis).map((b) => ({
-    x1: b.x1,
-    y1: b.y1,
-    x2: b.x2,
-    y2: b.y2,
-    score: b.score,
-  }));
 }
 
 function pickPrimaryBall(balls) {
   if (!balls || !balls.length) return null;
-  return balls.slice().sort((a, b) => b.score - a.score)[0];
+  var snap = ballTracker.snapshot();
+  if (snap && snap.active) {
+    var best = null;
+    var bestD = Infinity;
+    for (var i = 0; i < balls.length; i++) {
+      var d = balls[i];
+      var cx = (d.x1 + d.x2) / 2;
+      var cy = (d.y1 + d.y2) / 2;
+      var dist = Math.hypot(cx - snap.cx, cy - snap.cy);
+      if (dist < bestD) {
+        bestD = dist;
+        best = d;
+      }
+    }
+    return best;
+  }
+  return balls.slice().sort(function (a, b) {
+    return b.score - a.score;
+  })[0];
+}
+
+function updateRoiHint(primary) {
+  if (!primary) {
+    roiHint = {
+      cx: roiHint.cx,
+      cy: roiHint.cy,
+      boxW: roiHint.boxW,
+      boxH: roiHint.boxH,
+      miss: (roiHint.miss || 0) + 1,
+    };
+    return;
+  }
+  roiHint = {
+    cx: (primary.x1 + primary.x2) / 2,
+    cy: (primary.y1 + primary.y2) / 2,
+    boxW: primary.x2 - primary.x1,
+    boxH: primary.y2 - primary.y1,
+    miss: 0,
+  };
 }
 
 function draw(source, persons, balls, trailState) {
@@ -657,114 +606,41 @@ function draw(source, persons, balls, trailState) {
   }
 }
 
-async function loadPoseModel() {
-  if (session) return;
-  ensureOrt();
-  setStatus("加载姿态模型…");
-  const buf = await fetchModelBuffer(cfg.modelUrl, cfg.idbKey);
-  setStatus("创建姿态推理会话…");
-  session = await createSession(buf);
-  poseInputName = session.inputNames[0] || "images";
-  setStatus(
-    "姿态模型就绪（后端 " +
-      backendName +
-      (gpuNote ? " · " + gpuNote : "") +
-      "）。可开摄像头 / 图片；点「网球」加载球检测"
-  );
-  setMetrics(null);
-}
-
-async function loadTennisModel() {
-  if (tennisSession) {
-    tennisMode = "onnx";
-    return true;
-  }
-  ensureOrt();
-  try {
-    const t0 = performance.now();
-    setStatus("加载网球检测模型…");
-    const buf = await fetchModelBuffer(cfg.tennisModelUrl, cfg.tennisIdbKey);
-    tennisSession = await createSession(buf);
-    tennisInputName = tennisSession.inputNames[0] || "images";
-    tennisMode = "onnx";
-    setStatus(
-      "网球模型就绪（" +
-        ((performance.now() - t0) / 1000).toFixed(1) +
-        "s）。再点一次可关闭。"
-    );
-    return true;
-  } catch (e) {
-    console.warn("tennis onnx unavailable, HSV fallback", e);
-    tennisSession = null;
-    tennisMode = "hsv";
-    setStatus(
-      "未找到网球 ONNX（" +
-        (e.message || e) +
-        "），已用 HSV 黄绿兜底。可运行 python export_tennis_onnx.py"
-    );
-    return false;
-  }
-}
-
-async function toggleTennis() {
-  if (tennisEnabled) {
-    tennisEnabled = false;
-    tennisMode = "off";
-    ballTracker.reset();
-    syncTennisBtn();
-    setStatus("网球检测已关闭");
-    return;
-  }
-  tennisEnabled = true;
-  syncTennisBtn();
-  await loadTennisModel();
-  syncTennisBtn();
-  syncGpuBtn();
-}
-
 async function runOnCanvas(src) {
-  if (!session) await loadPoseModel();
   const tAll = performance.now();
-  const { tensor, meta } = letterbox(src, cfg.imgsz);
-  const poseFeeds = {};
-  poseFeeds[poseInputName] = new ort.Tensor("float32", tensor, [
-    1,
-    3,
-    cfg.imgsz,
-    cfg.imgsz,
-  ]);
-
-  const tPose0 = performance.now();
-  const poseOut = await session.run(poseFeeds);
-  const poseMs = performance.now() - tPose0;
-  const persons = decodePose(poseOut[session.outputNames[0]], meta);
-
-  let balls = [];
-  let tennisMs = 0;
-  if (tennisEnabled) {
-    const t1 = performance.now();
-    if (tennisMode === "onnx" && tennisSession) {
-      const tennisFeeds = {};
-      tennisFeeds[tennisInputName] = new ort.Tensor("float32", tensor, [
-        1,
-        3,
-        cfg.imgsz,
-        cfg.imgsz,
-      ]);
-      const tennisOut = await tennisSession.run(tennisFeeds);
-      balls = decodeDetectSportsBall(
-        tennisOut[tennisSession.outputNames[0]],
-        meta
-      );
-    } else {
-      balls = detectTennisHsv(src);
-    }
-    tennisMs = performance.now() - t1;
+  let result;
+  let viaWorker = false;
+  if (inferWorker) {
+    viaWorker = true;
+    const bmp = await createImageBitmap(src);
+    const msg = await workerPost(
+      {
+        type: "frame",
+        bitmap: bmp,
+        tennisEnabled: tennisEnabled,
+        roiHint: tennisEnabled ? roiHint : { miss: 99 },
+      },
+      [bmp]
+    );
+    result = msg.result;
   } else {
-    ballTracker.reset();
+    result = await localEngine.runFrame(
+      src,
+      tennisEnabled,
+      tennisEnabled ? roiHint : { miss: 99 }
+    );
   }
+
+  const persons = result.persons || [];
+  const balls = result.balls || [];
+  if (result.backendName) backendName = result.backendName;
+  if (result.gpuNote != null) gpuNote = result.gpuNote;
+  if (result.tennisMode) tennisMode = result.tennisMode;
 
   const primary = pickPrimaryBall(balls);
+  if (tennisEnabled) updateRoiHint(primary);
+  else roiHint = { miss: 99 };
+
   const trail = tennisEnabled
     ? ballTracker.update(primary, performance.now())
     : { active: false, trail: [], distM: 0, speedKmh: 0 };
@@ -783,11 +659,14 @@ async function runOnCanvas(src) {
     tennis: balls.length,
     distM: trail.distM,
     speedKmh: trail.speedKmh,
-    poseMs: poseMs,
-    tennisMs: tennisEnabled ? tennisMs : null,
+    poseMs: result.poseMs,
+    tennisMs: tennisEnabled ? result.tennisMs : null,
     totalMs: totalMs,
     tennisMode: tennisEnabled ? tennisMode : null,
+    usedRoi: !!result.usedRoi,
+    viaWorker: viaWorker,
   });
+  syncGpuBtn();
   return { persons: persons, balls: balls, trail: trail };
 }
 
@@ -809,14 +688,14 @@ async function startCamera() {
     setStatus("摄像头已停止");
     return;
   }
-  if (!session) await loadPoseModel();
+  if (!inferWorker && !localEngine) await initInference();
 
   stream = await navigator.mediaDevices.getUserMedia({
     audio: false,
     video: {
-      facingMode: { ideal: "user" },
-      width: { ideal: 1280 },
-      height: { ideal: 720 },
+      facingMode: { ideal: facingMode },
+      width: { ideal: cfg.camWidth, max: 1280 },
+      height: { ideal: 540, max: 720 },
       frameRate: { ideal: cfg.maxFps, max: cfg.maxFps },
     },
   });
@@ -831,7 +710,7 @@ async function startCamera() {
 
   camRunning = true;
   els.camBtn.textContent = "停止摄像头";
-  setStatus("摄像头运行中…");
+  setStatus("摄像头运行中（" + (facingMode === "user" ? "前置" : "后置") + "）…");
   lastInferTs = 0;
   loop();
 }
@@ -885,7 +764,20 @@ async function runImageSource(img) {
   sourceCtx.drawImage(img, 0, 0);
   setStatus("推理中…");
   ballTracker.reset();
+  roiHint = { miss: 99 };
   await runOnCanvas(sourceCanvas);
+}
+
+async function toggleFacing() {
+  facingMode = facingMode === "user" ? "environment" : "user";
+  try {
+    localStorage.setItem(cfg.facingKey, facingMode);
+  } catch (_) {}
+  syncFaceBtn();
+  if (camRunning) {
+    stopCamera();
+    await startCamera();
+  }
 }
 
 els.camBtn.addEventListener("click", () => {
@@ -913,9 +805,7 @@ els.busBtn.addEventListener("click", () => {
   loadImageUrl(cfg.testImageUrl)
     .then((img) => runImageSource(img))
     .catch((e) =>
-      setStatus(
-        (e.message || e) + " · 请把 bus.jpg 放到 assets/bus.jpg"
-      )
+      setStatus((e.message || e) + " · 请把 bus.jpg 放到 assets/bus.jpg")
     );
 });
 
@@ -947,9 +837,16 @@ els.gpuBtn.addEventListener("click", () => {
   });
 });
 
+if (els.faceBtn) {
+  els.faceBtn.addEventListener("click", () => {
+    toggleFacing().catch((e) => setStatus("切换镜头失败: " + (e.message || e)));
+  });
+}
+
 syncTennisBtn();
 syncGpuBtn();
-loadPoseModel()
+syncFaceBtn();
+initInference()
   .then(syncGpuBtn)
   .catch((e) => {
     console.error(e);

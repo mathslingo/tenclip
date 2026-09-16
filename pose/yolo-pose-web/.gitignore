@@ -6,3 +6,6 @@ assets/*.jpeg
 __pycache__/
 *.pyc
 .venv/
+lib/ort/*.js
+lib/ort/*.wasm
+lib/ort/*.mjs

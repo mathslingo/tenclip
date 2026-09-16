@@ -19,10 +19,12 @@ python export_onnx.py                 # → models/yolo11n-pose.onnx
 python export_tennis_onnx.py          # → models/yolo11n-tennis.onnx（COCO sports ball）
 python download_assets.py             # → assets/bus.jpg
 # 可选：自备一张含网球的图 → assets/tennis-sample.jpg
+python3 download_ort.py             # → lib/ort/（onnxruntime-web 1.20.1）
 python3 -m http.server 8765
 ```
 
 打开 `http://127.0.0.1:8765/` → 点「网球」→ 摄像头或选图。无 tennis ONNX 时自动 **HSV 黄绿兜底**。
+公网已用 Nginx **静态 alias**（不必依赖 8765）。
 
 可选独立 `.venv`（不想动 conda 时）见下方历史说明；浏览器推理不依赖 Python。
 
@@ -99,13 +101,14 @@ curl -sI https://api.uchance.tech/yolo-pose/models/yolo11n-pose.onnx
 云主机 Nginx  ──静态 html/js/onnx──►  浏览器 ONNX Runtime Web  ──► 每帧推理
 ```
 
-开启网球后每帧**串行**跑两个 640 模型。优化前后（iPhone Safari，同一测试图）：
+开启网球后姿态与网球 **Promise.all 并行**；锁定轨迹后网球走 **ROI 320**（连续 miss≥2 回退全图 640）。推理默认在 **Worker**。iPhone Safari 历史对照（优化前、同一测试图）：
 
 
-| 阶段         | 姿态     | 网球     | 整帧              | 后端         |
-| ---------- | ------ | ------ | --------------- | ---------- |
-| 初版 CPU     | ~257ms | ~244ms | ~505ms (~2 FPS) | `[wasm]`   |
-| WebGPU 生效后 | ~136ms | ~87ms  | ~244ms (~4 FPS) | `[webgpu]` |
+| 阶段 | 姿态 | 网球 | 整帧 | 后端 |
+| --- | --- | --- | --- | --- |
+| 初版 CPU 串行 | ~257ms | ~244ms | ~505ms (~2 FPS) | `[wasm]` |
+| WebGPU 串行 | ~136ms | ~87ms | ~244ms (~4 FPS) | `[webgpu]` |
+| P0（并行 + ROI，待真机复测） | — | ROI 更轻 | 目标趋近 max(姿态,网球) | `[webgpu]` + `[worker]` |
 
 
 ### 优化历程（我们试过的路）
@@ -130,8 +133,11 @@ curl -sI https://api.uchance.tech/yolo-pose/models/yolo11n-pose.onnx
 | **WebGPU 后端**           | ✅ 关键突破。需 `ort.webgpu.min.js`（`ort.min.js` 不含 WebGPU EP，会一直 `[wasm]`）                               |
 | **GPU 开关 + 探测/试跑**      | ✅ 按钮显示 `GPU：WebGPU` / `不可用` / `关(CPU)`；`requestAdapter` + warmup 避免 Safari 假阳性                     |
 | **输入缓冲复用**              | ✅ 减少每帧 ~5MB 分配与 GC 抖动                                                                              |
-| **WASM 多线程（COOP/COEP）** | ⚠️ 已写代码与 Nginx 示例，但 `add_header` 须放在 `location ^~ /yolo-pose/` **内部**；未配成功时退回单线程。WebGPU 生效后此项优先级降低 |
-| **按需关网球**               | ✅ 只看 pose 时单帧约减半                                                                                   |
+| **WASM 多线程（COOP/COEP）** | ✅ `/yolo-pose/` 反代 8765 + location 内隔离头；ORT 本地 `lib/ort/`（`python3 download_ort.py`） |
+| **按需关网球**               | ✅ 只看 pose 时单帧约减半 |
+| **网球 ROI + 双模型并行**     | ✅ miss&lt;2 时原图裁 256–384 → 320；`Promise.all` 姿态/网球 |
+| **Worker 推理**            | ✅ `lib/infer.worker.js`，失败回退主线程；`?worker=0` 可关 |
+| **后置摄像头**               | ✅ 默认 `environment`、宽 960；「镜头」切前置；`?facing=user` |
 
 
 **4. 讨论过但未采用（会损精度或尚未做）**
@@ -139,12 +145,12 @@ curl -sI https://api.uchance.tech/yolo-pose/models/yolo11n-pose.onnx
 - `?imgsz=320`：快但远距小球易漏检。
 - 网球隔帧：估速轨迹变稀。
 - FP16/INT8 量化、更小骨干：需重新导出与回归。
-- 网球 ROI 裁剪、Worker 并行、GPU 预处理：README「未来可选方案」中，ROI 为下一步最值得做的不降精度项。
+- GPU 预处理、双 Worker 分模型、FP16：仍属后续。
 
 **5. 当前结论**
 
-- Mac / iPhone 上 **Safari 18+ WebGPU** 可将单任务从 200+ ms 压到 **100 ms 内量级**，整帧约 **4 FPS**（双模型串行）。
-- 要再往上，优先考虑 **网球 ROI** 或 **双 Worker 并行**（整帧≈max(姿态,网球)），而不是降分辨率。
+- P0 已落地：ROI + 并行 + Worker + 后置摄像头 + 本地 ORT + COOP/COEP。真机看 HUD 是否出现 `网球ROI` / `[worker]`。
+- 再往上见 **[doc/LATENCY_AND_SPEED_PLAN.md](doc/LATENCY_AND_SPEED_PLAN.md)** 的 P1/P2，不要先降全图 `imgsz`。
 
 
 
@@ -191,8 +197,7 @@ add_header Cross-Origin-Opener-Policy "same-origin";
 add_header Cross-Origin-Embedder-Policy "require-corp";
 ```
 
-见 `scripts/deploy/nginx-yolo-pose.conf.example`。开了 COEP 后跨源脚本必须带 `crossorigin`，
-`index.html` 里的 onnxruntime-web CDN 标签已加。**不配这两个头也能正常用**，只是退回单线程。
+见 `scripts/deploy/nginx-yolo-pose.conf.example`。ORT 已本地托管（`python3 download_ort.py` → `lib/ort/`），不再走 CDN。**不配这两个头也能用**，只是 WASM 退回单线程。
 
 ### 未来可选方案
 
@@ -201,14 +206,11 @@ add_header Cross-Origin-Embedder-Policy "require-corp";
 **A. 不降精度（推荐优先做）**
 
 
-| 方案                     | 思路                                              | 代价                                        |
-| ---------------------- | ----------------------------------------------- | ----------------------------------------- |
-| **网球 ROI 裁剪**          | 用上一帧球心在**原分辨率**上裁 320 区域再检测，跟丢时回退整帧             | 算量约 1/4，小球像素占比更大，**远距精度反而更好**；需处理跟丢/多球    |
-| **Web Worker 推理**      | 推理移出主线程（`ort.env.wasm.proxy`），主线程只画             | 帧耗时不变，但 UI 不卡、绘制更跟手                       |
-| **双 Worker 并行**        | 姿态与网球各占一个 Worker 同时跑                            | 理论上整帧≈max 而非 sum；内存翻倍，低端机可能反而更慢           |
-| **预处理换 WebGL/WebGPU**  | letterbox + 归一化改用 GPU，省掉 `getImageData` 与 JS 循环 | 省几十 ms；代码复杂度上升                            |
-| **升级 onnxruntime-web** | 新版 WASM/WebGPU 算子持续优化                           | 需回归测试，注意 `ort.min.js` 与 `wasmPaths` 版本要一致 |
-| **本地托管 ort 运行时**       | 把 `dist/` 放到 `lib/ort/`，不依赖 CDN                 | 首屏更稳（国内 CDN 偶发慢），也省去 COEP 跨源顾虑            |
+| 方案 | 思路 | 代价 |
+| --- | --- | --- |
+| **双 Worker 分模型** | 姿态与网球各占一个 Worker | 内存翻倍；当前已在同一 Worker 内并行 |
+| **预处理换 WebGL/WebGPU** | letterbox + 归一化改用 GPU | 省几十 ms；复杂度上升 |
+| **升级 onnxruntime-web** | 新版算子 | `ort.webgpu.min.js` 与 `wasmPaths` 须同版本 |
 
 
 **B. 以精度换速度（按场景取舍）**

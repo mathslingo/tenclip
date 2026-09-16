@@ -16,7 +16,7 @@ Type=simple
 User=root
 WorkingDirectory=/root/code/tenclip/pose/yolo-pose-web
 # 只提供静态文件，不依赖 .venv / ultralytics
-ExecStart=/usr/bin/python3 -m http.server 8765 --bind 127.0.0.1
+ExecStart=/usr/bin/python3 /root/code/tenclip/pose/yolo-pose-web/serve.py --bind 127.0.0.1 --port 8765
 Restart=always
 RestartSec=3
 
