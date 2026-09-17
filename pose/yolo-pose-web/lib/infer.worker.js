@@ -2,7 +2,7 @@
 importScripts("./ort/ort.webgpu.min.js");
 self.ort.env.wasm = self.ort.env.wasm || {};
 self.ort.env.wasm.wasmPaths = new URL("./ort/", self.location).href;
-importScripts("./yolo_infer.js?v=20260918a");
+importScripts("./yolo_infer.js?v=20260918c");
 
 var wasmPaths = new URL("./ort/", self.location).href;
 var engine = null;

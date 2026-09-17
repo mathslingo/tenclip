@@ -358,7 +358,7 @@ async function initInference() {
   setStatus("创建推理会话…");
   if (cfg.useWorker && typeof Worker !== "undefined") {
     try {
-      inferWorker = new Worker("./lib/infer.worker.js?v=20260918a");
+      inferWorker = new Worker("./lib/infer.worker.js?v=20260918c");
       attachWorker(inferWorker);
       await workerPost({
         type: "init",
@@ -730,21 +730,17 @@ function stopCamera() {
 }
 
 async function openCameraStream() {
+  // 第一次调用必须尽量成功：约束越少越好（Safari 过约束会 OverconstrainedError）
   const tries = [
-    {
-      facingMode: { ideal: facingMode },
-      width: { ideal: cfg.camWidth },
-      height: { ideal: 540 },
-    },
     { facingMode: { ideal: facingMode } },
     { facingMode: facingMode },
-    { facingMode: { ideal: "user" } },
     true,
+    { facingMode: { ideal: "user" } },
   ];
-  let last = null;
-  for (let i = 0; i < tries.length; i++) {
+  var last = null;
+  for (var i = 0; i < tries.length; i++) {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({
+      var s = await navigator.mediaDevices.getUserMedia({
         audio: false,
         video: tries[i],
       });
@@ -755,12 +751,13 @@ async function openCameraStream() {
         } catch (_) {}
         syncFaceBtn();
       }
-      return stream;
+      return s;
     } catch (e) {
       last = e;
     }
   }
-  throw last || new Error("getUserMedia 失败");
+  var msg = last ? last.name + ": " + last.message : "getUserMedia 失败";
+  throw new Error(msg);
 }
 
 async function startCamera() {
@@ -769,12 +766,11 @@ async function startCamera() {
     setStatus("摄像头已停止");
     return;
   }
-  setStatus("准备摄像头与模型…");
-  await ensureInit();
-  if (!inferWorker && !localEngine) {
-    throw new Error("姿态模型未就绪");
+  // Safari：getUserMedia 必须在点击手势里立刻调用，不能先 await 加载模型
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    throw new Error("当前浏览器不支持摄像头（请用 HTTPS 的 Safari / Chrome）");
   }
-
+  setStatus("正在打开摄像头…");
   stream = await openCameraStream();
 
   const v = els.video;
@@ -783,10 +779,27 @@ async function startCamera() {
   v.muted = true;
   v.playsInline = true;
   v.srcObject = stream;
-  await v.play();
+  try {
+    await v.play();
+  } catch (e) {
+    throw new Error("video.play 失败: " + (e.name || "") + " " + (e.message || e));
+  }
 
   camRunning = true;
   els.camBtn.textContent = "停止摄像头";
+  setStatus("摄像头已打开，准备模型…");
+
+  try {
+    await ensureInit();
+  } catch (e) {
+    stopCamera();
+    throw e;
+  }
+  if (!inferWorker && !localEngine) {
+    stopCamera();
+    throw new Error("姿态模型未就绪");
+  }
+
   setStatus("摄像头运行中（" + (facingMode === "user" ? "前置" : "后置") + "）…");
   lastInferTs = 0;
   loop();
