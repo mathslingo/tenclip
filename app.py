@@ -55,6 +55,7 @@ from services.news_feed import (
     init_news_db,
     list_ingest_runs,
     list_news_articles_admin,
+    news_ingest_health,
 )
 from rec import (
     RecommendInput,
@@ -826,7 +827,7 @@ def create_app() -> FastAPI:
 
     @api.get("/api/mobile/health")
     def mobile_health():
-        return {
+        payload = {
             "ok": True,
             "service": "tenclip",
             "stroke_worker": True,
@@ -834,6 +835,12 @@ def create_app() -> FastAPI:
             "analysis_queue_size": ANALYSIS_QUEUE.qsize(),
             "news_hourly_ingest": _news_hourly_ingest_enabled(),
         }
+        try:
+            payload.update(news_ingest_health())
+        except Exception:
+            logging.exception("news_ingest_health failed")
+            payload["news_ingest_stale"] = True
+        return payload
 
     def _pose_upstream() -> str:
         return os.environ.get("POSE_UPSTREAM", "http://127.0.0.1:5000").rstrip("/")

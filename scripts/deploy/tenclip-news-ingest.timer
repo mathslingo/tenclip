@@ -1,0 +1,12 @@
+[Unit]
+Description=TenClip news ingest every 2 hours
+
+[Timer]
+OnBootSec=5min
+OnUnitActiveSec=2h
+AccuracySec=5min
+Persistent=true
+Unit=tenclip-news-ingest.service
+
+[Install]
+WantedBy=timers.target

@@ -1,13 +1,35 @@
 # 网球新闻：定时抓取 → SQLite → 小程序发现页
 
-> 更新日期：2026-07-18；**现网评估与优化方案（2026-09-18）见 [news_ingest_optimization.md](news_ingest_optimization.md)**（调度已停、海外源长期失败，勿直接恢复 30 分钟空转）。
+> 更新日期：2026-09-18。评估全文见 [news_ingest_optimization.md](news_ingest_optimization.md)。
+
+## 执行计划（已同意落地）
+
+跨配置、入库逻辑和宿主机调度，分步如下。
+
+| 阶段 | 做什么 | 验收 |
+| --- | --- | --- |
+| **P0a 源清单** | 海外源（BBC/ATP/WTA/ESPN/Tennis.com/Google）默认 `enabled=false`；保留 Live Tennis CN + 澎湃 | 单次 ingest 不再空等 6 个超时源 |
+| **P0b 澎湃过滤** | 标题须匹配网球关键词；丢掉「澎湃新闻 · 文章 {id}」 | 新入库偏网球；足球篮球不再进库 |
+| **P0c upsert** | 标题/摘要/图未变则 **不刷新** `ingested_at` / `published_at`；run 记录区分 inserted / updated / unchanged | 推荐新鲜度不再被重复抓取刷歪 |
+| **P0d 熔断** | 表 `news_source_circuit`：连续失败 ≥5 则跳过 6 小时 | 偶发失败不拖死后续 run |
+| **P0e 健康** | `/api/mobile/health` 增加 `news_last_ingest_at`、`news_articles`、`news_ingest_stale` | 停更一眼能看出来 |
+| **P0f 调度** | **systemd timer 每 2 小时**（替代 30 分钟 cron）；`limit_per_source=20` | `systemctl list-timers` 能看到下次触发 |
+| **P1 补图** | 新文无封面时最多抓 5 条详情 `og:image`（短超时） | 无图率下降，不拖垮整次 ingest |
+
+**不在本次做：** 海外代理、无头浏览器打 ATP、迁 MySQL、把 ingest 拆成独立长期进程（timer oneshot 即可）。
+
+**频率：** 默认 2 小时。勿再装 `*/30` 空转。本地仍可用 `TENCLIP_NEWS_HOURLY_INGEST=1`（间隔默认 3600s，可 `TENCLIP_NEWS_INGEST_INTERVAL_SEC`）。
+
+P0/P1 已写入代码与 `scripts/deploy/tenclip-news-ingest.{service,timer}`。部署后 `systemctl enable --now tenclip-news-ingest.timer`。
+
+---
 
 ## 现状（已具备）
 
 | 能力 | 实现 |
 |------|------|
 | 抓取 | `services/news_feed.py` → `ingest_news()` |
-| 来源 | `config/news_sources.json`（含 **ATP**、**WTA**、BBC、ESPN、Tennis.com、澎湃、**Live Tennis CN** 等） |
+| 来源 | `config/news_sources.json`：**默认只开** Live Tennis CN + 澎湃（网球标题过滤）；海外源 `enabled=false` |
 | 存储 | SQLite `data/news_feed.db` 表 `news_articles`（唯一键 `url`，可重复抓取更新） |
 | 任务记录 | 表 `news_ingest_runs` |
 | API | `POST /api/news/ingest`，`GET /api/news/feed` |
@@ -48,33 +70,32 @@ TENCLIP_NEWS_HOURLY_INGEST=1 GRADIO_SERVER_NAME=0.0.0.0 bash run-wsl.sh
 
 ---
 
-## 2. 安装「每 30 分钟」定时任务
+## 2. 定时任务（生产：每 2 小时）
 
-抓取 `config/news_sources.json` 已启用源（含 Live Tennis CN）→ `data/news_feed.db`。
+默认抓 `config/news_sources.json` **已启用**源（国内：Live Tennis CN、过滤后的澎湃）→ `data/news_feed.db`。海外源默认关闭。
 
-### 方式 A：直接跑 Python（需 conda `tenclip`）
-
-```bash
-bash scripts/install_news_cron.sh
-crontab -l | grep news_ingest
-```
-
-默认：`*/30 * * * *`（每 30 分钟）。日志：`data/logs/news_ingest.log`。  
-改周期：`NEWS_CRON_SCHEDULE='0 * * * *' bash scripts/install_news_cron.sh`
-
-### 方式 B：HTTP 调已运行的服务（云主机常用）
-
-API 常驻（如 `tenclip-uchanceai` 监听 7862）时：
+### 方式 A：systemd timer（本机推荐）
 
 ```bash
-TENCLIP_NEWS_INGEST_URL=http://127.0.0.1:7862 bash scripts/install_news_cron_http.sh
+sudo cp scripts/deploy/tenclip-news-ingest.service /etc/systemd/system/
+sudo cp scripts/deploy/tenclip-news-ingest.timer /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now tenclip-news-ingest.timer
+systemctl list-timers tenclip-news-ingest.timer
+sudo systemctl start tenclip-news-ingest.service   # 立刻跑一次
 ```
 
-卸载：
+日志：`journalctl -u tenclip-news-ingest.service -n 50`
+
+### 方式 B：crontab（可选）
 
 ```bash
-bash scripts/uninstall_news_cron.sh
+NEWS_CRON_SCHEDULE='0 */2 * * *' bash scripts/install_news_cron.sh
+# 或 HTTP：TENCLIP_NEWS_INGEST_URL=http://127.0.0.1:7861 NEWS_CRON_SCHEDULE='0 */2 * * *' bash scripts/install_news_cron_http.sh
 ```
+
+卸载 cron：`bash scripts/uninstall_news_cron.sh`  
+卸载 timer：`sudo systemctl disable --now tenclip-news-ingest.timer`
 
 ---
 
@@ -136,6 +157,6 @@ cd ~/code/tenclip
 
 ## 5. 云主机注意
 
-- 安全组/防火墙不影响出站抓取 RSS
-- 部分站点（ATP）可能 403，ingest 会记入 `failed`，其它源继续
-- 部署后执行一次 `install_news_cron_http.sh`，并在后台点一次「立即抓取」验证
+- 国内 ECS 默认只抓可达源；ATP 等 403 的源保持 `enabled=false`，有出口再开
+- 部署后 `systemctl enable --now tenclip-news-ingest.timer`，并 `curl -s -X POST http://127.0.0.1:7861/api/news/ingest?limit_per_source=20`
+- health：`curl -s http://127.0.0.1:7861/api/mobile/health` 看 `news_last_ingest_at` / `news_ingest_stale`

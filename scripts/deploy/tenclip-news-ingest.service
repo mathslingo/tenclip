@@ -1,0 +1,27 @@
+# TenClip 新闻抓取 oneshot（由 timer 每 2 小时触发）
+#
+#   sudo cp scripts/deploy/tenclip-news-ingest.service /etc/systemd/system/
+#   sudo cp scripts/deploy/tenclip-news-ingest.timer /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now tenclip-news-ingest.timer
+#   sudo systemctl start tenclip-news-ingest.service   # 立刻跑一次
+#
+# 路径与 tenclip-uchance-tech.service 对齐；换机器请改 User / WorkingDirectory / ExecStart。
+
+[Unit]
+Description=TenClip news ingest (oneshot)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=root
+WorkingDirectory=/root/code/tenclip
+Environment=PATH=/root/miniconda3/envs/tenclip/bin:/usr/local/bin:/usr/bin:/bin
+EnvironmentFile=-/etc/tenclip/env
+ExecStart=/root/miniconda3/envs/tenclip/bin/python /root/code/tenclip/scripts/news_ingest_once.py --limit-per-source 20
+Nice=10
+TimeoutStartSec=180
+
+[Install]
+WantedBy=multi-user.target

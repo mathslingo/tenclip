@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# 安装「每 30 分钟」新闻抓取 crontab（调用 conda 环境中的 news_ingest_once.py）
-# 含 Live Tennis CN / ATP / WTA / BBC 等 config/news_sources.json 已启用源 → data/news_feed.db
+# 安装新闻抓取 crontab（默认每 2 小时；生产更推荐 systemd timer）
+# 只抓 config/news_sources.json 已启用源 → data/news_feed.db
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -23,9 +23,9 @@ fi
 LOG_DIR="${ROOT_DIR}/data/logs"
 mkdir -p "${LOG_DIR}"
 
-# 默认每 30 分钟；可用 NEWS_CRON_SCHEDULE 覆盖，例如 "0 * * * *" 每小时整点
-SCHEDULE="${NEWS_CRON_SCHEDULE:-*/30 * * * *}"
-RUN_CMD="cd ${ROOT_DIR} && ${PY} ${ROOT_DIR}/scripts/news_ingest_once.py --limit-per-source 30 >> ${LOG_DIR}/news_ingest.log 2>&1"
+# 默认每 2 小时；可用 NEWS_CRON_SCHEDULE 覆盖，例如 "*/30 * * * *" 不推荐
+SCHEDULE="${NEWS_CRON_SCHEDULE:-0 */2 * * *}"
+RUN_CMD="cd ${ROOT_DIR} && ${PY} ${ROOT_DIR}/scripts/news_ingest_once.py --limit-per-source 20 >> ${LOG_DIR}/news_ingest.log 2>&1"
 CRON_LINE="${SCHEDULE} ${RUN_CMD}"
 
 EXISTING="$(crontab -l 2>/dev/null || true)"
@@ -44,7 +44,7 @@ fi
   echo "${CRON_LINE}"
 } | crontab -
 
-echo "已安装新闻抓取定时任务（每 30 分钟）："
+echo "已安装新闻抓取定时任务（默认每 2 小时）："
 echo "${CRON_LINE}"
 echo "日志：${LOG_DIR}/news_ingest.log"
 echo "查看：crontab -l | grep news_ingest"

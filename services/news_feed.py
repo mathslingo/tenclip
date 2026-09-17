@@ -8,12 +8,12 @@ import re
 import sqlite3
 from concurrent.futures import TimeoutError as FuturesTimeoutError
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from email.utils import parsedate_to_datetime
 from pathlib import Path
 from typing import Any
 from urllib.error import HTTPError, URLError
-from urllib.parse import urlencode, urlparse
+from urllib.parse import urlparse
 from urllib.request import HTTPCookieProcessor, Request, build_opener, urlopen
 from xml.etree import ElementTree as ET
 import threading
@@ -74,51 +74,15 @@ def _sources_from_json(path: Path) -> list[NewsSource]:
 
 
 def _default_news_sources() -> list[NewsSource]:
-    """配置文件缺失或损坏时的兜底列表（与 config/news_sources.json 尽量保持一致）。"""
+    """配置文件缺失时的兜底：与默认开启的国内源一致。"""
     return [
         NewsSource(
-            name="CNN · Sport (RSS)",
-            url="http://rss.cnn.com/rss/edition_sport.rss",
-            kind="rss",
-            quality_tier=2,
-        ),
-        NewsSource(
-            name="BBC Sport · Tennis",
-            url="https://feeds.bbci.co.uk/sport/tennis/rss.xml",
-            kind="rss",
-            quality_tier=2,
-        ),
-        NewsSource(
-            name="Tennis.com · All news",
-            url="https://www.tennis.com/news/all-news/",
+            name="Live Tennis CN",
+            url="https://www.live-tennis.cn/zh/home",
             kind="html",
             quality_tier=3,
-            parser="tennis_com_list",
-        ),
-        NewsSource(
-            name="ATP Tour News",
-            url="https://www.atptour.com/en/media/rss-feed/xml-feed",
-            kind="rss",
-            quality_tier=3,
-        ),
-        NewsSource(
-            name="WTA News",
-            url="https://www.wtatennis.com/rss/news",
-            kind="rss",
-            quality_tier=3,
-        ),
-        NewsSource(
-            name="ESPN Tennis",
-            url="https://www.espn.com/espn/rss/tennis/news",
-            kind="rss",
-            quality_tier=2,
-        ),
-        NewsSource(
-            name="Google News · Tennis",
-            url="https://news.google.com/rss/search?"
-            + urlencode({"q": "ATP OR WTA OR tennis", "hl": "en-US", "gl": "US", "ceid": "US:en"}),
-            kind="rss",
-            quality_tier=1,
+            parser="live_tennis_list",
+            source_id="live_tennis_cn_home",
         ),
         NewsSource(
             name="ThePaper Sports",
@@ -126,6 +90,7 @@ def _default_news_sources() -> list[NewsSource]:
             kind="html",
             quality_tier=2,
             parser="thepaper_list",
+            source_id="thepaper_sports",
         ),
     ]
 
@@ -192,6 +157,23 @@ def _infer_tags(title: str, summary: str, source: NewsSource | None = None) -> l
             seen.add(t)
             ordered.append(t)
     return ordered
+
+
+_TENNIS_TITLE_RE = re.compile(
+    r"网球|ATP|WTA|大满贯|澳网|法网|温网|美网|德约|纳达尔|费德勒|"
+    r"辛纳|阿尔卡拉斯|郑钦文|王欣瑜|张之臻|商竣程|朱琳|王蔷|"
+    r"戴维斯杯|上海大师|中国网球公开赛|中网|武网|"
+    r"印第安维尔斯|迈阿密公开赛|马德里|罗马大师|辛辛那提|巴黎大师|"
+    r"\btennis\b|\bATP\b|\bWTA\b",
+    re.I,
+)
+
+
+def _title_is_tennis(title: str) -> bool:
+    t = (title or "").strip()
+    if not t or t.startswith("澎湃新闻 · 文章"):
+        return False
+    return bool(_TENNIS_TITLE_RE.search(t))
 
 
 def _to_iso(dt: datetime) -> str:
@@ -278,6 +260,18 @@ def init_news_db() -> None:
                 sources_ok TEXT,
                 sources_failed TEXT,
                 detail_json TEXT
+            )
+            """
+        )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS news_source_circuit (
+                source_key TEXT PRIMARY KEY,
+                consecutive_failures INTEGER NOT NULL DEFAULT 0,
+                last_ok_at TEXT,
+                last_fail_at TEXT,
+                last_error TEXT,
+                open_until TEXT
             )
             """
         )
@@ -468,7 +462,9 @@ def _parse_thepaper_html(source: NewsSource, html: str, cap: int) -> list[dict[s
         if full in seen_url:
             continue
         seen_url.add(full)
-        title = _title_near(cid) or f"澎湃新闻 · 文章 {cid}"
+        title = _title_near(cid)
+        if not _title_is_tennis(title):
+            continue
         tags = _infer_tags(title, "", source)
         out.append(
             {
@@ -603,16 +599,193 @@ def _run_source_with_timeout(
     return list(box["rows"] or [])
 
 
+def _circuit_key(source: NewsSource) -> str:
+    return (source.source_id or source.name or source.url).strip()
+
+
+def _circuit_is_open(conn: sqlite3.Connection, key: str, now_iso: str) -> bool:
+    row = conn.execute(
+        "SELECT open_until FROM news_source_circuit WHERE source_key=?",
+        (key,),
+    ).fetchone()
+    if not row or not row[0]:
+        return False
+    return str(row[0]) > now_iso
+
+
+def _circuit_record_ok(conn: sqlite3.Connection, key: str, now_iso: str) -> None:
+    conn.execute(
+        """
+        INSERT INTO news_source_circuit(
+            source_key, consecutive_failures, last_ok_at, last_fail_at, last_error, open_until
+        ) VALUES (?, 0, ?, NULL, NULL, NULL)
+        ON CONFLICT(source_key) DO UPDATE SET
+            consecutive_failures=0,
+            last_ok_at=excluded.last_ok_at,
+            last_error=NULL,
+            open_until=NULL
+        """,
+        (key, now_iso),
+    )
+
+
+def _circuit_record_fail(
+    conn: sqlite3.Connection,
+    key: str,
+    now_iso: str,
+    err: str,
+    *,
+    fail_open: int = 5,
+    cooldown_hours: int = 6,
+) -> None:
+    row = conn.execute(
+        "SELECT consecutive_failures FROM news_source_circuit WHERE source_key=?",
+        (key,),
+    ).fetchone()
+    n = int(row[0] if row else 0) + 1
+    open_until = _to_iso(_utc_now() + timedelta(hours=cooldown_hours)) if n >= fail_open else None
+    conn.execute(
+        """
+        INSERT INTO news_source_circuit(
+            source_key, consecutive_failures, last_ok_at, last_fail_at, last_error, open_until
+        ) VALUES (?, ?, NULL, ?, ?, ?)
+        ON CONFLICT(source_key) DO UPDATE SET
+            consecutive_failures=excluded.consecutive_failures,
+            last_fail_at=excluded.last_fail_at,
+            last_error=excluded.last_error,
+            open_until=excluded.open_until
+        """,
+        (key, n, now_iso, (err or "")[:500], open_until),
+    )
+
+
+def _extract_og_image(html: str) -> str:
+    m = re.search(
+        r'<meta[^>]+property=["\']og:image["\'][^>]+content=["\']([^"\']+)["\']',
+        html or "",
+        flags=re.I,
+    )
+    if m:
+        return m.group(1).strip()
+    m = re.search(
+        r'<meta[^>]+content=["\']([^"\']+)["\'][^>]+property=["\']og:image["\']',
+        html or "",
+        flags=re.I,
+    )
+    return (m.group(1).strip() if m else "")
+
+
+def _fetch_html(url: str, timeout_sec: float = 6.0) -> str:
+    headers = _request_headers(url)
+    headers["Accept"] = "text/html,application/xhtml+xml,*/*;q=0.8"
+    req = Request(url, headers=headers)
+    with urlopen(req, timeout=max(2.0, timeout_sec)) as resp:
+        return resp.read().decode("utf-8", errors="ignore")
+
+
+def _fill_missing_og_images(rows: list[dict[str, Any]], budget: int) -> int:
+    used = 0
+    for row in rows:
+        if used >= budget:
+            break
+        if (row.get("image_url") or "").strip():
+            continue
+        url = (row.get("url") or "").strip()
+        if not url.startswith("http"):
+            continue
+        try:
+            html = _fetch_html(url, timeout_sec=6.0)
+            img = _extract_og_image(html)
+            if img:
+                row["image_url"] = img
+                used += 1
+        except Exception:
+            continue
+    return used
+
+
+def _upsert_article(conn: sqlite3.Connection, row: dict[str, Any]) -> str:
+    """写入一篇。返回 inserted | updated | unchanged。未变则不刷新 ingested_at。"""
+    url = row["url"]
+    existing = conn.execute(
+        "SELECT title, summary, image_url FROM news_articles WHERE url=?",
+        (url,),
+    ).fetchone()
+    title = row["title"]
+    summary = row.get("summary") or ""
+    image = row.get("image_url") or ""
+    now_iso = row.get("ingested_at") or _to_iso(_utc_now())
+    if existing is None:
+        conn.execute(
+            """
+            INSERT INTO news_articles (
+                source, source_domain, source_tier, title, summary, url, image_url,
+                tags_csv, published_at, ingested_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                row["source"],
+                row["source_domain"],
+                row["source_tier"],
+                title,
+                summary,
+                url,
+                image,
+                row.get("tags_csv") or "",
+                row["published_at"],
+                now_iso,
+            ),
+        )
+        return "inserted"
+    old_title, old_summary, old_image = existing
+    if (
+        (old_title or "") == title
+        and (old_summary or "") == summary
+        and (old_image or "") == image
+    ):
+        return "unchanged"
+    conn.execute(
+        """
+        UPDATE news_articles SET
+            source=?, source_domain=?, source_tier=?, title=?, summary=?,
+            image_url=?, tags_csv=?, ingested_at=?
+        WHERE url=?
+        """,
+        (
+            row["source"],
+            row["source_domain"],
+            row["source_tier"],
+            title,
+            summary,
+            image,
+            row.get("tags_csv") or "",
+            now_iso,
+            url,
+        ),
+    )
+    return "updated"
+
+
 def ingest_news(limit_per_source: int = 20) -> dict[str, Any]:
     init_news_db()
     started = _to_iso(_utc_now())
     inserted = 0
+    updated = 0
+    unchanged = 0
+    og_filled = 0
+    og_budget = 5
     touched_sources: list[str] = []
     failed_sources: list[dict[str, str]] = []
+    skipped_circuit: list[str] = []
     per_source_deadline = news_source_total_timeout_sec()
     http_cap = news_http_timeout_sec()
     with sqlite3.connect(DB_PATH) as conn:
         for source in get_news_sources():
+            key = _circuit_key(source)
+            if _circuit_is_open(conn, key, started):
+                logger.info("ingest skip circuit-open: %s", source.name)
+                skipped_circuit.append(source.name)
+                continue
             rows: list[dict[str, Any]] = []
             try:
                 rows = _run_source_with_timeout(source, limit_per_source, per_source_deadline)
@@ -620,52 +793,46 @@ def ingest_news(limit_per_source: int = 20) -> dict[str, Any]:
                 msg = f"source timeout (>{per_source_deadline:.0f}s)"
                 logger.warning("ingest source timeout: %s", source.name)
                 failed_sources.append({"source": source.name, "error": msg})
+                _circuit_record_fail(conn, key, started, msg)
                 continue
             except Exception as exc:
                 logger.warning("ingest source failed: %s %s", source.name, exc)
                 failed_sources.append({"source": source.name, "error": str(exc)})
+                _circuit_record_fail(conn, key, started, str(exc))
                 continue
             if not rows:
-                failed_sources.append({"source": source.name, "error": "no rows parsed"})
+                parser = (source.parser or "").strip().lower()
+                if parser == "thepaper_list":
+                    logger.info("ingest %s: 本页无网球标题，记成功 0 条", source.name)
+                    touched_sources.append(source.name)
+                    _circuit_record_ok(conn, key, started)
+                    continue
+                msg = "no rows parsed"
+                failed_sources.append({"source": source.name, "error": msg})
+                _circuit_record_fail(conn, key, started, msg)
                 continue
+            og_filled += _fill_missing_og_images(rows, og_budget - og_filled)
             touched_sources.append(source.name)
+            _circuit_record_ok(conn, key, started)
             for row in rows:
-                cur = conn.execute(
-                    """
-                    INSERT INTO news_articles (
-                        source, source_domain, source_tier, title, summary, url, image_url, tags_csv, published_at, ingested_at
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                    ON CONFLICT(url) DO UPDATE SET
-                        source=excluded.source,
-                        source_domain=excluded.source_domain,
-                        source_tier=excluded.source_tier,
-                        title=excluded.title,
-                        summary=excluded.summary,
-                        image_url=excluded.image_url,
-                        tags_csv=excluded.tags_csv,
-                        published_at=excluded.published_at,
-                        ingested_at=excluded.ingested_at
-                    """,
-                    (
-                        row["source"],
-                        row["source_domain"],
-                        row["source_tier"],
-                        row["title"],
-                        row["summary"],
-                        row["url"],
-                        row["image_url"],
-                        row["tags_csv"],
-                        row["published_at"],
-                        row["ingested_at"],
-                    ),
-                )
-                inserted += int(cur.rowcount > 0)
+                kind = _upsert_article(conn, row)
+                if kind == "inserted":
+                    inserted += 1
+                elif kind == "updated":
+                    updated += 1
+                else:
+                    unchanged += 1
         conn.commit()
     finished = _to_iso(_utc_now())
     result = {
-        "inserted_or_updated": inserted,
+        "inserted_or_updated": inserted + updated,
+        "inserted": inserted,
+        "updated": updated,
+        "unchanged": unchanged,
+        "og_images_filled": og_filled,
         "sources": touched_sources,
         "failed": failed_sources,
+        "skipped_circuit": skipped_circuit,
         "http_timeout_sec": http_cap,
         "source_timeout_sec": per_source_deadline,
         "started_at": started,
@@ -743,6 +910,45 @@ def list_ingest_runs(limit: int = 20) -> list[dict[str, Any]]:
             item["sources_failed"] = []
         out.append(item)
     return out
+
+
+def news_ingest_health(*, stale_after_hours: float = 6.0) -> dict[str, Any]:
+    """供 /api/mobile/health：最近一次成功抓取是否过期。"""
+    init_news_db()
+    with sqlite3.connect(DB_PATH) as conn:
+        n = int(conn.execute("SELECT COUNT(*) FROM news_articles").fetchone()[0])
+        last = conn.execute(
+            "SELECT finished_at, status FROM news_ingest_runs ORDER BY id DESC LIMIT 1"
+        ).fetchone()
+        last_ok = conn.execute(
+            """
+            SELECT finished_at FROM news_ingest_runs
+            WHERE status IN ('ok', 'partial')
+            ORDER BY id DESC LIMIT 1
+            """
+        ).fetchone()
+    last_at = last[0] if last else None
+    last_status = last[1] if last else None
+    last_ok_at = last_ok[0] if last_ok else None
+    hours: float | None = None
+    stale = True
+    if last_ok_at:
+        try:
+            dt = datetime.fromisoformat(str(last_ok_at).replace("Z", "+00:00"))
+            if dt.tzinfo is None:
+                dt = dt.replace(tzinfo=timezone.utc)
+            hours = (_utc_now() - dt.astimezone(timezone.utc)).total_seconds() / 3600.0
+            stale = hours > float(stale_after_hours)
+        except Exception:
+            stale = True
+    return {
+        "news_articles": n,
+        "news_last_ingest_at": last_at,
+        "news_last_ingest_ok_at": last_ok_at,
+        "news_last_ingest_status": last_status,
+        "news_hours_since_ok": (round(hours, 2) if hours is not None else None),
+        "news_ingest_stale": stale,
+    }
 
 
 def _category_distribution_from_db(conn: sqlite3.Connection, total: int) -> tuple[list[dict[str, Any]], bool]:
@@ -904,6 +1110,7 @@ __all__ = [
     "init_news_db",
     "list_ingest_runs",
     "list_news_articles_admin",
+    "news_ingest_health",
     "record_feedback",
     "recommend_news",
     "set_user_profile",

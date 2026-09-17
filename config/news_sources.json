@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "comment": "网坛新闻抓取来源。enabled=false 可临时下线；quality_tier: 3=官方/强专业 2=主流媒体 1=聚合/兜底。html.parser 可选 tennis_com_list | thepaper_list（省略时按域名推断）。",
+  "comment": "网坛新闻抓取来源。国内 ECS 默认只开 Live Tennis CN + 澎湃（标题网球过滤）。海外源 enabled=false，有稳定出口再开。quality_tier: 3=官方/强专业 2=主流媒体 1=聚合/兜底。html.parser: tennis_com_list | thepaper_list | live_tennis_list。",
   "sources": [
     {
       "id": "cnn_sport_rss",
@@ -13,52 +13,58 @@
     },
     {
       "id": "bbc_tennis_rss",
-      "enabled": true,
+      "enabled": false,
       "name": "BBC Sport · Tennis",
       "url": "https://feeds.bbci.co.uk/sport/tennis/rss.xml",
       "kind": "rss",
-      "quality_tier": 2
+      "quality_tier": 2,
+      "comment": "国内 ECS 默认关闭（超时/墙）"
     },
     {
       "id": "tennis_com_all_news",
-      "enabled": true,
+      "enabled": false,
       "name": "Tennis.com · All news",
       "url": "https://www.tennis.com/news/all-news/",
       "kind": "html",
       "parser": "tennis_com_list",
-      "quality_tier": 3
+      "quality_tier": 3,
+      "comment": "国内 ECS 默认关闭"
     },
     {
       "id": "atp_tour_rss",
-      "enabled": true,
+      "enabled": false,
       "name": "ATP Tour News",
       "url": "https://www.atptour.com/en/media/rss-feed/xml-feed",
       "kind": "rss",
-      "quality_tier": 3
+      "quality_tier": 3,
+      "comment": "国内 ECS 默认关闭（常见 403）"
     },
     {
       "id": "wta_news_rss",
-      "enabled": true,
+      "enabled": false,
       "name": "WTA News",
       "url": "https://www.wtatennis.com/rss/news",
       "kind": "rss",
-      "quality_tier": 3
+      "quality_tier": 3,
+      "comment": "国内 ECS 默认关闭"
     },
     {
       "id": "espn_tennis_rss",
-      "enabled": true,
+      "enabled": false,
       "name": "ESPN Tennis",
       "url": "https://www.espn.com/espn/rss/tennis/news",
       "kind": "rss",
-      "quality_tier": 2
+      "quality_tier": 2,
+      "comment": "国内 ECS 默认关闭"
     },
     {
       "id": "google_news_tennis",
-      "enabled": true,
+      "enabled": false,
       "name": "Google News · Tennis",
       "url": "https://news.google.com/rss/search?q=ATP+OR+WTA+OR+tennis&hl=en-US&gl=US&ceid=US:en",
       "kind": "rss",
-      "quality_tier": 1
+      "quality_tier": 1,
+      "comment": "国内 ECS 默认关闭"
     },
     {
       "id": "thepaper_sports",

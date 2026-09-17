@@ -11,7 +11,7 @@ from pathlib import Path
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="TenClip 网坛新闻单次抓取任务")
-    parser.add_argument("--limit-per-source", type=int, default=30, help="每个来源最多抓取条数")
+    parser.add_argument("--limit-per-source", type=int, default=20, help="每个来源最多抓取条数")
     args = parser.parse_args()
 
     repo_root = Path(__file__).resolve().parents[1]

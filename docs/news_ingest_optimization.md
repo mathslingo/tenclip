@@ -1,7 +1,7 @@
 # 资讯抓取任务评估与优化方案
 
 > 基于 2026-09-18 本机 `data/news_feed.db`、`config/news_sources.json`、`services/news_feed.py`、systemd `tenclip-api`、crontab 的实测。  
-> 管线说明仍见 [news_pipeline.md](news_pipeline.md)。本文只回答：**现网抓取任务合不合理，以及怎么改。**
+> 管线说明仍见 [news_pipeline.md](news_pipeline.md)（含 2026-09-18 执行计划与落地）。本文回答：**现网抓取任务合不合理，以及怎么改。**
 
 ---
 
