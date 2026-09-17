@@ -1,7 +1,26 @@
 """标签词表、切分与热门标签建议。"""
 from __future__ import annotations
 
+import re
 from typing import Any
+
+_TENNIS_TITLE_RE = re.compile(
+    r"网球|ATP|WTA|大满贯|澳网|法网|温网|美网|德约|纳达尔|费德勒|"
+    r"辛纳|阿尔卡拉斯|郑钦文|王欣瑜|张之臻|商竣程|朱琳|王蔷|"
+    r"戴维斯杯|上海大师|中国网球公开赛|中网|武网|"
+    r"印第安维尔斯|迈阿密公开赛|马德里|罗马大师|辛辛那提|巴黎大师|"
+    r"\btennis\b|\bATP\b|\bWTA\b",
+    re.I,
+)
+
+
+def title_looks_like_tennis(title: str) -> bool:
+    """标题是否像网球新闻（用于澎湃体育列表内置顶，以及 Feed 网球优先）。"""
+    t = (title or "").strip()
+    if not t or t.startswith("澎湃新闻 · 文章"):
+        return False
+    return bool(_TENNIS_TITLE_RE.search(t))
+
 
 TAG_KEYWORDS: dict[str, tuple[str, ...]] = {
     "ATP": (" atp ", "atp tour", "atp masters", "atp 250", "atp 500", "atp 1000"),

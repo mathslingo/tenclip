@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "comment": "网坛新闻抓取来源。国内 ECS 默认只开 Live Tennis CN + 澎湃（标题网球过滤）。海外源 enabled=false，有稳定出口再开。quality_tier: 3=官方/强专业 2=主流媒体 1=聚合/兜底。html.parser: tennis_com_list | thepaper_list | live_tennis_list。",
+  "comment": "网坛新闻抓取来源。国内 ECS 默认只开 Live Tennis CN + 澎湃运动家（体育整页入库，网球标题置顶）。海外源 enabled=false，有稳定出口再开。quality_tier: 3=官方/强专业 2=主流媒体 1=聚合/兜底。html.parser: tennis_com_list | thepaper_list | live_tennis_list。",
   "sources": [
     {
       "id": "cnn_sport_rss",
@@ -73,7 +73,8 @@
       "url": "https://m.thepaper.cn/list_25599",
       "kind": "html",
       "parser": "thepaper_list",
-      "quality_tier": 2
+      "quality_tier": 2,
+      "comment": "运动家体育列表；网球标题优先入库与 Feed 置顶，其它体育仍保留"
     },
     {
       "id": "live_tennis_cn_home",

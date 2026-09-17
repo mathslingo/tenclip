@@ -8,7 +8,7 @@ from typing import Any
 
 from rec.profile import get_user_profile_tags
 from rec.richness import content_richness
-from rec.tags import split_tags_csv
+from rec.tags import split_tags_csv, title_looks_like_tennis
 from rec.timeutil import utc_now
 
 
@@ -44,7 +44,7 @@ def recommend_news(inp: RecommendInput) -> list[dict[str, Any]]:
         ).fetchall()
 
     now = utc_now()
-    scored: list[tuple[float, dict[str, Any]]] = []
+    scored: list[tuple[int, float, dict[str, Any]]] = []
     for r in rows:
         art_tags = split_tags_csv(r["tags_csv"])
         tag_overlap = len(set(tags) & set(art_tags))
@@ -70,7 +70,10 @@ def recommend_news(inp: RecommendInput) -> list[dict[str, Any]]:
         item["tags"] = art_tags
         item["score"] = round(score, 2)
         item["richness"] = round(richness, 2)
-        scored.append((score, item))
+        tennis_first = 1 if (
+            title_looks_like_tennis(r["title"] or "") or "网球" in art_tags
+        ) else 0
+        scored.append((tennis_first, score, item))
 
-    scored.sort(key=lambda x: x[0], reverse=True)
-    return [it for _, it in scored[offset : offset + limit]]
+    scored.sort(key=lambda x: (x[0], x[1]), reverse=True)
+    return [it for _, _, it in scored[offset : offset + limit]]

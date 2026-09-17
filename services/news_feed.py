@@ -18,7 +18,7 @@ from urllib.request import HTTPCookieProcessor, Request, build_opener, urlopen
 from xml.etree import ElementTree as ET
 import threading
 
-from rec.tags import TAG_KEYWORDS, split_tags_csv
+from rec.tags import TAG_KEYWORDS, split_tags_csv, title_looks_like_tennis
 
 logger = logging.getLogger(__name__)
 
@@ -157,23 +157,6 @@ def _infer_tags(title: str, summary: str, source: NewsSource | None = None) -> l
             seen.add(t)
             ordered.append(t)
     return ordered
-
-
-_TENNIS_TITLE_RE = re.compile(
-    r"网球|ATP|WTA|大满贯|澳网|法网|温网|美网|德约|纳达尔|费德勒|"
-    r"辛纳|阿尔卡拉斯|郑钦文|王欣瑜|张之臻|商竣程|朱琳|王蔷|"
-    r"戴维斯杯|上海大师|中国网球公开赛|中网|武网|"
-    r"印第安维尔斯|迈阿密公开赛|马德里|罗马大师|辛辛那提|巴黎大师|"
-    r"\btennis\b|\bATP\b|\bWTA\b",
-    re.I,
-)
-
-
-def _title_is_tennis(title: str) -> bool:
-    t = (title or "").strip()
-    if not t or t.startswith("澎湃新闻 · 文章"):
-        return False
-    return bool(_TENNIS_TITLE_RE.search(t))
 
 
 def _to_iso(dt: datetime) -> str:
@@ -418,7 +401,7 @@ def _parse_rss_items(source: NewsSource, xml_text: str, cap: int) -> list[dict[s
 
 
 def _parse_thepaper_html(source: NewsSource, html: str, cap: int) -> list[dict[str, Any]]:
-    """解析澎湃列表页：从 HTML/内嵌 JSON 中提取 newsDetail_forward_* 与标题。"""
+    """澎湃运动家列表：入库整页体育，网球标题排在前面再截断 cap。"""
     id_iter = re.finditer(r"newsDetail_forward_(\d{6,})", html)
     ids_ordered: list[str] = []
     seen_ids: set[str] = set()
@@ -457,15 +440,18 @@ def _parse_thepaper_html(source: NewsSource, html: str, cap: int) -> list[dict[s
 
     out: list[dict[str, Any]] = []
     seen_url: set[str] = set()
+    now_iso = _to_iso(_utc_now())
     for cid in ids_ordered:
         full = f"https://www.thepaper.cn/newsDetail_forward_{cid}"
         if full in seen_url:
             continue
         seen_url.add(full)
         title = _title_near(cid)
-        if not _title_is_tennis(title):
+        if not title or title.startswith("澎湃新闻 · 文章"):
             continue
         tags = _infer_tags(title, "", source)
+        if title_looks_like_tennis(title) and "网球" not in tags:
+            tags = ["网球", *tags]
         out.append(
             {
                 "source": source.name,
@@ -476,13 +462,12 @@ def _parse_thepaper_html(source: NewsSource, html: str, cap: int) -> list[dict[s
                 "url": full,
                 "image_url": "",
                 "tags_csv": ",".join(tags),
-                "published_at": _to_iso(_utc_now()),
-                "ingested_at": _to_iso(_utc_now()),
+                "published_at": now_iso,
+                "ingested_at": now_iso,
             }
         )
-        if len(out) >= cap:
-            break
-    return out
+    out.sort(key=lambda row: (0 if title_looks_like_tennis(row["title"]) else 1))
+    return out[: max(1, int(cap))]
 
 
 def _parse_tennis_com_all_news_html(source: NewsSource, html: str, cap: int) -> list[dict[str, Any]]:
@@ -801,12 +786,6 @@ def ingest_news(limit_per_source: int = 20) -> dict[str, Any]:
                 _circuit_record_fail(conn, key, started, str(exc))
                 continue
             if not rows:
-                parser = (source.parser or "").strip().lower()
-                if parser == "thepaper_list":
-                    logger.info("ingest %s: 本页无网球标题，记成功 0 条", source.name)
-                    touched_sources.append(source.name)
-                    _circuit_record_ok(conn, key, started)
-                    continue
                 msg = "no rows parsed"
                 failed_sources.append({"source": source.name, "error": msg})
                 _circuit_record_fail(conn, key, started, msg)

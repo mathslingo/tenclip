@@ -9,7 +9,7 @@
 | 阶段 | 做什么 | 验收 |
 | --- | --- | --- |
 | **P0a 源清单** | 海外源（BBC/ATP/WTA/ESPN/Tennis.com/Google）默认 `enabled=false`；保留 Live Tennis CN + 澎湃 | 单次 ingest 不再空等 6 个超时源 |
-| **P0b 澎湃过滤** | 标题须匹配网球关键词；丢掉「澎湃新闻 · 文章 {id}」 | 新入库偏网球；足球篮球不再进库 |
+| **P0b 澎湃** | 只抓运动家体育列表；**网球标题排前**，其它体育仍入库；丢掉占位标题 | 发现页网球在前，篮球足球可垫后 |
 | **P0c upsert** | 标题/摘要/图未变则 **不刷新** `ingested_at` / `published_at`；run 记录区分 inserted / updated / unchanged | 推荐新鲜度不再被重复抓取刷歪 |
 | **P0d 熔断** | 表 `news_source_circuit`：连续失败 ≥5 则跳过 6 小时 | 偶发失败不拖死后续 run |
 | **P0e 健康** | `/api/mobile/health` 增加 `news_last_ingest_at`、`news_articles`、`news_ingest_stale` | 停更一眼能看出来 |
@@ -29,7 +29,7 @@ P0/P1 已写入代码与 `scripts/deploy/tenclip-news-ingest.{service,timer}`。
 | 能力 | 实现 |
 |------|------|
 | 抓取 | `services/news_feed.py` → `ingest_news()` |
-| 来源 | `config/news_sources.json`：**默认只开** Live Tennis CN + 澎湃（网球标题过滤）；海外源 `enabled=false` |
+| 来源 | `config/news_sources.json`：**默认只开** Live Tennis CN + 澎湃运动家（体育入库、网球置顶）；海外源 `enabled=false` |
 | 存储 | SQLite `data/news_feed.db` 表 `news_articles`（唯一键 `url`，可重复抓取更新） |
 | 任务记录 | 表 `news_ingest_runs` |
 | API | `POST /api/news/ingest`，`GET /api/news/feed` |
@@ -105,7 +105,7 @@ NEWS_CRON_SCHEDULE='0 */2 * * *' bash scripts/install_news_cron.sh
 2. 本地调试：`LOCAL_DEV = true`，`LOCAL_API_HOST` 指向本机/WSL
 3. 微信开发者工具勾选不校验合法域名
 4. 「我」页确认 Mock 关闭；发现页底部应显示「数据源：新闻库 · 本机库」
-5. **推荐排序**：`rec.recommend_news()` 对有封面、有效标题/摘要的条目加权，按 `score` 倒排；占位标题（如「澎湃新闻 · 文章 xxx」）降权
+5. **推荐排序**：先把标题/标签含网球的条目置顶，再按 `rec.recommend_news()` 的丰富度/时效打分；占位标题（如「澎湃新闻 · 文章 xxx」）不入库或降权
 6. **无图 mock**：客户端对空 `image_url` 按 id 稳定轮换网球主题 Unsplash 封面；加载失败同样回退 mock 图
 
 推荐代码目录：`rec/`（见 `rec/README.md`）。

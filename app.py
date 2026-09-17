@@ -64,6 +64,7 @@ from rec import (
     set_user_profile,
     suggest_tags,
 )
+from rec.tags import title_looks_like_tennis
 from services.social import init_social_db, list_notes, register_social_routes
 from services.wechat_auth import register_auth_routes
 from services.courts import init_courts_db, register_courts_routes
@@ -1242,7 +1243,16 @@ def create_app() -> FastAPI:
         if offset == 0:
             notes = list_notes(limit=min(12, limit))
             merged = notes + items
-            merged.sort(key=lambda x: float(x.get("score") or 0), reverse=True)
+            merged.sort(
+                key=lambda x: (
+                    1
+                    if title_looks_like_tennis(x.get("title") or "")
+                    or "网球" in (x.get("tags") or [])
+                    else 0,
+                    float(x.get("score") or 0),
+                ),
+                reverse=True,
+            )
             items = merged[:limit]
         return {"items": items, "next_offset": offset + len(items)}
 
