@@ -129,17 +129,17 @@
       姿态模型约 13.5MB；网球检测模型约 6–12MB（点「网球」按需加载，IndexedDB 缓存）。
       无网球 ONNX 时自动用 <strong>HSV 黄绿</strong>兜底。球速为单目平面估计（球直径标定）。
       「GPU」切换 WebGPU / CPU；「镜头」切换后置（默认，球场）/ 前置。
-      网球检测用上一帧球心 ROI（320）并与姿态并行；推理在 Worker 里跑。
-      Mac / iPhone 需 <strong>Safari 18+</strong> 才有 WebGPU。
-      可选 query：<code>?roi=0</code> <code>?worker=0</code> <code>?facing=user</code> <code>?tennisImgsz=320</code>
+      网球检测用上一帧球心 ROI（320）并与姿态并行。
+      iPhone / Safari 默认在<strong>主线程</strong>推理（更稳）；桌面 Chrome 用 Worker。
+      可选：<code>?worker=1</code> 强制 Worker，<code>?roi=0</code> <code>?facing=user</code> <code>?webgpu=0</code>
       导出：<code>conda activate mmpose_gpu</code> →
       <code>python export_onnx.py</code> /
       <code>python export_tennis_onnx.py</code>
     </p>
   </div>
 
-  <script src="./lib/ball_tracker.js"></script>
-  <script src="./lib/yolo_infer.js"></script>
-  <script src="./app.js"></script>
+  <script src="./lib/ball_tracker.js?v=20260918a"></script>
+  <script src="./lib/yolo_infer.js?v=20260918a"></script>
+  <script src="./app.js?v=20260918a"></script>
 </body>
 </html>

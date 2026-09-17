@@ -21,7 +21,7 @@ const cfg = {
   tennisRoiMax: 384,
   tennisRoiMissMax: 2,
   tennisRoi: qs.get("roi") !== "0",
-  useWorker: qs.get("worker") !== "0",
+  useWorker: false,
   confThresh: Number(qs.get("conf") || 0.25),
   tennisConf: Number(qs.get("tennisConf") || 0.2),
   kptThresh: 0.3,
@@ -40,6 +40,18 @@ const cfg = {
   facingKey: "tenclip-yolo-facing",
   camWidth: 960,
 };
+
+function preferWorker() {
+  var q = qs.get("worker");
+  if (q === "0") return false;
+  if (q === "1") return true;
+  var ua = navigator.userAgent || "";
+  // Safari / iOS：Dedicated Worker + ORT WebGPU/pthread 易失败，回退主线程（P0 前可用的路径）
+  if (/iPhone|iPad|iPod/i.test(ua)) return false;
+  if (/Safari/i.test(ua) && !/Chrome|Chromium|Android|Edg|OPR/i.test(ua)) return false;
+  return true;
+}
+cfg.useWorker = preferWorker();
 
 function engineCfg() {
   return {
@@ -111,7 +123,9 @@ let rafId = 0;
 let lastInferTs = 0;
 let inferBusy = false;
 let roiHint = { miss: 99 };
-let workerPending = null;
+let workerRpc = new Map();
+let workerRpcSeq = 1;
+let initPromise = null;
 
 const sourceCanvas = document.createElement("canvas");
 const sourceCtx = sourceCanvas.getContext("2d", { willReadFrequently: true });
@@ -274,34 +288,54 @@ function workerPost(payload, transfer) {
       reject(new Error("no worker"));
       return;
     }
-    workerPending = { resolve, reject };
+    const id = workerRpcSeq++;
+    payload.id = id;
+    const timer = setTimeout(() => {
+      if (!workerRpc.has(id)) return;
+      workerRpc.delete(id);
+      reject(new Error("Worker 超时（模型加载或推理）"));
+    }, 45000);
+    workerRpc.set(id, {
+      resolve: (msg) => {
+        clearTimeout(timer);
+        resolve(msg);
+      },
+      reject: (err) => {
+        clearTimeout(timer);
+        reject(err);
+      },
+    });
     inferWorker.postMessage(payload, transfer || []);
   });
+}
+
+function rejectAllWorker(err) {
+  workerRpc.forEach((p) => p.reject(err));
+  workerRpc.clear();
 }
 
 function attachWorker(w) {
   w.onmessage = (ev) => {
     const msg = ev.data || {};
+    const pending = msg.id != null ? workerRpc.get(msg.id) : null;
     if (msg.type === "error") {
-      if (workerPending) {
-        workerPending.reject(new Error(msg.message || "worker error"));
-        workerPending = null;
+      const err = new Error(msg.message || "worker error");
+      if (pending) {
+        workerRpc.delete(msg.id);
+        pending.reject(err);
       } else {
         setStatus("推理错误: " + (msg.message || ""));
       }
       return;
     }
     applyMeta(msg);
-    if (workerPending) {
-      workerPending.resolve(msg);
-      workerPending = null;
+    if (pending) {
+      workerRpc.delete(msg.id);
+      pending.resolve(msg);
     }
   };
   w.onerror = (ev) => {
-    if (workerPending) {
-      workerPending.reject(ev.error || new Error(ev.message || "worker error"));
-      workerPending = null;
-    }
+    rejectAllWorker(ev.error || new Error(ev.message || "worker error"));
   };
 }
 
@@ -324,7 +358,7 @@ async function initInference() {
   setStatus("创建推理会话…");
   if (cfg.useWorker && typeof Worker !== "undefined") {
     try {
-      inferWorker = new Worker("./lib/infer.worker.js");
+      inferWorker = new Worker("./lib/infer.worker.js?v=20260918a");
       attachWorker(inferWorker);
       await workerPost({
         type: "init",
@@ -341,6 +375,7 @@ async function initInference() {
       return;
     } catch (e) {
       console.warn("Worker 不可用，回退主线程", e);
+      rejectAllWorker(e);
       if (inferWorker) {
         try {
           inferWorker.terminate();
@@ -356,6 +391,16 @@ async function initInference() {
       (gpuNote ? " · " + gpuNote : "") +
       "）。可开摄像头；点「网球」加载球检测"
   );
+}
+
+function ensureInit() {
+  if (!initPromise) {
+    initPromise = initInference().catch((e) => {
+      initPromise = null;
+      throw e;
+    });
+  }
+  return initPromise;
 }
 
 async function loadTennisModel() {
@@ -607,6 +652,8 @@ function draw(source, persons, balls, trailState) {
 }
 
 async function runOnCanvas(src) {
+  await ensureInit();
+  if (!inferWorker && !localEngine) throw new Error("姿态模型未就绪");
   const tAll = performance.now();
   let result;
   let viaWorker = false;
@@ -682,23 +729,53 @@ function stopCamera() {
   els.camBtn.textContent = "开始摄像头";
 }
 
+async function openCameraStream() {
+  const tries = [
+    {
+      facingMode: { ideal: facingMode },
+      width: { ideal: cfg.camWidth },
+      height: { ideal: 540 },
+    },
+    { facingMode: { ideal: facingMode } },
+    { facingMode: facingMode },
+    { facingMode: { ideal: "user" } },
+    true,
+  ];
+  let last = null;
+  for (let i = 0; i < tries.length; i++) {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: false,
+        video: tries[i],
+      });
+      if (i >= 3 && facingMode !== "user") {
+        facingMode = "user";
+        try {
+          localStorage.setItem(cfg.facingKey, facingMode);
+        } catch (_) {}
+        syncFaceBtn();
+      }
+      return stream;
+    } catch (e) {
+      last = e;
+    }
+  }
+  throw last || new Error("getUserMedia 失败");
+}
+
 async function startCamera() {
   if (camRunning) {
     stopCamera();
     setStatus("摄像头已停止");
     return;
   }
-  if (!inferWorker && !localEngine) await initInference();
+  setStatus("准备摄像头与模型…");
+  await ensureInit();
+  if (!inferWorker && !localEngine) {
+    throw new Error("姿态模型未就绪");
+  }
 
-  stream = await navigator.mediaDevices.getUserMedia({
-    audio: false,
-    video: {
-      facingMode: { ideal: facingMode },
-      width: { ideal: cfg.camWidth, max: 1280 },
-      height: { ideal: 540, max: 720 },
-      frameRate: { ideal: cfg.maxFps, max: cfg.maxFps },
-    },
-  });
+  stream = await openCameraStream();
 
   const v = els.video;
   v.setAttribute("playsinline", "true");
@@ -742,7 +819,6 @@ function loop(ts) {
   inferCameraFrame().catch((e) => {
     console.error(e);
     setStatus("推理错误: " + (e.message || e));
-    stopCamera();
   });
 }
 
@@ -846,13 +922,13 @@ if (els.faceBtn) {
 syncTennisBtn();
 syncGpuBtn();
 syncFaceBtn();
-initInference()
+ensureInit()
   .then(syncGpuBtn)
   .catch((e) => {
     console.error(e);
     setStatus(
       "姿态模型未就绪: " +
         (e.message || e) +
-        " · conda activate mmpose_gpu && python export_onnx.py"
+        " · 请硬刷新；仍失败则试 ?webgpu=0"
     );
   });

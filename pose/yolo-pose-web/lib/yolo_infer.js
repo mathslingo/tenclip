@@ -61,9 +61,11 @@
       ort.env.wasm = ort.env.wasm || {};
       if (wasmPaths) ort.env.wasm.wasmPaths = wasmPaths;
       var isolated = typeof self !== "undefined" && !!self.crossOriginIsolated;
-      ort.env.wasm.numThreads = isolated
-        ? Math.max(1, Math.min(4, (navigator && navigator.hardwareConcurrency) || 1))
-        : 1;
+      // Worker 内开 pthread 会再 spwan Worker，Safari / COEP 下经常直接失败
+      ort.env.wasm.numThreads =
+        inWorker || !isolated
+          ? 1
+          : Math.max(1, Math.min(4, (navigator && navigator.hardwareConcurrency) || 1));
       ort.env.wasm.simd = true;
       // WebGPU 与 Worker 内不要开 wasm.proxy（嵌套 Worker 不稳定）
       ort.env.wasm.proxy = false;
@@ -390,7 +392,13 @@
 
     async function createSession(buf, size) {
       ensureOrtEnv();
-      if (backendPref === "gpu") {
+      var tryGpu = backendPref === "gpu";
+      // Safari Worker 里 WebGPU 常能 requestAdapter 却跑不了会话
+      if (inWorker && tryGpu) {
+        tryGpu = false;
+        gpuNote = "Worker 使用 WASM（主线程可开 WebGPU）";
+      }
+      if (tryGpu) {
         var probe = await probeWebGpu();
         if (probe.ok) {
           try {

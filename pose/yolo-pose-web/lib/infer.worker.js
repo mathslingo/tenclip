@@ -2,13 +2,14 @@
 importScripts("./ort/ort.webgpu.min.js");
 self.ort.env.wasm = self.ort.env.wasm || {};
 self.ort.env.wasm.wasmPaths = new URL("./ort/", self.location).href;
-importScripts("./yolo_infer.js");
+importScripts("./yolo_infer.js?v=20260918a");
 
 var wasmPaths = new URL("./ort/", self.location).href;
 var engine = null;
 var poseBuf = null;
 var tennisBuf = null;
 var tennisRoiBuf = null;
+var handleChain = Promise.resolve();
 
 function snapshotMeta() {
   return {
@@ -18,11 +19,21 @@ function snapshotMeta() {
   };
 }
 
+function reply(msg, extra) {
+  extra = extra || {};
+  extra.id = msg && msg.id;
+  extra.type = extra.type || "ok";
+  self.postMessage(Object.assign(extra, snapshotMeta()));
+}
+
 self.onmessage = function (ev) {
   var msg = ev.data || {};
-  handle(msg).catch(function (e) {
+  handleChain = handleChain.then(function () {
+    return handle(msg);
+  }).catch(function (e) {
     self.postMessage({
       type: "error",
+      id: msg.id,
       op: msg.type,
       message: String((e && e.message) || e),
     });
@@ -37,7 +48,7 @@ async function handle(msg) {
       inWorker: true,
     });
     await engine.loadPose(poseBuf, msg.backendPref);
-    self.postMessage(Object.assign({ type: "ready" }, snapshotMeta()));
+    reply(msg, { type: "ready" });
     return;
   }
 
@@ -47,9 +58,7 @@ async function handle(msg) {
     tennisBuf = msg.tennisBuf || null;
     tennisRoiBuf = msg.tennisRoiBuf || null;
     var ok = await engine.loadTennis(tennisBuf, tennisRoiBuf);
-    self.postMessage(
-      Object.assign({ type: "tennis-ready", onnx: ok }, snapshotMeta())
-    );
+    reply(msg, { type: "tennis-ready", onnx: ok });
     return;
   }
 
@@ -57,7 +66,7 @@ async function handle(msg) {
     engine.dropTennis();
     tennisBuf = null;
     tennisRoiBuf = null;
-    self.postMessage(Object.assign({ type: "tennis-dropped" }, snapshotMeta()));
+    reply(msg, { type: "tennis-dropped" });
     return;
   }
 
@@ -66,7 +75,7 @@ async function handle(msg) {
     if (msg.tennisBuf) tennisBuf = msg.tennisBuf;
     if (msg.tennisRoiBuf) tennisRoiBuf = msg.tennisRoiBuf;
     await engine.rebuild(msg.backendPref, poseBuf, tennisBuf, tennisRoiBuf);
-    self.postMessage(Object.assign({ type: "ready" }, snapshotMeta()));
+    reply(msg, { type: "ready" });
     return;
   }
 
@@ -78,7 +87,7 @@ async function handle(msg) {
         src.close();
       } catch (_) {}
     }
-    self.postMessage({ type: "result", result: result });
+    reply(msg, { type: "result", result: result });
     return;
   }
 
