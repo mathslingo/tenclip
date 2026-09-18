@@ -13,14 +13,14 @@
 | **P0c upsert** | 标题/摘要/图未变则 **不刷新** `ingested_at` / `published_at`；run 记录区分 inserted / updated / unchanged | 推荐新鲜度不再被重复抓取刷歪 |
 | **P0d 熔断** | 表 `news_source_circuit`：连续失败 ≥5 则跳过 6 小时 | 偶发失败不拖死后续 run |
 | **P0e 健康** | `/api/mobile/health` 增加 `news_last_ingest_at`、`news_articles`、`news_ingest_stale` | 停更一眼能看出来 |
-| **P0f 调度** | **systemd timer 每 2 小时**（替代 30 分钟 cron）；`limit_per_source=20` | `systemctl list-timers` 能看到下次触发 |
+| **P0f 调度** | **crontab 每 2 小时**（`0 */2 * * *` 调 `news_ingest_once.py`）；与 systemd timer **二选一**，勿双开 | `crontab -l` 能看到任务；health 不过期 |
 | **P1 补图** | 新文无封面时最多抓 5 条详情 `og:image`（短超时） | 无图率下降，不拖垮整次 ingest |
 
-**不在本次做：** 海外代理、无头浏览器打 ATP、迁 MySQL、把 ingest 拆成独立长期进程（timer oneshot 即可）。
+**不在本次做：** 海外代理、无头浏览器打 ATP、迁 MySQL、把 ingest 拆成独立长期进程。
 
 **频率：** 默认 2 小时。勿再装 `*/30` 空转。本地仍可用 `TENCLIP_NEWS_HOURLY_INGEST=1`（间隔默认 3600s，可 `TENCLIP_NEWS_INGEST_INTERVAL_SEC`）。
 
-P0/P1 已写入代码与 `scripts/deploy/tenclip-news-ingest.{service,timer}`。部署后 `systemctl enable --now tenclip-news-ingest.timer`。
+生产调度：**crontab**（2026-09-19 起）。systemd timer 单元仍留在 `scripts/deploy/` 作备选，本机已 `disable`，避免和 cron 双跑。
 
 ---
 
@@ -70,32 +70,38 @@ TENCLIP_NEWS_HOURLY_INGEST=1 GRADIO_SERVER_NAME=0.0.0.0 bash run-wsl.sh
 
 ---
 
-## 2. 定时任务（生产：每 2 小时）
+## 2. 定时任务（生产：crontab 每 2 小时）
 
-默认抓 `config/news_sources.json` **已启用**源（国内：Live Tennis CN、过滤后的澎湃）→ `data/news_feed.db`。海外源默认关闭。
+默认抓 `config/news_sources.json` **已启用**源（国内：Live Tennis CN、澎湃运动家）→ `data/news_feed.db`。海外源默认关闭。
 
-### 方式 A：systemd timer（本机推荐）
+### 方式 A：crontab（本机生产）
+
+```bash
+bash scripts/install_news_cron.sh
+crontab -l | grep news_ingest
+```
+
+默认：`0 */2 * * *`（0/2/4… 点）。日志：`data/logs/news_ingest.log`。  
+改周期：`NEWS_CRON_SCHEDULE='0 * * * *' bash scripts/install_news_cron.sh`
+
+HTTP 调已运行的 API（可选）：
+
+```bash
+TENCLIP_NEWS_INGEST_URL=http://127.0.0.1:7861 bash scripts/install_news_cron_http.sh
+```
+
+卸载：`bash scripts/uninstall_news_cron.sh`
+
+### 方式 B：systemd timer（备选，勿与 cron 同时开）
 
 ```bash
 sudo cp scripts/deploy/tenclip-news-ingest.service /etc/systemd/system/
 sudo cp scripts/deploy/tenclip-news-ingest.timer /etc/systemd/system/
 sudo systemctl daemon-reload
 sudo systemctl enable --now tenclip-news-ingest.timer
-systemctl list-timers tenclip-news-ingest.timer
-sudo systemctl start tenclip-news-ingest.service   # 立刻跑一次
 ```
 
-日志：`journalctl -u tenclip-news-ingest.service -n 50`
-
-### 方式 B：crontab（可选）
-
-```bash
-NEWS_CRON_SCHEDULE='0 */2 * * *' bash scripts/install_news_cron.sh
-# 或 HTTP：TENCLIP_NEWS_INGEST_URL=http://127.0.0.1:7861 NEWS_CRON_SCHEDULE='0 */2 * * *' bash scripts/install_news_cron_http.sh
-```
-
-卸载 cron：`bash scripts/uninstall_news_cron.sh`  
-卸载 timer：`sudo systemctl disable --now tenclip-news-ingest.timer`
+切到 cron 时先停 timer：`sudo systemctl disable --now tenclip-news-ingest.timer`
 
 ---
 
@@ -158,5 +164,5 @@ cd ~/code/tenclip
 ## 5. 云主机注意
 
 - 国内 ECS 默认只抓可达源；ATP 等 403 的源保持 `enabled=false`，有出口再开
-- 部署后 `systemctl enable --now tenclip-news-ingest.timer`，并 `curl -s -X POST http://127.0.0.1:7861/api/news/ingest?limit_per_source=20`
+- 部署后 `bash scripts/install_news_cron.sh`，并确认 `systemctl disable --now tenclip-news-ingest.timer`（避免双跑）
 - health：`curl -s http://127.0.0.1:7861/api/mobile/health` 看 `news_last_ingest_at` / `news_ingest_stale`

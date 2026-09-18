@@ -1,4 +1,7 @@
-# TenClip 新闻抓取 oneshot（由 timer 每 2 小时触发）
+# TenClip 新闻抓取 oneshot（备选：由 timer 触发）
+#
+# 生产默认用 crontab：bash scripts/install_news_cron.sh
+# 本 unit 仅作备选；与 cron 同时开会双跑。
 #
 #   sudo cp scripts/deploy/tenclip-news-ingest.service /etc/systemd/system/
 #   sudo cp scripts/deploy/tenclip-news-ingest.timer /etc/systemd/system/

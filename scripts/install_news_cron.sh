@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-# 安装新闻抓取 crontab（默认每 2 小时；生产更推荐 systemd timer）
+# 安装新闻抓取 crontab（默认每 2 小时）
 # 只抓 config/news_sources.json 已启用源 → data/news_feed.db
+# 若本机曾启用 tenclip-news-ingest.timer，请先 disable，避免双跑。
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
