@@ -112,7 +112,7 @@ sudo systemctl enable --now tenclip-news-ingest.timer
 2. 本地调试：`LOCAL_DEV = true`，`LOCAL_API_HOST` 指向本机/WSL
 3. 微信开发者工具勾选不校验合法域名
 4. 「我」页确认 Mock 关闭；发现页底部应显示「数据源：新闻库 · 本机库」
-5. **推荐排序**：先把标题/标签含网球的条目置顶，再按 `rec.recommend_news()` 的丰富度/时效打分；占位标题（如「澎湃新闻 · 文章 xxx」）不入库或降权
+5. **发现页排序**：默认按 `published_at` **时间倒序**（最新在前）；笔记与资讯混排。`recommend_news()` 仍保留作后续算法实验。
 6. **无图 mock**：客户端对空 `image_url` 按 id 稳定轮换网球主题 Unsplash 封面；加载失败同样回退 mock 图
 
 推荐代码目录：`rec/`（见 `rec/README.md`）。

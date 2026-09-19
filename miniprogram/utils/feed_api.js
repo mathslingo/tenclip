@@ -129,7 +129,7 @@ function fetchFeedPage(opts) {
   var tab = opts.tab || "推荐";
   var limit = opts.limit || 10;
   var offset = opts.offset || 0;
-  // 「推荐」严格跟服务端 score 分页；其它 tab 多取再按 channel 过滤
+  // 「推荐」跟服务端时间倒序分页；其它 tab 多取再按 channel 过滤
   var fetchLimit = tab === "推荐" ? limit : Math.max(limit * 4, 24);
   var q =
     "limit=" +
@@ -149,9 +149,10 @@ function fetchFeedPage(opts) {
         var list = body.items || [];
         if (!Array.isArray(list)) list = [];
         var mapped = list.map(mapApiItem);
-        // 防御：保证按推荐分倒序（服务端应已排好）
         mapped.sort(function (a, b) {
-          return (Number(b.score) || 0) - (Number(a.score) || 0);
+          var tb = Date.parse(b.published_at || "") || 0;
+          var ta = Date.parse(a.published_at || "") || 0;
+          return tb - ta;
         });
         var filtered = filterApiItemsByTab(mapped, tab);
         var pageItems =

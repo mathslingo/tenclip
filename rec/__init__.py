@@ -10,7 +10,7 @@ from __future__ import annotations
 from rec.catalog import backfill_rec_catalog, init_rec_catalog, list_rec_notes
 from rec.feedback import record_feedback
 from rec.profile import get_user_profile_tags, set_user_profile
-from rec.recommend import RecommendInput, recommend_news
+from rec.recommend import RecommendInput, home_feed, recommend_news
 from rec.tags import TAG_KEYWORDS, split_tags_csv, suggest_tags
 
 __all__ = [
@@ -18,6 +18,7 @@ __all__ = [
     "RecommendInput",
     "backfill_rec_catalog",
     "get_user_profile_tags",
+    "home_feed",
     "init_rec_catalog",
     "list_rec_notes",
     "record_feedback",

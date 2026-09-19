@@ -20,6 +20,65 @@ class RecommendInput:
     user_id: str | None = None
 
 
+def _published_ts(item: dict[str, Any]) -> float:
+    raw = item.get("published_at") or item.get("created_at") or 0
+    if isinstance(raw, (int, float)) and not isinstance(raw, bool):
+        v = float(raw)
+        if v > 1e12:
+            return v / 1000.0
+        if v > 1e8:
+            return v
+    try:
+        dt = datetime.fromisoformat(str(raw).replace("Z", "+00:00"))
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        return dt.timestamp()
+    except Exception:
+        return 0.0
+
+
+def _news_row_item(r: sqlite3.Row) -> dict[str, Any]:
+    art_tags = split_tags_csv(r["tags_csv"])
+    item = dict(r)
+    item["kind"] = "news"
+    item["tags"] = art_tags
+    return item
+
+
+def list_news_by_time(*, limit: int = 60, offset: int = 0) -> list[dict[str, Any]]:
+    from services.news_feed import DB_PATH, init_news_db
+
+    init_news_db()
+    limit = max(1, min(int(limit), 200))
+    offset = max(0, int(offset))
+    with sqlite3.connect(DB_PATH) as conn:
+        conn.row_factory = sqlite3.Row
+        rows = conn.execute(
+            """
+            SELECT id, source, source_domain, source_tier, title, summary, url,
+                   image_url, tags_csv, published_at, popularity
+            FROM news_articles
+            ORDER BY datetime(published_at) DESC
+            LIMIT ? OFFSET ?
+            """,
+            (limit, offset),
+        ).fetchall()
+    return [_news_row_item(r) for r in rows]
+
+
+def home_feed(*, limit: int = 20, offset: int = 0) -> list[dict[str, Any]]:
+    """发现页默认：用户笔记 + 资讯按 published_at 时间倒序。"""
+    from services.social import list_notes
+
+    limit = max(1, min(int(limit), 60))
+    offset = max(0, int(offset))
+    news = list_news_by_time(limit=400, offset=0)
+    notes = list_notes(limit=80, offset=0)
+    merged = news + notes
+    merged.sort(key=_published_ts, reverse=True)
+    return merged[offset : offset + limit]
+
+
 def recommend_news(inp: RecommendInput) -> list[dict[str, Any]]:
     from services.news_feed import DB_PATH, init_news_db
 

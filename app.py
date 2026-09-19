@@ -58,15 +58,13 @@ from services.news_feed import (
     news_ingest_health,
 )
 from rec import (
-    RecommendInput,
+    home_feed,
     record_feedback,
-    recommend_news,
     set_user_profile,
     suggest_tags,
 )
 from rec.catalog import backfill_rec_catalog, init_rec_catalog, list_rec_notes, rec_catalog_stats
-from rec.tags import title_looks_like_tennis
-from services.social import init_social_db, list_notes, register_social_routes
+from services.social import init_social_db, register_social_routes
 from services.wechat_auth import register_auth_routes
 from services.courts import init_courts_db, register_courts_routes
 
@@ -1241,29 +1239,7 @@ def create_app() -> FastAPI:
         offset: int = Query(0, ge=0),
     ):
         tag_list = [x.strip() for x in tags.split(",") if x.strip()]
-        items = recommend_news(
-            RecommendInput(
-                user_tags=tag_list,
-                limit=limit,
-                offset=offset,
-                user_id=user_id.strip() or None,
-            )
-        )
-        # 用户笔记混入发现流（推荐 tab 可见；赛事/教学由前端过滤）
-        if offset == 0:
-            notes = list_notes(limit=min(12, limit))
-            merged = notes + items
-            merged.sort(
-                key=lambda x: (
-                    1
-                    if title_looks_like_tennis(x.get("title") or "")
-                    or "网球" in (x.get("tags") or [])
-                    else 0,
-                    float(x.get("score") or 0),
-                ),
-                reverse=True,
-            )
-            items = merged[:limit]
+        items = home_feed(limit=limit, offset=offset)
         return {"items": items, "next_offset": offset + len(items)}
 
     @api.get("/api/rec/notes")
