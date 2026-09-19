@@ -12,6 +12,7 @@ rec/
   profile.py       # 用户兴趣标签
   feedback.py      # 点击/点赞等反馈 → popularity
   tags.py          # TAG_KEYWORDS / suggest_tags / split_tags_csv
+  catalog.py       # 全量笔记表 rec_notes.db，10 位 note_id（用户笔记+资讯）
   timeutil.py      # UTC 工具
 ```
 

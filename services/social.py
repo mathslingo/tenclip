@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import secrets
 import sqlite3
 import time
@@ -9,6 +10,8 @@ import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
+
+logger = logging.getLogger(__name__)
 
 from fastapi import File, Form, Header, HTTPException, Query, UploadFile
 from fastapi.staticfiles import StaticFiles
@@ -917,7 +920,15 @@ def create_note(
             ),
         )
         conn.commit()
-    return get_note(note_id) or {}
+    out = get_note(note_id) or {}
+    try:
+        from rec.catalog import upsert_user_note
+
+        rec_id = upsert_user_note(out)
+        out["rec_note_id"] = rec_id
+    except Exception:
+        logger.exception("sync rec catalog after create_note failed")
+    return out
 
 
 def get_note(note_id: str, viewer_id: str | None = None) -> dict[str, Any] | None:
@@ -1096,6 +1107,12 @@ def delete_note(note_id: str, user_id: str) -> bool:
             return False
         conn.execute("DELETE FROM notes WHERE id = ?", (nid,))
         conn.commit()
+    try:
+        from rec.catalog import mark_user_note_deleted
+
+        mark_user_note_deleted(nid)
+    except Exception:
+        logger.exception("mark rec catalog deleted failed")
     note_dir = NOTE_UPLOAD_DIR / nid
     if note_dir.exists():
         import shutil

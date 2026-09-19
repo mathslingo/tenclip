@@ -802,6 +802,12 @@ def ingest_news(limit_per_source: int = 20) -> dict[str, Any]:
                 else:
                     unchanged += 1
         conn.commit()
+    try:
+        from rec.catalog import sync_news_from_db
+
+        sync_news_from_db()
+    except Exception:
+        logger.exception("sync rec catalog after ingest_news failed")
     finished = _to_iso(_utc_now())
     result = {
         "inserted_or_updated": inserted + updated,

@@ -31,6 +31,7 @@
 | 抓取 | `services/news_feed.py` → `ingest_news()` |
 | 来源 | `config/news_sources.json`：**默认只开** Live Tennis CN + 澎湃运动家（体育入库、网球置顶）；海外源 `enabled=false` |
 | 存储 | SQLite `data/news_feed.db` 表 `news_articles`（唯一键 `url`，可重复抓取更新） |
+| 推荐目录 | `data/rec_notes.db` 表 `rec_notes`：用户笔记+资讯，统一 10 位 `note_id`（见 [unified_rec_notes.md](unified_rec_notes.md)） |
 | 任务记录 | 表 `news_ingest_runs` |
 | API | `POST /api/news/ingest`，`GET /api/news/feed` |
 | 管理后台 | `/admin/news-feed` |

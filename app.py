@@ -64,6 +64,7 @@ from rec import (
     set_user_profile,
     suggest_tags,
 )
+from rec.catalog import backfill_rec_catalog, init_rec_catalog, list_rec_notes, rec_catalog_stats
 from rec.tags import title_looks_like_tennis
 from services.social import init_social_db, list_notes, register_social_routes
 from services.wechat_auth import register_auth_routes
@@ -812,6 +813,11 @@ def create_app() -> FastAPI:
     init_stroke_db()
     init_social_db()
     init_courts_db()
+    init_rec_catalog()
+    try:
+        backfill_rec_catalog()
+    except Exception:
+        logging.exception("rec catalog backfill failed")
     _ensure_analysis_worker_started()
     ensure_stroke_worker_started()
     try:
@@ -841,6 +847,10 @@ def create_app() -> FastAPI:
         except Exception:
             logging.exception("news_ingest_health failed")
             payload["news_ingest_stale"] = True
+        try:
+            payload.update(rec_catalog_stats())
+        except Exception:
+            logging.exception("rec_catalog_stats failed")
         return payload
 
     def _pose_upstream() -> str:
@@ -1255,6 +1265,14 @@ def create_app() -> FastAPI:
             )
             items = merged[:limit]
         return {"items": items, "next_offset": offset + len(items)}
+
+    @api.get("/api/rec/notes")
+    def rec_notes_catalog(
+        limit: int = Query(30, ge=1, le=100),
+        offset: int = Query(0, ge=0),
+        kind: str = Query("", description="user_note | news，空为全部"),
+    ):
+        return list_rec_notes(limit=limit, offset=offset, kind=kind)
 
     @api.get("/api/news/admin/overview")
     def news_admin_overview():
