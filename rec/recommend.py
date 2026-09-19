@@ -76,7 +76,10 @@ def home_feed(*, limit: int = 20, offset: int = 0) -> list[dict[str, Any]]:
     notes = list_notes(limit=80, offset=0)
     merged = news + notes
     merged.sort(key=_published_ts, reverse=True)
-    return merged[offset : offset + limit]
+    page = merged[offset : offset + limit]
+    for it in page:
+        it["score"] = round(_published_ts(it), 3)
+    return page
 
 
 def recommend_news(inp: RecommendInput) -> list[dict[str, Any]]:

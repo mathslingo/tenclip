@@ -64,7 +64,7 @@ function mapApiItem(row) {
   if (row && (row.kind === "note" || String(row.id).indexOf("note-") === 0)) {
     var note = normalizeNote(row);
     note.channel = "推荐";
-    note.score = row.score != null ? Number(row.score) : 160;
+    note.score = row.score != null ? Number(row.score) : Date.parse(note.published_at || "") || 0;
     return note;
   }
   var channel = inferChannel(row);
