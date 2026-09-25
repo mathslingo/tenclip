@@ -1,4 +1,4 @@
-const slamBehavior = require("../../behaviors/slam");
+const slamBehavior = require("../../utils/config").slamBehavior;
 var courtData = require("../../utils/court_data");
 var courtApi = require("../../utils/court_api");
 

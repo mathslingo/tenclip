@@ -1,4 +1,4 @@
-const slamBehavior = require("../../behaviors/slam");
+const slamBehavior = require("../../utils/config").slamBehavior;
 const { LOCAL_DEV, POSE_API_BASE } = require("../../utils/config");
 
 Page({

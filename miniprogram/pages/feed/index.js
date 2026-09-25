@@ -1,4 +1,4 @@
-const slamBehavior = require("../../behaviors/slam");
+const slamBehavior = require("../../utils/config").slamBehavior;
 const { fetchFeedPage } = require("../../utils/feed_api");
 const { fetchUnreadCount } = require("../../utils/social_api");
 const { LOCAL_DEV } = require("../../utils/config");

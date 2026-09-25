@@ -260,6 +260,42 @@ var slamTheme = {
   setTheme: slamSetTheme,
 };
 
+var _slamBehavior = null;
+
+function getSlamBehavior() {
+  if (_slamBehavior) return _slamBehavior;
+  _slamBehavior = Behavior({
+    data: {
+      pageStyle: slamTheme.pageStyle(),
+      slamId: slamTheme.current().id,
+    },
+
+    lifetimes: {
+      attached: function () {
+        this.applySlamTheme();
+      },
+    },
+
+    pageLifetimes: {
+      show: function () {
+        this.applySlamTheme();
+      },
+    },
+
+    methods: {
+      applySlamTheme: function () {
+        var theme = slamTheme.current();
+        slamTheme.applyNav(theme);
+        var style = slamTheme.pageStyle(theme);
+        if (this.data.pageStyle !== style || this.data.slamId !== theme.id) {
+          this.setData({ pageStyle: style, slamId: theme.id });
+        }
+      },
+    },
+  });
+  return _slamBehavior;
+}
+
 module.exports = {
   API_BASE_URL,
   LOCAL_DEV,
@@ -297,4 +333,7 @@ module.exports = {
   domainWhitelistHint,
   isDomainListError,
   slamTheme,
+  get slamBehavior() {
+    return getSlamBehavior();
+  },
 };

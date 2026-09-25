@@ -1,4 +1,4 @@
-const slamBehavior = require("../../behaviors/slam");
+const slamBehavior = require("../../utils/config").slamBehavior;
 const { publishNote, upsertMe, fetchPublishLimits } = require("../../utils/social_api");
 const { requirePrivacyIfNeeded } = require("../../utils/api");
 const { isLoggedIn, requireLogin } = require("../../utils/auth_api");

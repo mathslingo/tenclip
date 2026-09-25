@@ -1,4 +1,4 @@
-const slamBehavior = require("../../behaviors/slam");
+const slamBehavior = require("../../utils/config").slamBehavior;
 const {
   POSE_ANALYZE_VIDEO_URL,
   POSE_ANALYZE_STATUS_URL,

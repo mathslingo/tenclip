@@ -1,4 +1,4 @@
-const slamBehavior = require("../../behaviors/slam");
+const slamBehavior = require("../../utils/config").slamBehavior;
 const { getProfile, saveProfile } = require("../../utils/me_store");
 const {
   upsertMe,
