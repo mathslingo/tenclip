@@ -1,0 +1,53 @@
+.page {
+  height: 100vh;
+  background: #f2f3f5;
+  box-sizing: border-box;
+}
+
+.card {
+  margin: 24rpx;
+  padding: 32rpx 28rpx 48rpx;
+  background: #fff;
+  border-radius: 20rpx;
+}
+
+.h1 {
+  display: block;
+  font-size: 36rpx;
+  font-weight: 700;
+  color: #0d3d32;
+  margin-bottom: 8rpx;
+}
+
+.meta {
+  display: block;
+  font-size: 22rpx;
+  color: #9aa3ad;
+  margin-bottom: 28rpx;
+}
+
+.h2 {
+  display: block;
+  margin-top: 32rpx;
+  margin-bottom: 10rpx;
+  font-size: 28rpx;
+  font-weight: 600;
+  color: #22303c;
+}
+
+.p,
+.li {
+  display: block;
+  font-size: 26rpx;
+  color: #415360;
+  line-height: 1.7;
+  margin-bottom: 8rpx;
+}
+
+.link {
+  display: block;
+  margin-top: 40rpx;
+  font-size: 26rpx;
+  color: #0a8f6d;
+  text-align: center;
+}

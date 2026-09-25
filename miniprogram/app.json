@@ -8,6 +8,8 @@
     "pages/settings/index",
     "pages/me/index",
     "pages/login/index",
+    "pages/legal-privacy/index",
+    "pages/legal-terms/index",
     "pages/court-detail/index",
     "pages/feed-detail/index",
     "pages/stroke-extract/index",
