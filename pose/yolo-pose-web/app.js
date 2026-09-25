@@ -118,6 +118,7 @@ let backendName = "wasm";
 let gpuNote = "";
 let facingMode = readFacing();
 let camRunning = false;
+let poseReady = false;
 let stream = null;
 let rafId = 0;
 let lastInferTs = 0;
@@ -358,7 +359,7 @@ async function initInference() {
   setStatus("创建推理会话…");
   if (cfg.useWorker && typeof Worker !== "undefined") {
     try {
-      inferWorker = new Worker("./lib/infer.worker.js?v=20260918c");
+      inferWorker = new Worker("./lib/infer.worker.js?v=20260925a");
       attachWorker(inferWorker);
       await workerPost({
         type: "init",
@@ -372,6 +373,7 @@ async function initInference() {
           (gpuNote ? " · " + gpuNote : "") +
           " · worker）。可开摄像头；点「网球」加载球检测"
       );
+      poseReady = true;
       return;
     } catch (e) {
       console.warn("Worker 不可用，回退主线程", e);
@@ -391,6 +393,7 @@ async function initInference() {
       (gpuNote ? " · " + gpuNote : "") +
       "）。可开摄像头；点「网球」加载球检测"
   );
+  poseReady = true;
 }
 
 function ensureInit() {
@@ -725,84 +728,100 @@ function stopCamera() {
     stream.getTracks().forEach((t) => t.stop());
     stream = null;
   }
-  els.video.srcObject = null;
+  if (els.video) {
+    els.video.srcObject = null;
+    els.video.classList.remove("is-live");
+  }
   els.camBtn.textContent = "开始摄像头";
 }
 
-async function openCameraStream() {
-  // 第一次调用必须尽量成功：约束越少越好（Safari 过约束会 OverconstrainedError）
-  const tries = [
-    { facingMode: { ideal: facingMode } },
-    { facingMode: facingMode },
-    true,
-    { facingMode: { ideal: "user" } },
-  ];
-  var last = null;
-  for (var i = 0; i < tries.length; i++) {
-    try {
-      var s = await navigator.mediaDevices.getUserMedia({
-        audio: false,
-        video: tries[i],
-      });
-      if (i >= 3 && facingMode !== "user") {
-        facingMode = "user";
-        try {
-          localStorage.setItem(cfg.facingKey, facingMode);
-        } catch (_) {}
-        syncFaceBtn();
-      }
-      return s;
-    } catch (e) {
-      last = e;
-    }
+function formatCamError(e) {
+  var name = (e && e.name) || "";
+  var msg = (e && e.message) || String(e || "getUserMedia 失败");
+  var ua = navigator.userAgent || "";
+  var hint = "";
+  if (/MicroMessenger/i.test(ua)) {
+    hint = "。微信内打不开网页摄像头，请复制链接到 Safari / 系统浏览器";
+  } else if (name === "NotAllowedError" || name === "PermissionDeniedError") {
+    hint = "。请点允许；若曾拒绝，到系统设置里打开 Safari 的摄像头";
+  } else if (name === "NotFoundError" || name === "OverconstrainedError") {
+    hint = "。没有可用镜头，点「镜头」换成前置后再试";
+  } else if (!window.isSecureContext) {
+    hint = "。必须用 HTTPS 打开";
   }
-  var msg = last ? last.name + ": " + last.message : "getUserMedia 失败";
-  throw new Error(msg);
+  return "摄像头失败: " + (name ? name + " " : "") + msg + hint;
 }
 
-async function startCamera() {
-  if (camRunning) {
-    stopCamera();
-    setStatus("摄像头已停止");
+/** 只在点击回调的同步栈里调用一次。失败后再 await 重试会丢掉 Safari 手势。 */
+function requestCameraStream() {
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    return Promise.reject(
+      new Error("当前浏览器不支持摄像头（请用 HTTPS 的 Safari / Chrome）")
+    );
+  }
+  return navigator.mediaDevices.getUserMedia({
+    audio: false,
+    video: { facingMode: { ideal: facingMode } },
+  });
+}
+
+function paintCameraPreview() {
+  var v = els.video;
+  if (!v || v.readyState < 2 || !v.videoWidth) return;
+  if (sourceCanvas.width !== v.videoWidth || sourceCanvas.height !== v.videoHeight) {
+    sourceCanvas.width = v.videoWidth;
+    sourceCanvas.height = v.videoHeight;
+  }
+  sourceCtx.drawImage(v, 0, 0, sourceCanvas.width, sourceCanvas.height);
+  var ctx = els.canvas.getContext("2d");
+  els.canvas.width = sourceCanvas.width;
+  els.canvas.height = sourceCanvas.height;
+  ctx.drawImage(sourceCanvas, 0, 0);
+}
+
+async function attachCameraStream(streamPromise) {
+  var media;
+  try {
+    media = await streamPromise;
+  } catch (e) {
+    console.error(e);
+    setStatus(formatCamError(e));
     return;
   }
-  // Safari：getUserMedia 必须在点击手势里立刻调用，不能先 await 加载模型
-  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-    throw new Error("当前浏览器不支持摄像头（请用 HTTPS 的 Safari / Chrome）");
-  }
-  setStatus("正在打开摄像头…");
-  stream = await openCameraStream();
-
-  const v = els.video;
+  stream = media;
+  var v = els.video;
+  v.muted = true;
+  v.defaultMuted = true;
+  v.playsInline = true;
   v.setAttribute("playsinline", "true");
   v.setAttribute("webkit-playsinline", "true");
-  v.muted = true;
-  v.playsInline = true;
-  v.srcObject = stream;
+  v.srcObject = media;
+  v.classList.add("is-live");
   try {
     await v.play();
   } catch (e) {
-    throw new Error("video.play 失败: " + (e.name || "") + " " + (e.message || e));
+    console.warn("video.play", e);
   }
-
   camRunning = true;
   els.camBtn.textContent = "停止摄像头";
-  setStatus("摄像头已打开，准备模型…");
-
-  try {
-    await ensureInit();
-  } catch (e) {
-    stopCamera();
-    throw e;
-  }
-  if (!inferWorker && !localEngine) {
-    stopCamera();
-    throw new Error("姿态模型未就绪");
-  }
-
-  setStatus("摄像头运行中（" + (facingMode === "user" ? "前置" : "后置") + "）…");
+  setStatus(
+    poseReady
+      ? "摄像头运行中（" + (facingMode === "user" ? "前置" : "后置") + "）…"
+      : "摄像头已打开，模型加载中…"
+  );
   lastInferTs = 0;
   loop();
+  ensureInit()
+    .then(function () {
+      if (!camRunning) return;
+      setStatus("摄像头运行中（" + (facingMode === "user" ? "前置" : "后置") + "）…");
+    })
+    .catch(function (e) {
+      console.error(e);
+      if (camRunning) {
+        setStatus("镜头已开，模型未就绪: " + (e.message || e) + " · 可试 ?webgpu=0");
+      }
+    });
 }
 
 async function inferCameraFrame() {
@@ -827,6 +846,10 @@ async function inferCameraFrame() {
 function loop(ts) {
   if (!camRunning) return;
   rafId = requestAnimationFrame(loop);
+  if (!poseReady || (!inferWorker && !localEngine)) {
+    if (!inferBusy) paintCameraPreview();
+    return;
+  }
   if (ts - lastInferTs < 1000 / cfg.maxFps) return;
   lastInferTs = ts;
   inferCameraFrame().catch((e) => {
@@ -857,23 +880,32 @@ async function runImageSource(img) {
   await runOnCanvas(sourceCanvas);
 }
 
-async function toggleFacing() {
+function toggleFacing() {
   facingMode = facingMode === "user" ? "environment" : "user";
   try {
     localStorage.setItem(cfg.facingKey, facingMode);
   } catch (_) {}
   syncFaceBtn();
-  if (camRunning) {
-    stopCamera();
-    await startCamera();
-  }
+  if (!camRunning) return;
+  // 新的点击手势里同步申请，避免停掉后再 await
+  var next = requestCameraStream();
+  stopCamera();
+  setStatus("正在切换镜头…");
+  attachCameraStream(next);
 }
 
-els.camBtn.addEventListener("click", () => {
-  startCamera().catch((e) => {
-    console.error(e);
-    setStatus("摄像头失败: " + (e.message || e));
-  });
+els.camBtn.addEventListener("click", function () {
+  if (camRunning) {
+    stopCamera();
+    setStatus("摄像头已停止");
+    return;
+  }
+  setStatus("正在打开摄像头…");
+  try {
+    attachCameraStream(requestCameraStream());
+  } catch (e) {
+    setStatus(formatCamError(e));
+  }
 });
 
 els.pickBtn.addEventListener("click", () => els.fileInput.click());
@@ -928,7 +960,11 @@ els.gpuBtn.addEventListener("click", () => {
 
 if (els.faceBtn) {
   els.faceBtn.addEventListener("click", () => {
-    toggleFacing().catch((e) => setStatus("切换镜头失败: " + (e.message || e)));
+    try {
+      toggleFacing();
+    } catch (e) {
+      setStatus("切换镜头失败: " + (e.message || e));
+    }
   });
 }
 

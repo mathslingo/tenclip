@@ -73,20 +73,35 @@
       min-height: 1.4em;
     }
     .stage {
+      position: relative;
       width: 100%;
-      background: #f3f3f3;
+      background: #111;
       border-radius: 4px;
       overflow: hidden;
       line-height: 0;
+      min-height: 180px;
     }
     #canvas {
       display: block;
       width: 100%;
       height: auto;
-      background: #111;
+      background: transparent;
       min-height: 180px;
     }
-    video { display: none; }
+    /* 不能 display:none：iOS 会拒绝 play()，看起来像打不开摄像头 */
+    #video {
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      background: #111;
+      opacity: 0.02;
+      pointer-events: none;
+    }
+    #video.is-live { opacity: 1; z-index: 0; }
+    #canvas { position: relative; z-index: 1; background: transparent; }
     .tips {
       margin-top: 14px;
       font-size: 0.82rem;
@@ -125,7 +140,7 @@
     </div>
 
     <p class="tips">
-      iPhone Safari：请用 <strong>HTTPS</strong>（或本机 localhost）。须点击「开始摄像头」授权。
+      iPhone 请用 <strong>Safari + HTTPS</strong> 打开。微信内置浏览器通常不能开摄像头。须点击「开始摄像头」并允许权限。
       姿态模型约 13.5MB；网球检测模型约 6–12MB（点「网球」按需加载，IndexedDB 缓存）。
       无网球 ONNX 时自动用 <strong>HSV 黄绿</strong>兜底。球速为单目平面估计（球直径标定）。
       「GPU」切换 WebGPU / CPU；「镜头」切换后置（默认，球场）/ 前置。
@@ -138,8 +153,8 @@
     </p>
   </div>
 
-  <script src="./lib/ball_tracker.js?v=20260918c"></script>
-  <script src="./lib/yolo_infer.js?v=20260918c"></script>
-  <script src="./app.js?v=20260918c"></script>
+  <script src="./lib/ball_tracker.js?v=20260925a"></script>
+  <script src="./lib/yolo_infer.js?v=20260925a"></script>
+  <script src="./app.js?v=20260925a"></script>
 </body>
 </html>
