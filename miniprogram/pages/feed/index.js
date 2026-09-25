@@ -39,7 +39,9 @@ Page({
   refreshUnread() {
     fetchUnreadCount()
       .then((count) => this.setData({ unreadCount: count || 0 }))
-      .catch(() => {});
+      .catch(() => {
+        this.setData({ unreadCount: 0 });
+      });
   },
 
   onGoMessages() {
