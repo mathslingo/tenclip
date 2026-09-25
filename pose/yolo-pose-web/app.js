@@ -71,14 +71,10 @@ function engineCfg() {
 }
 
 function readBackendPref() {
+  // WebGPU 在 Safari / 多会话下容易中途掉设备。默认 WASM；?webgpu=1 才启用。
   const q = qs.get("webgpu");
-  if (q === "0") return "cpu";
   if (q === "1") return "gpu";
-  try {
-    const v = localStorage.getItem(cfg.backendKey);
-    if (v === "cpu" || v === "gpu") return v;
-  } catch (_) {}
-  return "gpu";
+  return "cpu";
 }
 
 function readFacing() {
@@ -359,7 +355,7 @@ async function initInference() {
   setStatus("创建推理会话…");
   if (cfg.useWorker && typeof Worker !== "undefined") {
     try {
-      inferWorker = new Worker("./lib/infer.worker.js?v=20260925a");
+      inferWorker = new Worker("./lib/infer.worker.js?v=20260925b");
       attachWorker(inferWorker);
       await workerPost({
         type: "init",
@@ -367,13 +363,9 @@ async function initInference() {
         backendPref: backendPref,
         poseBuf: poseBuf,
       });
-      setStatus(
-        "姿态模型就绪（" +
-          backendName +
-          (gpuNote ? " · " + gpuNote : "") +
-          " · worker）。可开摄像头；点「网球」加载球检测"
-      );
+      await enableTennisByDefault();
       poseReady = true;
+      setStatus(readyStatus("worker"));
       return;
     } catch (e) {
       console.warn("Worker 不可用，回退主线程", e);
@@ -387,13 +379,36 @@ async function initInference() {
     }
   }
   await startLocalEngine();
-  setStatus(
-    "姿态模型就绪（" +
-      backendName +
-      (gpuNote ? " · " + gpuNote : "") +
-      "）。可开摄像头；点「网球」加载球检测"
-  );
+  await enableTennisByDefault();
   poseReady = true;
+  setStatus(readyStatus(""));
+}
+
+function readyStatus(extra) {
+  var tennisLabel =
+    tennisEnabled && tennisMode === "onnx"
+      ? "网球检测已开"
+      : tennisEnabled
+        ? "网球 " + (tennisMode || "开")
+        : "网球未开";
+  return (
+    "就绪（" +
+    backendName +
+    (gpuNote ? " · " + gpuNote : "") +
+    (extra ? " · " + extra : "") +
+    " · " +
+    tennisLabel +
+    "）。可开摄像头"
+  );
+}
+
+async function enableTennisByDefault() {
+  tennisEnabled = true;
+  syncTennisBtn();
+  setStatus("加载网球检测…");
+  await loadTennisModel();
+  syncTennisBtn();
+  syncGpuBtn();
 }
 
 function ensureInit() {
@@ -843,6 +858,44 @@ async function inferCameraFrame() {
   }
 }
 
+let gpuFallbackOnce = false;
+
+async function fallbackToCpu(reason) {
+  if (gpuFallbackOnce || backendPref !== "gpu") return;
+  gpuFallbackOnce = true;
+  backendPref = "cpu";
+  try {
+    localStorage.setItem(cfg.backendKey, "cpu");
+  } catch (_) {}
+  setStatus("WebGPU 中断，改用 CPU…");
+  try {
+    if (inferWorker) {
+      await workerPost({
+        type: "rebuild",
+        backendPref: "cpu",
+        poseBuf: poseBuf,
+        tennisBuf: tennisEnabled ? tennisBuf : null,
+        tennisRoiBuf: tennisEnabled ? tennisRoiBuf : null,
+      });
+    } else if (localEngine) {
+      await localEngine.rebuild(
+        "cpu",
+        poseBuf,
+        tennisEnabled ? tennisBuf : null,
+        tennisEnabled ? tennisRoiBuf : null
+      );
+      applyMeta({
+        backendName: localEngine.backendName,
+        gpuNote: localEngine.gpuNote,
+        tennisMode: localEngine.tennisMode,
+      });
+    }
+    setStatus("已改用 CPU（" + (reason || "WebGPU 不稳定") + "）");
+  } catch (e) {
+    setStatus("切回 CPU 失败: " + (e.message || e));
+  }
+}
+
 function loop(ts) {
   if (!camRunning) return;
   rafId = requestAnimationFrame(loop);
@@ -854,7 +907,12 @@ function loop(ts) {
   lastInferTs = ts;
   inferCameraFrame().catch((e) => {
     console.error(e);
-    setStatus("推理错误: " + (e.message || e));
+    var msg = String((e && e.message) || e);
+    if (/webgpu|device lost|GPUDevice|out of memory/i.test(msg)) {
+      fallbackToCpu(msg).catch(function () {});
+      return;
+    }
+    setStatus("推理错误: " + msg);
   });
 }
 

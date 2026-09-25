@@ -46,7 +46,7 @@
     var poseInputName = "images";
     var tennisInputName = "images";
     var tennisMode = "off";
-    var backendPref = "gpu";
+    var backendPref = "cpu";
     var backendName = "wasm";
     var gpuNote = "";
     var gpuProbe = null;
