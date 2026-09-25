@@ -1,3 +1,4 @@
+const slamBehavior = require("../../behaviors/slam");
 var courtData = require("../../utils/court_data");
 var courtApi = require("../../utils/court_api");
 
@@ -26,6 +27,7 @@ function ensureBookingOptions(court) {
 }
 
 Page({
+  behaviors: [slamBehavior],
   data: {
     court: null,
     coverIndex: 0,

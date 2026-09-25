@@ -1,10 +1,13 @@
+const slamBehavior = require("../../behaviors/slam");
 const { APP_BUILD_TAG, FEED_USE_MOCK, API_BASE_URL, LOCAL_DEV } = require("../../utils/config");
 const { getProfile } = require("../../utils/me_store");
 const { isLoggedIn, requireLogin, logout, enterGuest } = require("../../utils/auth_api");
+const slam = require("../../utils/slam_theme");
 
 const MOCK_KEY = "tenclip_feed_use_mock";
 
 Page({
+  behaviors: [slamBehavior],
   data: {
     loggedIn: false,
     uid: "",
@@ -14,6 +17,7 @@ Page({
     buildTag: APP_BUILD_TAG,
     apiBase: API_BASE_URL,
     localDev: !!LOCAL_DEV,
+    slams: slam.THEMES,
   },
 
   onShow() {
@@ -33,6 +37,15 @@ Page({
       nickname: profile.nickname || "",
       devMode: !!(wx.getStorageSync("dev_mode") || false),
       feedUseMock: !!useMock,
+    });
+  },
+
+  onPickSlam(e) {
+    var id = e.currentTarget.dataset.id;
+    var theme = slam.setTheme(id);
+    this.setData({
+      slamId: theme.id,
+      pageStyle: slam.pageStyle(theme),
     });
   },
 

@@ -1,3 +1,4 @@
+const slamBehavior = require("../../behaviors/slam");
 const {
   getProfile,
   saveProfile,
@@ -50,6 +51,7 @@ function emptyCopy(tab) {
 }
 
 Page({
+  behaviors: [slamBehavior],
   data: {
     profile: getProfile(),
     avatarLetter: "U",

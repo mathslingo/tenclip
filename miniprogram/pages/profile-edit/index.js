@@ -1,3 +1,4 @@
+const slamBehavior = require("../../behaviors/slam");
 const { getProfile, saveProfile } = require("../../utils/me_store");
 const {
   upsertMe,
@@ -24,6 +25,7 @@ function indexOfOr(list, value) {
 }
 
 Page({
+  behaviors: [slamBehavior],
   data: {
     fromRegister: false,
     nickHint: "",

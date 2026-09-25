@@ -1,3 +1,4 @@
+<page-meta page-style="{{pageStyle}}" background-text-style="light" />
 <view class="msg-page">
   <view class="msg-list" wx:if="{{list.length}}">
     <view

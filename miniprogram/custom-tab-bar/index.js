@@ -1,6 +1,20 @@
+var slam = require("../utils/slam_theme");
+
+function themeData(theme) {
+  theme = theme || slam.current();
+  return {
+    barBg: theme.nav,
+    accent: theme.accent,
+    accentInk: theme.accentInk,
+    actionStyle: "background:" + theme.accent + ";color:" + theme.accentInk + ";",
+    activeStyle: "color:" + theme.accent + ";",
+  };
+}
+
 Component({
-  data: {
-    selected: 1,
+  data: Object.assign(
+    {
+      selected: 1,
     list: [
       { pagePath: "/pages/courts/index", text: "找球场", icon: "📍", type: "normal" },
       { pagePath: "/pages/feed/index", text: "发现", icon: "▣", type: "normal" },
@@ -8,13 +22,29 @@ Component({
       { pagePath: "/pages/analyze/index", text: "分析", icon: "◎", type: "normal" },
       { pagePath: "/pages/profile/index", text: "我的", icon: "👤", type: "normal" },
     ],
+    },
+    themeData()
+  ),
+
+  lifetimes: {
+    attached() {
+      this.applyTheme();
+      this.updateSelected();
+    },
   },
 
-  attached() {
-    this.updateSelected();
+  pageLifetimes: {
+    show() {
+      this.applyTheme();
+      this.updateSelected();
+    },
   },
 
   methods: {
+    applyTheme() {
+      this.setData(themeData());
+    },
+
     updateSelected() {
       var pages = getCurrentPages();
       var current = pages[pages.length - 1];

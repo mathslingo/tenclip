@@ -1,3 +1,4 @@
+<page-meta page-style="{{pageStyle}}" background-text-style="light" />
 <view class="live-page">
   <camera
     wx:if="{{!showResult}}"

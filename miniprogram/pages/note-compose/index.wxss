@@ -2,7 +2,7 @@
   min-height: 100vh;
   padding: 24rpx 24rpx calc(48rpx + env(safe-area-inset-bottom));
   box-sizing: border-box;
-  background: #f7f8fa;
+  background: transparent;
 }
 
 .card {

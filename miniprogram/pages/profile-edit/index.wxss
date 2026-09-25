@@ -2,7 +2,7 @@
   min-height: 100vh;
   padding: 24rpx;
   padding-bottom: calc(40rpx + env(safe-area-inset-bottom));
-  background: #f5f5f5;
+  background: transparent;
   box-sizing: border-box;
 }
 

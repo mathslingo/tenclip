@@ -1,3 +1,4 @@
+const slamBehavior = require("../../behaviors/slam");
 const {
   uploadAnalyzeSubmit,
   getAnalyzeTask,
@@ -48,6 +49,7 @@ const PROMPT_OPTIONS = [
 ];
 
 Page({
+  behaviors: [slamBehavior],
   data: {
     videoPath: "",
     videoSizeBytes: 0,

@@ -1,9 +1,11 @@
+const slamBehavior = require("../../behaviors/slam");
 const {
   fetchMessages,
   markAllMessagesRead,
 } = require("../../utils/social_api");
 
 Page({
+  behaviors: [slamBehavior],
   data: {
     list: [],
     loading: true,

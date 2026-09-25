@@ -1,6 +1,8 @@
+const slamBehavior = require("../../behaviors/slam");
 const cfg = require("../../utils/config");
 
 Page({
+  behaviors: [slamBehavior],
   data: {
     devMode: false,
     backendStatus: "检查中...",

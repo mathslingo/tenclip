@@ -1,3 +1,4 @@
+const slamBehavior = require("../../behaviors/slam");
 const {
   POSE_ANALYZE_VIDEO_URL,
   POSE_ANALYZE_STATUS_URL,
@@ -11,6 +12,7 @@ const { requirePrivacyIfNeeded } = require("../../utils/api");
 const MAX_RECORD_SEC = 8;
 
 Page({
+  behaviors: [slamBehavior],
   data: {
     devicePosition: "front",
     camReady: false,

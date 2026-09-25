@@ -1,3 +1,4 @@
+const slamBehavior = require("../../behaviors/slam");
 /**
  * RTMpose 实时姿态检测（新版本）
  * 
@@ -20,6 +21,7 @@ const { requirePrivacyIfNeeded } = require("../../utils/api");
 const INTERVAL_MS = 700; // CPU 上一帧约 0.5–1s，过密采集只会排队变卡
 
 Page({
+  behaviors: [slamBehavior],
   data: {
     // 摄像头配置
     devicePosition: "front",

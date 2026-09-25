@@ -1,7 +1,9 @@
+const slamBehavior = require("../../behaviors/slam");
 const { searchFeed } = require("../../utils/social_api");
 const { mapApiItem } = require("../../utils/feed_api");
 
 Page({
+  behaviors: [slamBehavior],
   data: {
     keyword: "",
     leftList: [],

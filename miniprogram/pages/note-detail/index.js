@@ -1,3 +1,4 @@
+const slamBehavior = require("../../behaviors/slam");
 const { getNote, deleteNote, follow, unfollow, fetchUser } = require("../../utils/social_api");
 const { getUserId } = require("../../utils/user_id");
 const { isLoggedIn, requireLogin } = require("../../utils/auth_api");
@@ -41,6 +42,7 @@ function formatCommentTime(ts) {
 }
 
 Page({
+  behaviors: [slamBehavior],
   data: {
     note: null,
     timeText: "",

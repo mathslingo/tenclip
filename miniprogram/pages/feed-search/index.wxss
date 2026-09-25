@@ -4,7 +4,7 @@
   padding: 0 12rpx calc(120rpx + env(safe-area-inset-bottom));
   min-height: 100vh;
   box-sizing: border-box;
-  background: #f5f5f5;
+  background: transparent;
 }
 
 .search-bar {

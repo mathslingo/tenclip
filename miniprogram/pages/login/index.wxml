@@ -1,3 +1,4 @@
+<page-meta page-style="{{pageStyle}}" background-text-style="light" />
 <view class="login-page">
   <view class="brand-area">
     <view class="brand-icon">🎾</view>

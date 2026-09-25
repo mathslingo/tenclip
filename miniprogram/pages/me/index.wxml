@@ -1,3 +1,4 @@
+<page-meta page-style="{{pageStyle}}" background-text-style="light" />
 <view class="me-page">
   <!-- 小红书式头图 + 身份区 -->
   <view class="profile-cover">

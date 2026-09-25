@@ -1,3 +1,4 @@
+const slamBehavior = require("../../behaviors/slam");
 const {
   fetchUser,
   listNotes,
@@ -54,6 +55,7 @@ function locationText(u) {
 }
 
 Page({
+  behaviors: [slamBehavior],
   data: {
     userId: "",
     user: null,

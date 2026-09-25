@@ -1,10 +1,11 @@
+<page-meta page-style="{{pageStyle}}" background-text-style="light" />
 <view class="courts-page">
 
   <!-- 搜索栏 -->
   <view class="search-bar">
     <view class="search-input-wrap">
       <text class="search-icon">🔍</text>
-      <input class="search-input" placeholder="搜索网球场名称"
+      <input class="search-input" placeholder="搜索网球场名称" placeholder-class="search-ph"
         value="{{searchKeyword}}" bindinput="onSearchInput" bindconfirm="onSearchConfirm" confirm-type="search" />
       <text wx:if="{{searchKeyword}}" class="search-clear" bindtap="onClearSearch">✕</text>
     </view>

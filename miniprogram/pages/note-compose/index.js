@@ -1,3 +1,4 @@
+const slamBehavior = require("../../behaviors/slam");
 const { publishNote, upsertMe, fetchPublishLimits } = require("../../utils/social_api");
 const { requirePrivacyIfNeeded } = require("../../utils/api");
 const { isLoggedIn, requireLogin } = require("../../utils/auth_api");
@@ -54,6 +55,7 @@ function eventAtFromPicker(range, value) {
 }
 
 Page({
+  behaviors: [slamBehavior],
   data: {
     title: "",
     body: "",

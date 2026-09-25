@@ -1,3 +1,4 @@
+const slamBehavior = require("../../behaviors/slam");
 var courtData = require("../../utils/court_data");
 var courtApi = require("../../utils/court_api");
 
@@ -66,6 +67,7 @@ function toListItem(c, index) {
 }
 
 Page({
+  behaviors: [slamBehavior],
   data: {
     markers: [],
     scale: 13,

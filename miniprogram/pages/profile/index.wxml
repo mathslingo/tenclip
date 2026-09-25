@@ -1,3 +1,4 @@
+<page-meta page-style="{{pageStyle}}" background-text-style="light" />
 <view class="profile-page">
   <!-- 顶部绿色背景 -->
   <view class="profile-header">

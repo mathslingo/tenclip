@@ -2,9 +2,7 @@
   min-height: 100vh;
   box-sizing: border-box;
   padding: 0 32rpx calc(140rpx + env(safe-area-inset-bottom));
-  background:
-    radial-gradient(ellipse 120% 60% at 50% -10%, rgba(19, 216, 168, 0.16), transparent 55%),
-    linear-gradient(180deg, #f4fbf8 0%, #f7f8fa 42%, #f0f2f5 100%);
+  background: transparent;
   display: flex;
   flex-direction: column;
   justify-content: center;
@@ -23,7 +21,7 @@
   display: block;
   font-size: 44rpx;
   font-weight: 700;
-  color: #0d3d32;
+  color: var(--ink);
   letter-spacing: 1rpx;
 }
 
@@ -31,7 +29,7 @@
   display: block;
   margin-top: 10rpx;
   font-size: 26rpx;
-  color: #6e8580;
+  color: var(--muted);
   line-height: 1.4;
 }
 

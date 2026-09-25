@@ -1,3 +1,4 @@
+<page-meta page-style="{{pageStyle}}" background-text-style="light" />
 <view class="detail-page" wx:if="{{item}}">
   <view class="hero-cover">
     <image

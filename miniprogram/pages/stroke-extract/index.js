@@ -1,3 +1,4 @@
+const slamBehavior = require("../../behaviors/slam");
 const {
   uploadStrokeExtract,
   getStrokeTask,
@@ -38,6 +39,7 @@ const STATUS_LABEL = {
 const DETECT_MODE = "spike";
 
 Page({
+  behaviors: [slamBehavior],
   data: {
     videoPath: "",
     videoSizeBytes: 0,

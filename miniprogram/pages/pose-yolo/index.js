@@ -1,3 +1,4 @@
+const slamBehavior = require("../../behaviors/slam");
 /**
  * 小程序原生 YOLO Pose（实验）
  * camera + wx.createInferenceSession(ONNX) + 本地 letterbox/NMS
@@ -27,6 +28,7 @@ const INPUT_NAME = "images";
 const OUTPUT_NAME = "output0";
 
 Page({
+  behaviors: [slamBehavior],
   data: {
     devicePosition: "front",
     camReady: false,

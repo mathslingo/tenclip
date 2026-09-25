@@ -1,6 +1,8 @@
+const slamBehavior = require("../../behaviors/slam");
 const { LOCAL_DEV, POSE_API_BASE } = require("../../utils/config");
 
 Page({
+  behaviors: [slamBehavior],
   data: {
     poseApi: POSE_API_BASE,
     localDev: LOCAL_DEV,

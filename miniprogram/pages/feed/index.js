@@ -1,3 +1,4 @@
+const slamBehavior = require("../../behaviors/slam");
 const { fetchFeedPage } = require("../../utils/feed_api");
 const { fetchUnreadCount } = require("../../utils/social_api");
 const { LOCAL_DEV } = require("../../utils/config");
@@ -6,6 +7,7 @@ const { FALLBACK_COVER } = require("../../utils/feed_mock");
 const PAGE_SIZE = 6;
 
 Page({
+  behaviors: [slamBehavior],
   data: {
     topTabs: ["推荐", "赛事", "教学"],
     activeTab: "推荐",

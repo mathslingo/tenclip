@@ -8,9 +8,11 @@ const {
 } = require("./utils/config");
 const { pingHealth } = require("./utils/api");
 const { isLoggedIn, clearSession, fetchMe } = require("./utils/auth_api");
+const slam = require("./utils/slam_theme");
 
 App({
   onLaunch() {
+    slam.applyNav();
     if (typeof wx.onNeedPrivacyAuthorization === "function") {
       wx.onNeedPrivacyAuthorization(function (resolve) {
         wx.showModal({

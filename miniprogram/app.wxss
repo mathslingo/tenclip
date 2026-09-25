@@ -1,11 +1,26 @@
 page {
-  --bg: #f2f3f5;
-  --card: #ffffff;
-  --text: #151821;
-  --sub: #6e7582;
+  --court-a: #0c3b2e;
+  --court-b: #145c40;
+  --line: #9dffe0;
+  --accent: #3dffb0;
+  --accent-ink: #042018;
+  --ink: #e8fff4;
+  --muted: #9dffe0;
+  --bg: var(--court-a);
+  --card: #f7fff9;
+  --text: #10221b;
+  --sub: #5c6b66;
   --mint: #baf5e8;
   --mint-deep: #13d8a8;
-  background: var(--bg);
+  background-color: var(--court-a);
+  background-image: linear-gradient(180deg, rgba(0, 0, 0, 0.08), rgba(0, 0, 0, 0.22)),
+    repeating-linear-gradient(
+      90deg,
+      var(--court-a) 0,
+      var(--court-a) 22px,
+      var(--court-b) 22px,
+      var(--court-b) 24px
+    );
   color: var(--text);
   font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Helvetica Neue", Arial, sans-serif;
   font-size: 28rpx;

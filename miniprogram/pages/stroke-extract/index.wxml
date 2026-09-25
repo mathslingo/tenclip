@@ -1,3 +1,4 @@
+<page-meta page-style="{{pageStyle}}" background-text-style="light" />
 <view class="page">
   <view class="hero">
     <text class="hero-title">UChance 击球剪辑</text>

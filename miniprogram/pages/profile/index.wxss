@@ -1,13 +1,9 @@
 @import "../../styles/common.wxss";
 
-page {
-  background: #f2f3f5;
-}
-
 .profile-page {
   min-height: 100vh;
   padding-bottom: calc(220rpx + env(safe-area-inset-bottom));
-  background: #f2f3f5;
+  background: transparent;
   box-sizing: border-box;
 }
 
@@ -15,7 +11,7 @@ page {
 .profile-header {
   position: relative;
   height: 140rpx;
-  background: linear-gradient(155deg, #1a5c4a 0%, #13d8a8 55%, #7ee0c8 100%);
+  background: transparent;
 }
 
 .header-actions {
@@ -217,14 +213,14 @@ page {
   position: relative;
   padding: 16rpx 0;
   font-size: 28rpx;
-  color: #6e7582;
+  color: var(--muted);
   display: flex;
   align-items: center;
   gap: 8rpx;
 }
 
 .content-tab.active {
-  color: #151821;
+  color: var(--ink);
   font-weight: 600;
 }
 
@@ -237,7 +233,7 @@ page {
   height: 6rpx;
   margin-left: -20rpx;
   border-radius: 3rpx;
-  background: #13d8a8;
+  background: var(--accent);
 }
 
 .tab-count {

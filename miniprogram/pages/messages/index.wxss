@@ -1,6 +1,6 @@
 .msg-page {
   min-height: 100vh;
-  background: #f5f5f5;
+  background: transparent;
   padding: 16rpx 0 calc(40rpx + env(safe-area-inset-bottom));
   box-sizing: border-box;
 }
@@ -83,6 +83,6 @@
 .loading {
   padding: 120rpx 0;
   text-align: center;
-  color: #999;
+  color: var(--ink);
   font-size: 28rpx;
 }

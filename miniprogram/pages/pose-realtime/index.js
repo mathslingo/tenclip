@@ -1,7 +1,9 @@
+const slamBehavior = require("../../behaviors/slam");
 const { WEB_POSE_URL } = require("../../utils/config");
 const { copyPoseLink } = require("../../utils/web_link");
 
 Page({
+  behaviors: [slamBehavior],
   data: {
     poseUrl: WEB_POSE_URL || "",
   },

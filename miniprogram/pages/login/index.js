@@ -1,3 +1,4 @@
+const slamBehavior = require("../../behaviors/slam");
 const {
   loginWithWechat,
   registerGuest,
@@ -10,6 +11,7 @@ const {
 } = require("../../utils/auth_api");
 
 Page({
+  behaviors: [slamBehavior],
   data: {
     loading: false,
     from: "",

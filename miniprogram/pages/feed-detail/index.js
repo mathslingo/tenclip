@@ -1,3 +1,4 @@
+const slamBehavior = require("../../behaviors/slam");
 const { getFeedItemById } = require("../../utils/feed_api");
 const { isLiked, isBookmarked, toggleLike, toggleBookmark } = require("../../utils/me_store");
 const { API_BASE_URL } = require("../../utils/config");
@@ -29,6 +30,7 @@ function formatCommentTime(ts) {
 }
 
 Page({
+  behaviors: [slamBehavior],
   data: {
     item: null,
     coverFailed: false,

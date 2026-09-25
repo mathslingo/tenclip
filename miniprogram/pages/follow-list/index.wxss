@@ -1,6 +1,6 @@
 .page {
   min-height: 100vh;
-  background: #f7f8fa;
+  background: transparent;
   padding-bottom: calc(48rpx + env(safe-area-inset-bottom));
 }
 

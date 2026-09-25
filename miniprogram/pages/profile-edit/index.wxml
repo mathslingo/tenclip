@@ -1,3 +1,4 @@
+<page-meta page-style="{{pageStyle}}" background-text-style="light" />
 <view class="edit-page">
   <view class="form-card">
     <view class="form-item avatar-row">

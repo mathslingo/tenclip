@@ -2,9 +2,7 @@
   min-height: 100vh;
   box-sizing: border-box;
   padding: 48rpx 40rpx calc(80rpx + env(safe-area-inset-bottom));
-  background:
-    radial-gradient(ellipse 120% 50% at 50% -8%, rgba(19, 216, 168, 0.14), transparent 55%),
-    #f7f8fa;
+  background: transparent;
 }
 
 .hero {
@@ -15,14 +13,14 @@
   display: block;
   font-size: 44rpx;
   font-weight: 700;
-  color: #0d3d32;
+  color: var(--ink);
 }
 
 .sub {
   display: block;
   margin-top: 12rpx;
   font-size: 26rpx;
-  color: #6e8580;
+  color: var(--muted);
   line-height: 1.4;
 }
 

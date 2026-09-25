@@ -1,3 +1,4 @@
+<page-meta page-style="{{pageStyle}}" background-text-style="light" />
 <view class="page" wx:if="{{user}}">
   <view class="hero">
     <view class="hero-glow"></view>

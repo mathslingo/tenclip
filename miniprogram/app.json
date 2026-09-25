@@ -27,16 +27,16 @@
   ],
   "window": {
     "navigationBarTitleText": "UChance",
-    "navigationBarBackgroundColor": "#ffffff",
-    "navigationBarTextStyle": "black",
-    "backgroundColor": "#f7f8fa",
-    "backgroundTextStyle": "dark"
+    "navigationBarBackgroundColor": "#0c3b2e",
+    "navigationBarTextStyle": "white",
+    "backgroundColor": "#0c3b2e",
+    "backgroundTextStyle": "light"
   },
   "tabBar": {
     "custom": true,
-    "color": "#8a8a8a",
-    "selectedColor": "#13d8a8",
-    "backgroundColor": "#ffffff",
+    "color": "#9dffe0",
+    "selectedColor": "#3dffb0",
+    "backgroundColor": "#0c3b2e",
     "borderStyle": "black",
     "list": [
       {

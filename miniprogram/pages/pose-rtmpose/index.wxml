@@ -1,3 +1,4 @@
+<page-meta page-style="{{pageStyle}}" background-text-style="light" />
 <view class="rtmpose-page">
   <!-- 摄像头实时预览 -->
   <camera

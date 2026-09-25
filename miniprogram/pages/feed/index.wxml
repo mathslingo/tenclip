@@ -1,3 +1,4 @@
+<page-meta page-style="{{pageStyle}}" background-text-style="light" />
 <!-- feed m0 -->
 <view class="feed-page">
   <view class="search-bar" bindtap="onGoSearch">

@@ -1,3 +1,4 @@
+<page-meta page-style="{{pageStyle}}" background-text-style="light" />
 <view class="search-page">
   <view class="search-bar">
     <text class="search-icon">🔍</text>

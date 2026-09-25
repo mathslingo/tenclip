@@ -1,3 +1,4 @@
+<page-meta page-style="{{pageStyle}}" background-text-style="light" />
 <web-view wx:if="{{url}}" src="{{url}}" binderror="onWebError" bindload="onWebLoad"></web-view>
 <view class="fallback" wx:else>
   <text class="fallback-title">无法加载检测页</text>

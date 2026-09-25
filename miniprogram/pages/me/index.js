@@ -1,3 +1,4 @@
+const slamBehavior = require("../../behaviors/slam");
 const { APP_BUILD_TAG, FEED_USE_MOCK, API_BASE_URL, LOCAL_DEV } = require("../../utils/config");
 const {
   getProfile,
@@ -73,6 +74,7 @@ function emptyCopy(tab) {
 }
 
 Page({
+  behaviors: [slamBehavior],
   data: {
     profile: getProfile(),
     avatarLetter: "U",

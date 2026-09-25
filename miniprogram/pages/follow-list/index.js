@@ -1,3 +1,4 @@
+const slamBehavior = require("../../behaviors/slam");
 const {
   fetchFollowList,
   follow,
@@ -9,6 +10,7 @@ const { getUserId } = require("../../utils/user_id");
 const { isLoggedIn, requireLogin } = require("../../utils/auth_api");
 
 Page({
+  behaviors: [slamBehavior],
   data: {
     kind: "following",
     userId: "",

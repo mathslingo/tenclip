@@ -1,6 +1,6 @@
 .detail-page {
   padding-bottom: calc(48rpx + env(safe-area-inset-bottom));
-  background: #f5f5f5;
+  background: transparent;
   min-height: 100vh;
 }
 

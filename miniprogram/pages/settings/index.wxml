@@ -1,4 +1,22 @@
+<page-meta page-style="{{pageStyle}}" background-text-style="light" />
 <view class="settings-page">
+  <view class="settings-card">
+    <text class="settings-title">球场风格</text>
+    <view class="slam-grid">
+      <view
+        wx:for="{{slams}}"
+        wx:key="id"
+        class="slam-chip {{slamId === item.id ? 'on' : ''}}"
+        style="background: {{item.swatch}};"
+        data-id="{{item.id}}"
+        bindtap="onPickSlam"
+      >
+        <text class="slam-name">{{item.name}}</text>
+        <text class="slam-hint">{{item.hint}}</text>
+      </view>
+    </view>
+  </view>
+
   <view class="settings-card">
     <text class="settings-title">账号</text>
     <view class="account-row" wx:if="{{loggedIn}}">
