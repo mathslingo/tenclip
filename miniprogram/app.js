@@ -5,10 +5,10 @@ const {
   LOCAL_DEV,
   domainWhitelistHint,
   isDomainListError,
+  slamTheme: slam,
 } = require("./utils/config");
 const { pingHealth } = require("./utils/api");
 const { isLoggedIn, clearSession, fetchMe } = require("./utils/auth_api");
-const slam = require("./utils/slam_theme");
 
 App({
   onLaunch() {

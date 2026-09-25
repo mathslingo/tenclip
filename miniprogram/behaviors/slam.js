@@ -1,4 +1,4 @@
-var slam = require("../utils/slam_theme");
+var slam = require("../utils/config").slamTheme;
 
 module.exports = Behavior({
   data: {
