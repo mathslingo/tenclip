@@ -15,6 +15,7 @@ from urllib.request import Request, urlopen
 VERSION = "1.20.1"
 BASE = f"https://cdn.jsdelivr.net/npm/onnxruntime-web@{VERSION}/dist/"
 FILES = [
+    "ort.wasm.min.js",
     "ort.webgpu.min.js",
     "ort-wasm-simd-threaded.jsep.wasm",
     "ort-wasm-simd-threaded.jsep.mjs",

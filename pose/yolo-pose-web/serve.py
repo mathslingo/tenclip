@@ -19,6 +19,16 @@ def main():
 
     mimetypes.add_type("application/javascript", ".mjs")
     mimetypes.add_type("application/wasm", ".wasm")
+    # Python 3.6 的 SimpleHTTPRequestHandler 用类上的 extensions_map，不看后来的 add_type
+    handler = SimpleHTTPRequestHandler
+    handler.extensions_map.update(
+        {
+            ".mjs": "application/javascript",
+            ".js": "application/javascript",
+            ".wasm": "application/wasm",
+            ".onnx": "application/octet-stream",
+        }
+    )
 
     httpd = ThreadingHTTPServer((args.bind, args.port), SimpleHTTPRequestHandler)
     print("yolo-pose-web http://%s:%s/" % (args.bind, args.port))

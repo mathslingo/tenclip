@@ -19,8 +19,17 @@
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-Proto $scheme;
-        add_header Cache-Control "public, max-age=60, must-revalidate" always;
+        add_header Cache-Control "public, max-age=300" always;
         # 不默认开 COOP/COEP：Safari 摄像头需保留用户手势；主线程 WebGPU 不依赖 SAB
+    }
+
+    location ^~ /yolo-pose/lib/ort/ {
+        proxy_pass http://127.0.0.1:8765/lib/ort/;
+        add_header Cache-Control "public, max-age=2592000, immutable" always;
+    }
+    location ^~ /yolo-pose/models/ {
+        proxy_pass http://127.0.0.1:8765/models/;
+        add_header Cache-Control "public, max-age=2592000, immutable" always;
     }
 
     # A) 若目录对 nginx 可读，可改用：

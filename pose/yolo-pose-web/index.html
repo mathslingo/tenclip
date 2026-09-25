@@ -10,23 +10,49 @@
     html, body {
       margin: 0;
       min-height: 100%;
-      background: #fff;
-      color: #111;
+      color: #e8fff4;
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
         "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
       -webkit-tap-highlight-color: transparent;
+      background:
+        linear-gradient(180deg, rgba(6, 24, 18, 0.2), rgba(6, 24, 18, 0.72)),
+        repeating-linear-gradient(
+          90deg,
+          #0c3b2e 0 46px,
+          #145c40 46px 48px
+        );
     }
     .wrap {
-      max-width: 720px;
+      max-width: 760px;
       margin: 0 auto;
-      padding: 14px 12px 28px;
+      padding: 16px 14px 32px;
+    }
+    .topbar {
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+    .eyebrow {
+      margin: 0 0 2px;
+      font-size: 0.72rem;
+      letter-spacing: 0.16em;
+      color: #9dffe0;
     }
     h1 {
-      margin: 4px 0 14px;
-      font-size: 1.45rem;
-      font-weight: 700;
-      letter-spacing: -0.02em;
-      line-height: 1.25;
+      margin: 0;
+      font-size: 1.7rem;
+      font-weight: 800;
+      letter-spacing: -0.03em;
+    }
+    .live-dot {
+      border: 1px solid rgba(157, 255, 224, 0.45);
+      border-radius: 999px;
+      padding: 6px 10px;
+      font-size: 0.78rem;
+      color: #d9fff2;
+      background: rgba(0, 0, 0, 0.25);
     }
     .actions {
       display: flex;
@@ -37,58 +63,75 @@
     .actions button {
       appearance: none;
       border: 0;
-      border-radius: 8px;
-      padding: 10px 12px;
+      border-radius: 999px;
+      padding: 10px 14px;
       font-size: 0.88rem;
-      font-weight: 600;
-      color: #fff;
-      background: #2f6bff;
+      font-weight: 700;
+      color: #042018;
+      background: #3dffb0;
       cursor: pointer;
       flex: 1 1 auto;
       min-width: calc(33% - 8px);
+      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.18);
+      transition: transform 0.12s ease, filter 0.12s ease;
     }
-    .actions button.secondary { background: #5a6a85; }
-    .actions button.tennis-off { background: #6b7280; }
-    .actions button.tennis-on { background: #16a34a; }
-    .actions button.accent { background: #ea580c; }
-    .actions button.gpu-off { background: #6b7280; }
-    .actions button.gpu-on { background: #7c3aed; }
-    .actions button.gpu-warn { background: #b45309; }
-    .actions button:active { opacity: 0.85; }
+    .actions button:active { transform: translateY(1px) scale(0.98); }
+    .actions button.secondary { background: #d7efe6; }
+    .actions button.tennis-off { background: #8aa399; color: #10221b; }
+    .actions button.tennis-on { background: #ffe14a; }
+    .actions button.accent { background: #ff8a3d; color: #2a1000; }
+    .actions button.gpu-off { background: #c9ddd4; color: #10221b; }
+    .actions button.gpu-on { background: #c4b5fd; }
+    .actions button.gpu-warn { background: #fdba74; }
     .actions button:disabled { opacity: 0.45; }
     #fileInput { display: none; }
-    #status {
+    .progress {
+      height: 8px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.16);
+      overflow: hidden;
+      margin: 0 0 6px;
+    }
+    .progress-bar {
+      height: 100%;
+      width: 0;
+      border-radius: inherit;
+      background: linear-gradient(90deg, #3dffb0, #ffe14a);
+      transition: width 0.15s linear;
+    }
+    #dlMeta, #status {
       margin: 0 0 4px;
-      font-size: 0.95rem;
+      font-size: 0.92rem;
       line-height: 1.4;
-      color: #222;
-      min-height: 1.4em;
+      color: #e7fff6;
+      min-height: 1.2em;
     }
     #metrics {
       margin: 0 0 10px;
-      font-size: 0.92rem;
+      font-size: 0.82rem;
       line-height: 1.4;
-      color: #1a7f37;
-      font-weight: 600;
-      min-height: 1.4em;
+      color: #b7f5dc;
+      min-height: 1.2em;
     }
     .stage {
       position: relative;
       width: 100%;
-      background: #111;
-      border-radius: 4px;
+      background: #07140f;
+      border-radius: 18px;
       overflow: hidden;
       line-height: 0;
-      min-height: 180px;
+      min-height: 220px;
+      box-shadow: 0 16px 40px rgba(0, 0, 0, 0.28);
     }
     #canvas {
       display: block;
       width: 100%;
       height: auto;
       background: transparent;
-      min-height: 180px;
+      min-height: 220px;
+      position: relative;
+      z-index: 1;
     }
-    /* 不能 display:none：iOS 会拒绝 play()，看起来像打不开摄像头 */
     #video {
       position: absolute;
       left: 0;
@@ -96,21 +139,51 @@
       width: 100%;
       height: 100%;
       object-fit: cover;
-      background: #111;
+      background: #07140f;
       opacity: 0.02;
       pointer-events: none;
     }
     #video.is-live { opacity: 1; z-index: 0; }
-    #canvas { position: relative; z-index: 1; background: transparent; }
+    .speed-plaque {
+      position: absolute;
+      z-index: 2;
+      right: 12px;
+      top: 12px;
+      min-width: 108px;
+      padding: 8px 12px 10px;
+      border-radius: 16px;
+      background: rgba(4, 16, 12, 0.72);
+      color: #fff;
+      text-align: right;
+      backdrop-filter: blur(8px);
+    }
+    .speed-plaque.pop { animation: pop 0.35s ease; }
+    .speed-num {
+      display: block;
+      font-size: 2.4rem;
+      font-weight: 800;
+      line-height: 1;
+      font-variant-numeric: tabular-nums;
+    }
+    .speed-unit {
+      font-size: 0.75rem;
+      letter-spacing: 0.08em;
+      color: #9dffe0;
+    }
+    @keyframes pop {
+      0% { transform: scale(1); }
+      40% { transform: scale(1.08); }
+      100% { transform: scale(1); }
+    }
     .tips {
       margin-top: 14px;
-      font-size: 0.82rem;
+      font-size: 0.8rem;
       line-height: 1.55;
-      color: #444;
+      color: #d5f7ea;
     }
     .tips code {
       font-size: 0.8em;
-      background: #f0f0f0;
+      background: rgba(0, 0, 0, 0.28);
       padding: 1px 4px;
       border-radius: 3px;
     }
@@ -118,7 +191,13 @@
 </head>
 <body>
   <div class="wrap">
-    <h1>YOLO Pose + Tennis · ONNX Runtime Web</h1>
+    <div class="topbar">
+      <div>
+        <p class="eyebrow">TENCLIP COURT</p>
+        <h1>网球测速</h1>
+      </div>
+      <div class="live-dot" id="liveDot">待命</div>
+    </div>
 
     <div class="actions">
       <button id="camBtn" type="button">开始摄像头</button>
@@ -131,10 +210,18 @@
     </div>
     <input id="fileInput" type="file" accept="image/*" />
 
+    <div class="progress" id="dlWrap" hidden>
+      <div class="progress-bar" id="dlBar"></div>
+    </div>
+    <p id="dlMeta"></p>
     <p id="status">正在加载姿态模型…</p>
     <p id="metrics"></p>
 
     <div class="stage">
+      <div class="speed-plaque" id="speedPlaque">
+        <span class="speed-num" id="speedNum">0</span>
+        <span class="speed-unit">KM/H</span>
+      </div>
       <video id="video" playsinline webkit-playsinline muted></video>
       <canvas id="canvas"></canvas>
     </div>
@@ -151,8 +238,8 @@
     </p>
   </div>
 
-  <script src="./lib/ball_tracker.js?v=20260925b"></script>
-  <script src="./lib/yolo_infer.js?v=20260925b"></script>
-  <script src="./app.js?v=20260925b"></script>
+  <script src="./lib/ball_tracker.js?v=20260925c"></script>
+  <script src="./lib/yolo_infer.js?v=20260925c"></script>
+  <script src="./app.js?v=20260925c"></script>
 </body>
 </html>

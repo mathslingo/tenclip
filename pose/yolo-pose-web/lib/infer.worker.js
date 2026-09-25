@@ -1,8 +1,8 @@
 /* eslint-disable no-undef */
-importScripts("./ort/ort.webgpu.min.js");
+importScripts("./ort/ort.wasm.min.js");
 self.ort.env.wasm = self.ort.env.wasm || {};
 self.ort.env.wasm.wasmPaths = new URL("./ort/", self.location).href;
-importScripts("./yolo_infer.js?v=20260918c");
+importScripts("./yolo_infer.js?v=20260925c");
 
 var wasmPaths = new URL("./ort/", self.location).href;
 var engine = null;

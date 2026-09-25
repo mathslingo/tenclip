@@ -45,6 +45,7 @@ function preferWorker() {
   var q = qs.get("worker");
   if (q === "0") return false;
   if (q === "1") return true;
+  if (qs.get("webgpu") === "1") return false;
   var ua = navigator.userAgent || "";
   // Safari / iOS：Dedicated Worker + ORT WebGPU/pthread 易失败，回退主线程（P0 前可用的路径）
   if (/iPhone|iPad|iPod/i.test(ua)) return false;
@@ -100,6 +101,12 @@ const els = {
   fileInput: document.getElementById("fileInput"),
   status: document.getElementById("status"),
   metrics: document.getElementById("metrics"),
+  dlWrap: document.getElementById("dlWrap"),
+  dlBar: document.getElementById("dlBar"),
+  dlMeta: document.getElementById("dlMeta"),
+  speedNum: document.getElementById("speedNum"),
+  speedPlaque: document.getElementById("speedPlaque"),
+  liveDot: document.getElementById("liveDot"),
 };
 
 let inferWorker = null;
@@ -130,6 +137,36 @@ const ballTracker = createBallTracker({ maxMiss: 12, matchPx: 90, smooth: 0.55 }
 
 function setStatus(msg) {
   els.status.textContent = msg;
+  if (els.liveDot && !camRunning) els.liveDot.textContent = "待命";
+}
+
+const dlState = {};
+
+function setDownloadProgress(name, got, total) {
+  dlState[name] = { got: got, total: total || 0 };
+  var gotSum = 0;
+  var totalSum = 0;
+  var keys = Object.keys(dlState);
+  for (var i = 0; i < keys.length; i++) {
+    gotSum += dlState[keys[i]].got;
+    totalSum += dlState[keys[i]].total;
+  }
+  if (els.dlWrap) els.dlWrap.hidden = false;
+  var pct = totalSum > 0 ? Math.min(100, Math.round((100 * gotSum) / totalSum)) : 8;
+  if (els.dlBar) els.dlBar.style.width = pct + "%";
+  if (els.dlMeta) {
+    els.dlMeta.textContent =
+      "模型 " +
+      (gotSum / 1048576).toFixed(1) +
+      (totalSum ? " / " + (totalSum / 1048576).toFixed(1) : "") +
+      " MB" +
+      (totalSum ? " · " + pct + "%" : "");
+  }
+}
+
+function hideDownloadProgress() {
+  if (els.dlWrap) els.dlWrap.hidden = true;
+  if (els.dlMeta) els.dlMeta.textContent = "";
 }
 
 function setMetrics(info) {
@@ -146,6 +183,17 @@ function setMetrics(info) {
   }
   if (info.speedKmh != null && info.tennis > 0) {
     parts.push("估速 " + Math.round(info.speedKmh) + " km/h");
+    if (els.speedNum) {
+      var kmh = Math.max(0, Math.round(info.speedKmh));
+      if (String(kmh) !== els.speedNum.textContent) {
+        els.speedNum.textContent = String(kmh);
+        if (els.speedPlaque) {
+          els.speedPlaque.classList.remove("pop");
+          void els.speedPlaque.offsetWidth;
+          els.speedPlaque.classList.add("pop");
+        }
+      }
+    }
   }
   if (info.poseMs != null) parts.push("推理 " + Math.round(info.poseMs) + "ms");
   if (info.usedRoi) parts.push("网球ROI");
@@ -246,16 +294,41 @@ async function idbPut(key, value) {
 
 async function fetchModelBuffer(url, idbKey) {
   const cacheKey = idbKey + "@" + url + "@" + cfg.imgsz;
+  const label = (url.split("/").pop() || url).replace(".onnx", "");
   try {
     const cached = await idbGet(cacheKey);
     if (cached instanceof ArrayBuffer && cached.byteLength > 1000) {
+      setDownloadProgress(label, cached.byteLength, cached.byteLength);
       return cached;
     }
   } catch (_) {}
-  setStatus("下载模型 " + url + " …");
+  setStatus("下载 " + label + " …");
   const res = await fetch(url);
   if (!res.ok) throw new Error("模型 HTTP " + res.status + " · " + url);
-  const buf = await res.arrayBuffer();
+  const total = Number(res.headers.get("Content-Length") || 0);
+  const reader = res.body && res.body.getReader ? res.body.getReader() : null;
+  let buf;
+  if (!reader) {
+    buf = await res.arrayBuffer();
+    setDownloadProgress(label, buf.byteLength, buf.byteLength);
+  } else {
+    const chunks = [];
+    let got = 0;
+    while (true) {
+      const step = await reader.read();
+      if (step.done) break;
+      chunks.push(step.value);
+      got += step.value.length;
+      setDownloadProgress(label, got, total);
+    }
+    buf = new Uint8Array(got);
+    let off = 0;
+    for (var i = 0; i < chunks.length; i++) {
+      buf.set(chunks[i], off);
+      off += chunks[i].length;
+    }
+    buf = buf.buffer;
+  }
   try {
     await idbPut(cacheKey, buf);
   } catch (_) {}
@@ -270,7 +343,9 @@ async function loadOrtScript() {
   if (window.ort) return;
   await new Promise((resolve, reject) => {
     const s = document.createElement("script");
-    s.src = "./lib/ort/ort.webgpu.min.js";
+    var gpuBuild = backendPref === "gpu";
+    s.src = gpuBuild ? "./lib/ort/ort.webgpu.min.js" : "./lib/ort/ort.wasm.min.js";
+    window.__ORT_WEBGPU__ = gpuBuild;
     s.onload = resolve;
     s.onerror = () => reject(new Error("无法加载本地 onnxruntime-web"));
     document.head.appendChild(s);
@@ -351,11 +426,17 @@ async function startLocalEngine() {
 }
 
 async function initInference() {
-  poseBuf = await fetchModelBuffer(cfg.modelUrl, cfg.idbKey);
+  const poseP = fetchModelBuffer(cfg.modelUrl, cfg.idbKey);
+  const tennisP = fetchModelBuffer(cfg.tennisModelUrl, cfg.tennisIdbKey);
+  const roiP = fetchModelBuffer(cfg.tennisRoiModelUrl, cfg.tennisRoiIdbKey).catch(function () {
+    return null;
+  });
+  poseBuf = await poseP;
+  const restP = Promise.all([tennisP, roiP]);
   setStatus("创建推理会话…");
   if (cfg.useWorker && typeof Worker !== "undefined") {
     try {
-      inferWorker = new Worker("./lib/infer.worker.js?v=20260925b");
+      inferWorker = new Worker("./lib/infer.worker.js?v=20260925c");
       attachWorker(inferWorker);
       await workerPost({
         type: "init",
@@ -363,8 +444,12 @@ async function initInference() {
         backendPref: backendPref,
         poseBuf: poseBuf,
       });
+      var prefetched = await restP;
+      tennisBuf = prefetched[0];
+      tennisRoiBuf = prefetched[1];
       await enableTennisByDefault();
       poseReady = true;
+      hideDownloadProgress();
       setStatus(readyStatus("worker"));
       return;
     } catch (e) {
@@ -379,8 +464,12 @@ async function initInference() {
     }
   }
   await startLocalEngine();
+  var prefetchedLocal = await restP;
+  tennisBuf = prefetchedLocal[0];
+  tennisRoiBuf = prefetchedLocal[1];
   await enableTennisByDefault();
   poseReady = true;
+  hideDownloadProgress();
   setStatus(readyStatus(""));
 }
 
@@ -426,14 +515,18 @@ async function loadTennisModel() {
   try {
     const t0 = performance.now();
     setStatus("加载网球检测模型…");
-    tennisBuf = await fetchModelBuffer(cfg.tennisModelUrl, cfg.tennisIdbKey);
-    try {
-      tennisRoiBuf = await fetchModelBuffer(
-        cfg.tennisRoiModelUrl,
-        cfg.tennisRoiIdbKey
-      );
-    } catch (_) {
-      tennisRoiBuf = null;
+    if (!(tennisBuf instanceof ArrayBuffer)) {
+      tennisBuf = await fetchModelBuffer(cfg.tennisModelUrl, cfg.tennisIdbKey);
+    }
+    if (!(tennisRoiBuf instanceof ArrayBuffer)) {
+      try {
+        tennisRoiBuf = await fetchModelBuffer(
+          cfg.tennisRoiModelUrl,
+          cfg.tennisRoiIdbKey
+        );
+      } catch (_) {
+        tennisRoiBuf = null;
+      }
     }
     if (inferWorker) {
       const msg = await workerPost({
@@ -496,6 +589,12 @@ async function toggleTennis() {
 }
 
 async function toggleGpu() {
+  if (backendPref !== "gpu" && !window.__ORT_WEBGPU__) {
+    var next = new URL(location.href);
+    next.searchParams.set("webgpu", "1");
+    location.assign(next.toString());
+    return;
+  }
   backendPref = backendPref === "gpu" ? "cpu" : "gpu";
   try {
     localStorage.setItem(cfg.backendKey, backendPref);
@@ -629,14 +728,24 @@ function draw(source, persons, balls, trailState) {
   }
 
   if (trailState && trailState.trail && trailState.trail.length > 1) {
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
+    ctx.shadowColor = "rgba(255, 176, 32, 0.85)";
+    ctx.shadowBlur = 12;
     ctx.strokeStyle = "#ffb020";
-    ctx.lineWidth = 2;
+    ctx.lineWidth = Math.max(3, lw + 1);
     ctx.beginPath();
     trailState.trail.forEach((p, i) => {
       if (i === 0) ctx.moveTo(p.x, p.y);
       else ctx.lineTo(p.x, p.y);
     });
     ctx.stroke();
+    ctx.shadowBlur = 0;
+    var tip = trailState.trail[trailState.trail.length - 1];
+    ctx.fillStyle = "#fff7d6";
+    ctx.beginPath();
+    ctx.arc(tip.x, tip.y, 5, 0, Math.PI * 2);
+    ctx.fill();
   }
 
   for (const d of balls || []) {
@@ -748,6 +857,7 @@ function stopCamera() {
     els.video.classList.remove("is-live");
   }
   els.camBtn.textContent = "开始摄像头";
+  if (els.liveDot) els.liveDot.textContent = "待命";
 }
 
 function formatCamError(e) {
@@ -819,6 +929,7 @@ async function attachCameraStream(streamPromise) {
   }
   camRunning = true;
   els.camBtn.textContent = "停止摄像头";
+  if (els.liveDot) els.liveDot.textContent = "直播";
   setStatus(
     poseReady
       ? "摄像头运行中（" + (facingMode === "user" ? "前置" : "后置") + "）…"
