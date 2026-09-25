@@ -2,7 +2,12 @@
   "description": "UChance击球片段提取小程序",
   "packOptions": {
     "ignore": [],
-    "include": []
+    "include": [
+      {
+        "type": "file",
+        "value": "utils/slam_theme.js"
+      }
+    ]
   },
   "setting": {
     "bundle": false,
@@ -26,6 +31,8 @@
     "condition": false,
     "swc": false,
     "disableSWC": true,
+    "ignoreDevUnusedFiles": false,
+    "ignoreUploadUnusedFiles": false,
     "babelSetting": {
       "ignore": [],
       "disablePlugins": [],
