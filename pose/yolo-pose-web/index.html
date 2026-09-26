@@ -28,6 +28,10 @@
       padding: 16px 14px 32px;
     }
     .mp-exit {
+      position: fixed;
+      z-index: 30;
+      top: 10px;
+      left: 10px;
       appearance: none;
       border: 0;
       border-radius: 999px;
@@ -36,7 +40,10 @@
       font-weight: 700;
       color: #042018;
       background: #3dffb0;
-      flex: 0 0 auto;
+      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.28);
+    }
+    body.mp-embedded .wrap {
+      padding-top: 56px;
     }
     .topbar {
       display: flex;
@@ -201,9 +208,9 @@
   </style>
 </head>
 <body>
+  <button id="mpExit" class="mp-exit" type="button" hidden>退出</button>
   <div class="wrap">
     <div class="topbar">
-      <button id="mpExit" class="mp-exit" type="button" hidden>退出</button>
       <div>
         <p class="eyebrow">TENCLIP COURT</p>
         <h1>网球测速</h1>
@@ -256,6 +263,7 @@
       var exitBtn = document.getElementById("mpExit");
       if (!exitBtn) return;
       if (new URLSearchParams(location.search).get("mp") !== "1") return;
+      document.body.classList.add("mp-embedded");
       exitBtn.hidden = false;
       exitBtn.addEventListener("click", function () {
         if (window.wx && wx.miniProgram && wx.miniProgram.switchTab) {
