@@ -773,7 +773,7 @@ def _note_public(row: sqlite3.Row, author: dict[str, Any] | None = None, viewer_
         event_f = float(event_at) if event_at is not None else None
     except (TypeError, ValueError):
         event_f = None
-    return {
+    result = {
         "id": "note-" + row["id"],
         "note_id": row["id"],
         "kind": "note",
@@ -802,6 +802,10 @@ def _note_public(row: sqlite3.Row, author: dict[str, Any] | None = None, viewer_
         "liked": False,
         "bookmarked": False,
     }
+    from services.poster import attach_poster
+
+    attach_poster(result, kind="note", item_id=str(row["id"]), title=title)
+    return result
     if viewer_id:
         with _conn() as conn:
             like_row = conn.execute(
@@ -987,7 +991,7 @@ def _news_conn() -> sqlite3.Connection | None:
 
 def _news_to_item(row: sqlite3.Row) -> dict[str, Any]:
     tags = [t.strip() for t in (row["tags_csv"] or "").split(",") if t.strip()]
-    return {
+    item = {
         "id": str(row["id"]),
         "kind": "news",
         "title": row["title"] or "",
@@ -1006,6 +1010,14 @@ def _news_to_item(row: sqlite3.Row) -> dict[str, Any]:
         "score": 160.0,
         "channel": "推荐",
     }
+    from services.poster import attach_poster
+
+    return attach_poster(
+        item,
+        kind="news",
+        item_id=str(row["id"]),
+        title=item["title"],
+    )
 
 
 def search_news_articles(q: str, limit: int = 40, offset: int = 0) -> list[dict[str, Any]]:
@@ -1453,6 +1465,14 @@ def register_social_routes(api) -> None:
         "/static/notes",
         StaticFiles(directory=str(NOTE_UPLOAD_DIR)),
         name="note-uploads",
+    )
+    from services.poster import POSTER_DIR
+
+    POSTER_DIR.mkdir(parents=True, exist_ok=True)
+    api.mount(
+        "/static/posters",
+        StaticFiles(directory=str(POSTER_DIR)),
+        name="posters",
     )
 
 

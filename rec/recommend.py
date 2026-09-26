@@ -42,7 +42,14 @@ def _news_row_item(r: sqlite3.Row) -> dict[str, Any]:
     item = dict(r)
     item["kind"] = "news"
     item["tags"] = art_tags
-    return item
+    from services.poster import attach_poster
+
+    return attach_poster(
+        item,
+        kind="news",
+        item_id=str(item.get("id") or ""),
+        title=str(item.get("title") or ""),
+    )
 
 
 def list_news_by_time(*, limit: int = 60, offset: int = 0) -> list[dict[str, Any]]:
@@ -130,6 +137,14 @@ def recommend_news(inp: RecommendInput) -> list[dict[str, Any]]:
         )
         item = dict(r)
         item["tags"] = art_tags
+        from services.poster import attach_poster
+
+        attach_poster(
+            item,
+            kind="news",
+            item_id=str(item.get("id") or ""),
+            title=str(item.get("title") or ""),
+        )
         item["score"] = round(score, 2)
         item["richness"] = round(richness, 2)
         tennis_first = 1 if (
