@@ -18,7 +18,7 @@ Component({
     list: [
       { pagePath: "/pages/courts/index", text: "找球场", icon: "📍", type: "normal" },
       { pagePath: "/pages/feed/index", text: "发现", icon: "▣", type: "normal" },
-      { pagePath: "", text: "", icon: "+", type: "action" },
+      { pagePath: "", text: "", icon: "", type: "action" },
       { pagePath: "/pages/analyze/index", text: "分析", icon: "◎", type: "normal" },
       { pagePath: "/pages/profile/index", text: "我的", icon: "👤", type: "normal" },
     ],
