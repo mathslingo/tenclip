@@ -195,11 +195,21 @@ function getFeedItemById(id) {
       return null;
     });
   }
-  return fetchFeedPage({ tab: "推荐", offset: 0, limit: 40 }).then(function (page) {
-    for (var i = 0; i < page.items.length; i++) {
-      if (String(page.items[i].id) === String(id)) return page.items[i];
-    }
-    return getMockById(id);
+  return new Promise(function (resolve) {
+    wx.request({
+      url: API_BASE_URL + "/api/news/articles/" + encodeURIComponent(id),
+      method: "GET",
+      success: function (res) {
+        if (res.statusCode >= 200 && res.statusCode < 300 && res.data && res.data.item) {
+          resolve(mapApiItem(res.data.item));
+          return;
+        }
+        resolve(null);
+      },
+      fail: function () {
+        resolve(null);
+      },
+    });
   });
 }
 

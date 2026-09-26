@@ -1476,6 +1476,47 @@ def list_news_articles_admin(*, limit: int = 30, offset: int = 0) -> dict[str, A
     return {"items": items, "total": total, "limit": limit, "offset": offset}
 
 
+def get_news_article_feed_item(article_id: int) -> dict[str, Any] | None:
+    """按主键取一条资讯，供详情页打开。不依赖它是否还在首页前 40 条里。"""
+    init_news_db()
+    try:
+        aid = int(article_id)
+    except (TypeError, ValueError):
+        return None
+    with sqlite3.connect(DB_PATH) as conn:
+        conn.row_factory = sqlite3.Row
+        row = conn.execute(
+            """
+            SELECT id, source, source_domain, source_tier, title, summary, url,
+                   image_url, tags_csv, published_at, popularity
+            FROM news_articles
+            WHERE id=?
+            """,
+            (aid,),
+        ).fetchone()
+    if not row:
+        return None
+    tags = split_tags_csv(row["tags_csv"])
+    item = {
+        "id": row["id"],
+        "kind": "news",
+        "source": row["source"] or "资讯",
+        "source_domain": row["source_domain"] or "",
+        "source_tier": row["source_tier"],
+        "title": row["title"] or "",
+        "summary": row["summary"] or "",
+        "url": row["url"] or "",
+        "image_url": row["image_url"] or "",
+        "tags_csv": row["tags_csv"] or "",
+        "tags": tags,
+        "published_at": row["published_at"] or "",
+        "popularity": row["popularity"] or 0,
+    }
+    from services.poster import attach_poster
+
+    return attach_poster(item, kind="news", item_id=str(row["id"]), title=item["title"])
+
+
 def list_coach_feed_items(limit: int = 12) -> list[dict[str, Any]]:
     """自有教学稿。发现页「教学」只在较大一页里按标签过滤，所以要单独附上。"""
     init_news_db()
