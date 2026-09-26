@@ -1476,6 +1476,49 @@ def list_news_articles_admin(*, limit: int = 30, offset: int = 0) -> dict[str, A
     return {"items": items, "total": total, "limit": limit, "offset": offset}
 
 
+def list_coach_feed_items(limit: int = 12) -> list[dict[str, Any]]:
+    """自有教学稿。发现页「教学」只在较大一页里按标签过滤，所以要单独附上。"""
+    init_news_db()
+    limit = max(1, min(int(limit), 20))
+    with sqlite3.connect(DB_PATH) as conn:
+        conn.row_factory = sqlite3.Row
+        rows = conn.execute(
+            """
+            SELECT id, source, source_domain, source_tier, title, summary, url,
+                   image_url, tags_csv, published_at, popularity
+            FROM news_articles
+            WHERE source_domain='tenclip.coach'
+            ORDER BY datetime(published_at) DESC
+            LIMIT ?
+            """,
+            (limit,),
+        ).fetchall()
+    items: list[dict[str, Any]] = []
+    for row in rows:
+        tags = split_tags_csv(row["tags_csv"])
+        item = {
+            "id": row["id"],
+            "kind": "news",
+            "source": row["source"],
+            "source_domain": row["source_domain"],
+            "source_tier": row["source_tier"],
+            "title": row["title"] or "",
+            "summary": row["summary"] or "",
+            "url": row["url"] or "",
+            "image_url": row["image_url"] or "",
+            "tags_csv": row["tags_csv"] or "",
+            "tags": tags,
+            "published_at": row["published_at"] or "",
+            "popularity": row["popularity"] or 0,
+        }
+        from services.poster import attach_poster
+
+        items.append(
+            attach_poster(item, kind="news", item_id=str(row["id"]), title=item["title"])
+        )
+    return items
+
+
 # 推荐子系统已迁至 rec/；此处 re-export 保持旧 import 路径兼容。
 from rec import (  # noqa: E402
     RecommendInput,
