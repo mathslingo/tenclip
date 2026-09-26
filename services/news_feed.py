@@ -6,6 +6,7 @@ import logging
 import os
 import re
 import sqlite3
+import time
 from concurrent.futures import TimeoutError as FuturesTimeoutError
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
@@ -400,8 +401,89 @@ def _parse_rss_items(source: NewsSource, xml_text: str, cap: int) -> list[dict[s
     return out
 
 
+_THEPAPER_PORTAL = "https://api.thepaper.cn/contentapi/nodeCont/getByNodeIdPortal"
+_THEPAPER_NODE_ID = "25599"
+_THEPAPER_CHANNEL_PIC = "depository/image/8/964/843"
+
+
+def _thepaper_cover(item: dict[str, Any]) -> str:
+    """列表项封面。跳过栏目头图，避免整页共用同一张运动家 logo。"""
+    for key in ("smallPic", "pic", "sharePic"):
+        url = str(item.get(key) or "").strip().replace("\\/", "/")
+        if url.startswith("http") and _THEPAPER_CHANNEL_PIC not in url:
+            return url
+    return ""
+
+
+def _thepaper_published(item: dict[str, Any], now_iso: str) -> str:
+    raw = str(item.get("publishTime") or "").strip()
+    if not raw:
+        return now_iso
+    try:
+        dt = datetime.strptime(raw, "%Y-%m-%d %H:%M:%S").replace(tzinfo=timezone(timedelta(hours=8)))
+        return dt.isoformat()
+    except Exception:
+        return now_iso
+
+
+def _thepaper_rows_from_items(
+    source: NewsSource, items: list[dict[str, Any]], cap: int
+) -> list[dict[str, Any]]:
+    out: list[dict[str, Any]] = []
+    seen_url: set[str] = set()
+    now_iso = _to_iso(_utc_now())
+    for item in items:
+        cid = str(item.get("contId") or "").strip()
+        title = re.sub(r"\s+", " ", str(item.get("name") or "").strip())
+        if not cid or len(title) < 4 or title.startswith("澎湃新闻 · 文章"):
+            continue
+        full = f"https://www.thepaper.cn/newsDetail_forward_{cid}"
+        if full in seen_url:
+            continue
+        seen_url.add(full)
+        tags = _infer_tags(title, "", source)
+        if title_looks_like_tennis(title) and "网球" not in tags:
+            tags = ["网球", *tags]
+        out.append(
+            {
+                "source": source.name,
+                "source_domain": "thepaper.cn",
+                "source_tier": int(source.quality_tier),
+                "title": title,
+                "summary": "",
+                "url": full,
+                "image_url": _thepaper_cover(item),
+                "tags_csv": ",".join(tags),
+                "published_at": _thepaper_published(item, now_iso),
+                "ingested_at": now_iso,
+            }
+        )
+    out.sort(key=lambda row: (0 if title_looks_like_tennis(row["title"]) else 1))
+    return out[: max(1, int(cap))]
+
+
+def _thepaper_next_data_list(html: str) -> list[dict[str, Any]]:
+    m = re.search(
+        r'<script id="__NEXT_DATA__" type="application/json">(.*?)</script>',
+        html or "",
+        flags=re.S,
+    )
+    if not m:
+        return []
+    try:
+        data = json.loads(m.group(1))
+    except Exception:
+        return []
+    page = ((data.get("props") or {}).get("pageProps") or {}).get("data") or {}
+    items = page.get("list") or []
+    return [x for x in items if isinstance(x, dict)]
+
+
 def _parse_thepaper_html(source: NewsSource, html: str, cap: int) -> list[dict[str, Any]]:
     """澎湃运动家列表：入库整页体育，网球标题排在前面再截断 cap。"""
+    items = _thepaper_next_data_list(html)
+    if items:
+        return _thepaper_rows_from_items(source, items, cap)
     id_iter = re.finditer(r"newsDetail_forward_(\d{6,})", html)
     ids_ordered: list[str] = []
     seen_ids: set[str] = set()
@@ -689,6 +771,164 @@ def _fill_missing_og_images(rows: list[dict[str, Any]], budget: int) -> int:
     return used
 
 
+def _thepaper_missing_covers(conn: sqlite3.Connection) -> dict[str, str]:
+    rows = conn.execute(
+        """
+        SELECT url FROM news_articles
+        WHERE source_domain='thepaper.cn'
+          AND (image_url IS NULL OR TRIM(image_url)='')
+        """
+    ).fetchall()
+    missing: dict[str, str] = {}
+    for (url,) in rows:
+        m = re.search(r"newsDetail_forward_(\d+)", url or "")
+        if m:
+            missing[m.group(1)] = url
+    return missing
+
+
+def _fetch_thepaper_portal_page(start_time: int | None) -> dict[str, Any]:
+    payload: dict[str, Any] = {
+        "nodeId": _THEPAPER_NODE_ID,
+        "excludeContIds": [],
+        "pageSize": 20,
+    }
+    if start_time:
+        payload["startTime"] = int(start_time)
+    req = Request(
+        _THEPAPER_PORTAL,
+        data=json.dumps(payload).encode("utf-8"),
+        headers={
+            "User-Agent": _request_headers(_THEPAPER_PORTAL)["User-Agent"],
+            "Content-Type": "application/json",
+            "Accept": "application/json",
+            "Referer": "https://m.thepaper.cn/list_25599",
+        },
+    )
+    with urlopen(req, timeout=12) as resp:
+        data = json.loads(resp.read().decode("utf-8", errors="ignore"))
+    return data if isinstance(data, dict) else {}
+
+
+def _thepaper_detail_cover(cont_id: str) -> str:
+    url = f"https://m.thepaper.cn/newsDetail_forward_{cont_id}"
+    html = _fetch_html(url, timeout_sec=8.0)
+    items = _thepaper_next_data_list(html)
+    if items:
+        cover = _thepaper_cover(items[0])
+        if cover:
+            return cover
+    m = re.search(
+        r'<script id="__NEXT_DATA__" type="application/json">(.*?)</script>',
+        html,
+        flags=re.S,
+    )
+    if not m:
+        return ""
+    try:
+        data = json.loads(m.group(1))
+    except Exception:
+        return ""
+    detail = ((data.get("props") or {}).get("pageProps") or {}).get("detailData") or {}
+    content = detail.get("contentDetail") if isinstance(detail, dict) else None
+    if isinstance(content, dict):
+        return _thepaper_cover(content)
+    return ""
+
+
+def _backfill_thepaper_detail_covers(
+    conn: sqlite3.Connection, missing: dict[str, str], limit: int = 12
+) -> int:
+    """频道翻页没覆盖到的旧稿，逐篇打开详情补封面。占位标题不补。"""
+    if not missing or limit <= 0:
+        return 0
+    urls = list(missing.items())
+    filled = 0
+    for cid, url in urls:
+        if filled >= limit:
+            break
+        title_row = conn.execute(
+            "SELECT title FROM news_articles WHERE url=?",
+            (url,),
+        ).fetchone()
+        title = (title_row[0] if title_row else "") or ""
+        if title.startswith("澎湃新闻 · 文章"):
+            continue
+        try:
+            img = _thepaper_detail_cover(cid)
+        except Exception as exc:
+            logger.warning("thepaper detail cover failed %s: %s", cid, exc)
+            continue
+        if not img:
+            continue
+        conn.execute(
+            """
+            UPDATE news_articles SET image_url=?
+            WHERE url=? AND (image_url IS NULL OR TRIM(image_url)='')
+            """,
+            (img, url),
+        )
+        missing.pop(cid, None)
+        filled += 1
+        time.sleep(0.2)
+    return filled
+
+
+def _backfill_thepaper_images(conn: sqlite3.Connection, max_pages: int = 40) -> int:
+    """按运动家频道往前翻页，给已入库但没封面的澎湃稿补图。补完即停。"""
+    missing = _thepaper_missing_covers(conn)
+    if not missing:
+        return 0
+    filled = 0
+    start: int | None = None
+    seen_cursors: set[int] = set()
+    for _ in range(max(1, int(max_pages))):
+        if not missing:
+            break
+        try:
+            data = _fetch_thepaper_portal_page(start)
+        except Exception as exc:
+            logger.warning("thepaper cover backfill failed: %s", exc)
+            break
+        page = data.get("data") or {}
+        items = page.get("list") or []
+        if not items:
+            break
+        for item in items:
+            if not isinstance(item, dict):
+                continue
+            cid = str(item.get("contId") or "")
+            url = missing.get(cid)
+            img = _thepaper_cover(item)
+            if not url or not img:
+                continue
+            conn.execute(
+                """
+                UPDATE news_articles SET image_url=?
+                WHERE url=? AND (image_url IS NULL OR TRIM(image_url)='')
+                """,
+                (img, url),
+            )
+            missing.pop(cid, None)
+            filled += 1
+        if not page.get("hasNext"):
+            break
+        nxt = page.get("startTime")
+        try:
+            nxt_i = int(nxt)
+        except (TypeError, ValueError):
+            break
+        if nxt_i in seen_cursors:
+            break
+        seen_cursors.add(nxt_i)
+        start = nxt_i
+        time.sleep(0.25)
+    filled += _backfill_thepaper_detail_covers(conn, missing, limit=12)
+    if filled:
+        logger.info("thepaper covers backfilled: %s, still missing %s", filled, len(missing))
+    return filled
+
+
 def _upsert_article(conn: sqlite3.Connection, row: dict[str, Any]) -> str:
     """写入一篇。返回 inserted | updated | unchanged。未变则不刷新 ingested_at。"""
     url = row["url"]
@@ -801,6 +1041,7 @@ def ingest_news(limit_per_source: int = 20) -> dict[str, Any]:
                     updated += 1
                 else:
                     unchanged += 1
+        images_backfilled = _backfill_thepaper_images(conn)
         conn.commit()
     try:
         from rec.catalog import sync_news_from_db
@@ -815,6 +1056,7 @@ def ingest_news(limit_per_source: int = 20) -> dict[str, Any]:
         "updated": updated,
         "unchanged": unchanged,
         "og_images_filled": og_filled,
+        "thepaper_images_backfilled": images_backfilled,
         "sources": touched_sources,
         "failed": failed_sources,
         "skipped_circuit": skipped_circuit,
