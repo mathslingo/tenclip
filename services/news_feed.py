@@ -811,7 +811,7 @@ def _fetch_thepaper_portal_page(start_time: int | None) -> dict[str, Any]:
 
 
 def _thepaper_detail_cover(cont_id: str) -> str:
-    url = f"https://m.thepaper.cn/newsDetail_forward_{cont_id}"
+    url = f"https://www.thepaper.cn/newsDetail_forward_{cont_id}"
     html = _fetch_html(url, timeout_sec=8.0)
     items = _thepaper_next_data_list(html)
     if items:
@@ -872,6 +872,165 @@ def _backfill_thepaper_detail_covers(
         filled += 1
         time.sleep(0.2)
     return filled
+
+
+def _thepaper_detail_fields(cont_id: str) -> dict[str, str]:
+    url = f"https://www.thepaper.cn/newsDetail_forward_{cont_id}"
+    html = _fetch_html(url, timeout_sec=8.0)
+    m = re.search(
+        r'<script id="__NEXT_DATA__" type="application/json">(.*?)</script>',
+        html or "",
+        flags=re.S,
+    )
+    if not m:
+        return {}
+    try:
+        data = json.loads(m.group(1))
+    except Exception:
+        return {}
+    detail = ((data.get("props") or {}).get("pageProps") or {}).get("detailData") or {}
+    content = detail.get("contentDetail") if isinstance(detail, dict) else None
+    if not isinstance(content, dict):
+        return {}
+    title = re.sub(r"\s+", " ", str(content.get("name") or "").strip())
+    return {"title": title, "image_url": _thepaper_cover(content)}
+
+
+def _repair_thepaper_details(conn: sqlite3.Connection, limit: int = 400) -> int:
+    """逐篇打开详情，把库里的标题和封面改成这篇稿自己的 name 和 pic。"""
+    rows = conn.execute(
+        """
+        SELECT url, title, image_url FROM news_articles
+        WHERE source_domain='thepaper.cn'
+        ORDER BY id DESC
+        """
+    ).fetchall()
+    fixed = 0
+    fails = 0
+    checked = 0
+    for url, old_title, old_img in rows:
+        if checked >= limit:
+            break
+        m = re.search(r"newsDetail_forward_(\d+)", url or "")
+        if not m:
+            continue
+        checked += 1
+        try:
+            fields = _thepaper_detail_fields(m.group(1))
+        except Exception as exc:
+            fails += 1
+            logger.warning("thepaper detail repair failed %s: %s", url, exc)
+            if fails >= 8:
+                break
+            time.sleep(0.4)
+            continue
+        fails = 0
+        title = fields.get("title") or ""
+        img = fields.get("image_url") or ""
+        if len(title) < 4:
+            time.sleep(0.12)
+            continue
+        old_title = old_title or ""
+        old_img = old_img or ""
+        if old_title == title and (not img or old_img == img):
+            time.sleep(0.05)
+            continue
+        tags = _infer_tags(title, "", None)
+        if title_looks_like_tennis(title) and "网球" not in tags:
+            tags = ["网球", *tags]
+        conn.execute(
+            """
+            UPDATE news_articles
+            SET title=?,
+                image_url=CASE WHEN ? <> '' THEN ? ELSE image_url END,
+                tags_csv=?
+            WHERE url=?
+            """,
+            (title, img, img, ",".join(tags), url),
+        )
+        fixed += 1
+        if fixed % 20 == 0:
+            conn.commit()
+        time.sleep(0.12)
+    if fixed:
+        logger.info("thepaper detail pairings repaired: %s", fixed)
+    return fixed
+
+
+def _repair_thepaper_pairings(conn: sqlite3.Connection, max_pages: int = 30) -> int:
+    """用运动家列表里同一条的 name+pic 纠正已入库稿。
+
+    旧解析在链接附近乱抓 title，封面后来又按 contId 补上，会出现标题和图片不是同一篇。
+    """
+    fixed = 0
+    start: int | None = None
+    seen_cursors: set[int] = set()
+    empty_pages = 0
+    for _ in range(max(1, int(max_pages))):
+        try:
+            data = _fetch_thepaper_portal_page(start)
+        except Exception as exc:
+            logger.warning("thepaper title repair failed: %s", exc)
+            break
+        page = data.get("data") or {}
+        items = page.get("list") or []
+        if not items:
+            break
+        page_hits = 0
+        for item in items:
+            if not isinstance(item, dict):
+                continue
+            cid = str(item.get("contId") or "").strip()
+            title = re.sub(r"\s+", " ", str(item.get("name") or "").strip())
+            if not cid or len(title) < 4 or title.startswith("澎湃新闻 · 文章"):
+                continue
+            url = f"https://www.thepaper.cn/newsDetail_forward_{cid}"
+            row = conn.execute(
+                "SELECT title, image_url FROM news_articles WHERE url=?",
+                (url,),
+            ).fetchone()
+            if not row:
+                continue
+            page_hits += 1
+            img = _thepaper_cover(item)
+            old_title = row[0] or ""
+            old_img = row[1] or ""
+            if old_title == title and (not img or old_img == img):
+                continue
+            tags = _infer_tags(title, "", None)
+            if title_looks_like_tennis(title) and "网球" not in tags:
+                tags = ["网球", *tags]
+            conn.execute(
+                """
+                UPDATE news_articles
+                SET title=?,
+                    image_url=CASE WHEN ? <> '' THEN ? ELSE image_url END,
+                    tags_csv=?
+                WHERE url=?
+                """,
+                (title, img, img, ",".join(tags), url),
+            )
+            fixed += 1
+        if page_hits == 0:
+            empty_pages += 1
+            if empty_pages >= 2:
+                break
+        else:
+            empty_pages = 0
+        if not page.get("hasNext"):
+            break
+        try:
+            nxt_i = int(page.get("startTime"))
+        except (TypeError, ValueError):
+            break
+        if nxt_i in seen_cursors:
+            break
+        seen_cursors.add(nxt_i)
+        start = nxt_i
+        time.sleep(0.25)
+    if fixed:
+        logger.info("thepaper title/image pairings repaired: %s", fixed)
+    return fixed
 
 
 def _backfill_thepaper_images(conn: sqlite3.Connection, max_pages: int = 40) -> int:
@@ -1042,6 +1201,7 @@ def ingest_news(limit_per_source: int = 20) -> dict[str, Any]:
                 else:
                     unchanged += 1
         images_backfilled = _backfill_thepaper_images(conn)
+        titles_repaired = _repair_thepaper_pairings(conn)
         conn.commit()
     try:
         from rec.catalog import sync_news_from_db
@@ -1057,6 +1217,7 @@ def ingest_news(limit_per_source: int = 20) -> dict[str, Any]:
         "unchanged": unchanged,
         "og_images_filled": og_filled,
         "thepaper_images_backfilled": images_backfilled,
+        "thepaper_titles_repaired": titles_repaired,
         "sources": touched_sources,
         "failed": failed_sources,
         "skipped_circuit": skipped_circuit,
