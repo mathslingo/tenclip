@@ -3,7 +3,11 @@ const { WEB_POSE_URL } = require("../../utils/config");
 function embedUrl() {
   var base = WEB_POSE_URL || "";
   if (!base) return "";
-  return base + (base.indexOf("?") >= 0 ? "&" : "?") + "mp=1";
+  var theme = "wimbledon";
+  try {
+    theme = require("../../utils/config").slamTheme.current().id || theme;
+  } catch (e) {}
+  return base + (base.indexOf("?") >= 0 ? "&" : "?") + "mp=1&theme=" + encodeURIComponent(theme);
 }
 
 Page({
