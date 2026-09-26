@@ -92,7 +92,7 @@ Component({
           } else if (tapIndex === 1) {
             wx.navigateTo({ url: "/pages/stroke-extract/index" });
           } else if (tapIndex === 2) {
-            wx.navigateTo({ url: "/pages/pose-realtime/index" });
+            wx.switchTab({ url: "/pages/analyze/index" });
           }
           // 暂时下线：动作分析 → /pages/action-analyze/index
         },

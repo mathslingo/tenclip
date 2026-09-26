@@ -285,7 +285,7 @@ Page({
   // },
 
   onGoPose() {
-    wx.navigateTo({ url: "/pages/pose-realtime/index" });
+    wx.switchTab({ url: "/pages/analyze/index" });
   },
 
   onGoFeed() {
