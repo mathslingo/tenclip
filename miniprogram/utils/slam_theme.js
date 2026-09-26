@@ -72,6 +72,17 @@ function applyNav(theme) {
   });
 }
 
+function withCourt(url) {
+  var raw = String(url || "");
+  if (!raw) return raw;
+  var id = current().id || "wimbledon";
+  if (/[?&]court=/.test(raw)) {
+    return raw.replace(/([?&]court=)[^&]*/, "$1" + id);
+  }
+  var join = raw.indexOf("?") >= 0 ? "&" : "?";
+  return raw + join + "court=" + id;
+}
+
 function setTheme(id) {
   try {
     wx.setStorageSync(STORAGE_KEY, id);
@@ -88,4 +99,5 @@ module.exports = {
   pageStyle: pageStyle,
   applyNav: applyNav,
   setTheme: setTheme,
+  withCourt: withCourt,
 };

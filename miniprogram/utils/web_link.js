@@ -1,5 +1,6 @@
 /** @deprecated 兼容旧包；新代码请用 config.js 的 WEB_*_URL */
 var cfg = require("./config.js");
+var slam = require("./slam_theme.js");
 var WEB_STROKE_URL = cfg.WEB_STROKE_URL;
 var WEB_ANALYZE_URL = cfg.WEB_ANALYZE_URL;
 var WEB_POSE_URL = cfg.WEB_POSE_URL;
@@ -35,7 +36,7 @@ function copyAnalyzeLink() {
 
 function copyPoseLink() {
   copyAndHint(
-    WEB_POSE_URL,
+    slam.withCourt(WEB_POSE_URL),
     "实时关键点检测",
     "实时关键点地址已复制。\n\n请用 Safari / 系统浏览器打开（比微信内嵌效果更好，才能正常开摄像头）：\n1. 打开聊天粘贴发送\n2. 点开链接\n或粘贴到 Safari 地址栏"
   );

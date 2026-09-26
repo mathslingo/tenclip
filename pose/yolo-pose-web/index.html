@@ -5,22 +5,63 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <title>YOLO Pose + Tennis · ONNX Runtime Web</title>
+  <script>
+    (function () {
+      var id = (new URLSearchParams(location.search).get("court") || "wimbledon").toLowerCase();
+      if (id !== "roland" && id !== "australian" && id !== "usopen") id = "wimbledon";
+      document.documentElement.setAttribute("data-court", id);
+    })();
+  </script>
   <style>
     * { box-sizing: border-box; }
     html, body {
+      --court-a: #0c3b2e;
+      --court-b: #145c40;
+      --ink: #e8fff4;
+      --muted: #9dffe0;
+      --accent: #3dffb0;
+      --accent-ink: #042018;
+      --stage: #07140f;
       margin: 0;
       min-height: 100%;
-      color: #e8fff4;
+      color: var(--ink);
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
         "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
       -webkit-tap-highlight-color: transparent;
       background:
-        linear-gradient(180deg, rgba(6, 24, 18, 0.2), rgba(6, 24, 18, 0.72)),
+        linear-gradient(180deg, rgba(0, 0, 0, 0.12), rgba(0, 0, 0, 0.55)),
         repeating-linear-gradient(
           90deg,
-          #0c3b2e 0 46px,
-          #145c40 46px 48px
+          var(--court-a) 0 46px,
+          var(--court-b) 46px 48px
         );
+    }
+    html[data-court="roland"], html[data-court="roland"] body {
+      --court-a: #8d4030;
+      --court-b: #c4623e;
+      --ink: #fff6ec;
+      --muted: #ffe7c2;
+      --accent: #ffe14a;
+      --accent-ink: #3a140c;
+      --stage: #3a140c;
+    }
+    html[data-court="australian"], html[data-court="australian"] body {
+      --court-a: #0d4ea3;
+      --court-b: #1a6fd4;
+      --ink: #eef9ff;
+      --muted: #c9f4ff;
+      --accent: #7ee0ff;
+      --accent-ink: #042033;
+      --stage: #041428;
+    }
+    html[data-court="usopen"], html[data-court="usopen"] body {
+      --court-a: #071833;
+      --court-b: #12305f;
+      --ink: #f4f7ff;
+      --muted: #d7e4ff;
+      --accent: #f5c16c;
+      --accent-ink: #1a1206;
+      --stage: #040814;
     }
     .wrap {
       max-width: 760px;
@@ -38,7 +79,7 @@
       margin: 0 0 2px;
       font-size: 0.72rem;
       letter-spacing: 0.16em;
-      color: #9dffe0;
+      color: var(--muted);
     }
     h1 {
       margin: 0;
@@ -51,7 +92,7 @@
       border-radius: 999px;
       padding: 6px 10px;
       font-size: 0.78rem;
-      color: #d9fff2;
+      color: var(--ink);
       background: rgba(0, 0, 0, 0.25);
     }
     .actions {
@@ -67,8 +108,8 @@
       padding: 10px 14px;
       font-size: 0.88rem;
       font-weight: 700;
-      color: #042018;
-      background: #3dffb0;
+      color: var(--accent-ink);
+      background: var(--accent);
       cursor: pointer;
       flex: 1 1 auto;
       min-width: calc(33% - 8px);
@@ -96,27 +137,27 @@
       height: 100%;
       width: 0;
       border-radius: inherit;
-      background: linear-gradient(90deg, #3dffb0, #ffe14a);
+      background: linear-gradient(90deg, var(--accent), var(--muted));
       transition: width 0.15s linear;
     }
     #dlMeta, #status {
       margin: 0 0 4px;
       font-size: 0.92rem;
       line-height: 1.4;
-      color: #e7fff6;
+      color: var(--ink);
       min-height: 1.2em;
     }
     #metrics {
       margin: 0 0 10px;
       font-size: 0.82rem;
       line-height: 1.4;
-      color: #b7f5dc;
+      color: var(--muted);
       min-height: 1.2em;
     }
     .stage {
       position: relative;
       width: 100%;
-      background: #07140f;
+      background: var(--stage);
       border-radius: 18px;
       overflow: hidden;
       line-height: 0;
@@ -139,7 +180,7 @@
       width: 100%;
       height: 100%;
       object-fit: cover;
-      background: #07140f;
+      background: var(--stage);
       opacity: 0.02;
       pointer-events: none;
     }
@@ -168,7 +209,7 @@
     .speed-unit {
       font-size: 0.75rem;
       letter-spacing: 0.08em;
-      color: #9dffe0;
+      color: var(--muted);
     }
     @keyframes pop {
       0% { transform: scale(1); }
@@ -179,7 +220,7 @@
       margin-top: 14px;
       font-size: 0.8rem;
       line-height: 1.55;
-      color: #d5f7ea;
+      color: var(--muted);
     }
     .tips code {
       font-size: 0.8em;

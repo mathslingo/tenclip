@@ -1,6 +1,7 @@
 const slamBehavior = require("../../behaviors/slam");
 const { WEB_POSE_URL } = require("../../utils/config");
 const { copyPoseLink } = require("../../utils/web_link");
+const slam = require("../../utils/slam_theme");
 
 Page({
   behaviors: [slamBehavior],
@@ -18,7 +19,7 @@ Page({
       }
     }
     if (!url) url = WEB_POSE_URL || "";
-    this.setData({ url: url });
+    this.setData({ url: slam.withCourt(url) });
   },
 
   onWebLoad() {
