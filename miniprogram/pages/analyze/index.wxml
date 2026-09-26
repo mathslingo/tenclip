@@ -1,5 +1,9 @@
-<web-view wx:if="{{url}}" src="{{url}}" binderror="onWebError"></web-view>
-<view wx:else class="empty">
-  <text class="empty-title">未配置关键点地址</text>
-  <text class="empty-sub">请在 utils/config.js 中设置 WEB_POSE_URL</text>
+<page-meta page-style="{{pageStyle}}" background-text-style="light" />
+<view class="page">
+  <view class="card">
+    <text class="title">实时关键点</text>
+    <text class="sub">检测页在上一层。可以从这里回发现页，或重新打开检测。</text>
+    <button class="btn-home" bindtap="onGoHome">返回主页</button>
+    <button class="btn-go" bindtap="openPose">继续检测</button>
+  </view>
 </view>

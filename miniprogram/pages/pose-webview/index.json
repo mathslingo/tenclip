@@ -1,5 +1,7 @@
 {
   "navigationBarTitleText": "实时关键点",
   "navigationBarBackgroundColor": "#151821",
-  "navigationBarTextStyle": "white"
+  "navigationBarTextStyle": "white",
+  "navigationStyle": "default",
+  "homeButton": true
 }
