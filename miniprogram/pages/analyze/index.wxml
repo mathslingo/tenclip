@@ -1,4 +1,7 @@
-<web-view wx:if="{{url}}" src="{{url}}" binderror="onWebError"></web-view>
-<view wx:else class="empty">
-  <text class="empty-title">未配置关键点地址</text>
+<view class="page">
+  <view class="card">
+    <text class="title">实时关键点</text>
+    <text class="sub">点左上角「&lt;」可退出检测页。</text>
+    <button class="btn" bindtap="openPose">继续检测</button>
+  </view>
 </view>
