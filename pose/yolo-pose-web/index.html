@@ -27,6 +27,17 @@
       margin: 0 auto;
       padding: 16px 14px 32px;
     }
+    .mp-exit {
+      appearance: none;
+      border: 0;
+      border-radius: 999px;
+      padding: 8px 14px;
+      font-size: 0.88rem;
+      font-weight: 700;
+      color: #042018;
+      background: #3dffb0;
+      flex: 0 0 auto;
+    }
     .topbar {
       display: flex;
       align-items: flex-end;
@@ -192,6 +203,7 @@
 <body>
   <div class="wrap">
     <div class="topbar">
+      <button id="mpExit" class="mp-exit" type="button" hidden>退出</button>
       <div>
         <p class="eyebrow">TENCLIP COURT</p>
         <h1>网球测速</h1>
@@ -238,6 +250,20 @@
     </p>
   </div>
 
+  <script src="https://res.wx.qq.com/open/js/jweixin-1.6.2.js"></script>
+  <script>
+    (function () {
+      var exitBtn = document.getElementById("mpExit");
+      if (!exitBtn) return;
+      if (new URLSearchParams(location.search).get("mp") !== "1") return;
+      exitBtn.hidden = false;
+      exitBtn.addEventListener("click", function () {
+        if (window.wx && wx.miniProgram && wx.miniProgram.switchTab) {
+          wx.miniProgram.switchTab({ url: "/pages/feed/index" });
+        }
+      });
+    })();
+  </script>
   <script src="./lib/ball_tracker.js?v=20260925c"></script>
   <script src="./lib/yolo_infer.js?v=20260925c"></script>
   <script src="./app.js?v=20260925c"></script>

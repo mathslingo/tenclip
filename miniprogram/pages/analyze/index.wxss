@@ -1,46 +1,12 @@
-.page {
+.empty {
   min-height: 100vh;
+  padding: 120rpx 48rpx;
   box-sizing: border-box;
-  padding: 48rpx 32rpx calc(160rpx + env(safe-area-inset-bottom));
 }
 
-.card {
-  margin-top: 80rpx;
-  padding: 40rpx 32rpx;
-  border-radius: 24rpx;
-  background: rgba(8, 32, 24, 0.55);
-}
-
-.title {
+.empty-title {
   display: block;
-  font-size: 40rpx;
-  font-weight: 700;
-  color: var(--ink, #e8fff4);
-}
-
-.sub {
-  display: block;
-  margin-top: 16rpx;
-  font-size: 26rpx;
-  line-height: 1.6;
-  color: var(--muted, #9dffe0);
-}
-
-.btn-home,
-.btn-go {
-  margin-top: 28rpx;
-  border-radius: 999rpx;
-  font-size: 30rpx;
+  font-size: 34rpx;
   font-weight: 600;
-}
-
-.btn-home {
-  background: #3dffb0;
-  color: #042018;
-}
-
-.btn-go {
-  background: transparent;
   color: #e8fff4;
-  border: 1rpx solid rgba(157, 255, 224, 0.45);
 }
