@@ -73,20 +73,17 @@ def list_news_by_time(*, limit: int = 60, offset: int = 0) -> list[dict[str, Any
     return [_news_row_item(r) for r in rows]
 
 
-def home_feed(*, limit: int = 20, offset: int = 0) -> list[dict[str, Any]]:
-    """发现页默认：用户笔记 + 资讯按 published_at 时间倒序。"""
-    from services.social import list_notes
+def home_feed(
+    *,
+    limit: int = 20,
+    offset: int = 0,
+    user_id: str | None = None,
+    user_tags: list[str] | None = None,
+) -> list[dict[str, Any]]:
+    """发现页「推荐」：新闻 / 教学 / 用户笔记按槽位混排。见 docs/home_feed_mix.md。"""
+    from rec.mix import mix_home_feed
 
-    limit = max(1, min(int(limit), 60))
-    offset = max(0, int(offset))
-    news = list_news_by_time(limit=400, offset=0)
-    notes = list_notes(limit=80, offset=0)
-    merged = news + notes
-    merged.sort(key=_published_ts, reverse=True)
-    page = merged[offset : offset + limit]
-    for it in page:
-        it["score"] = round(_published_ts(it), 3)
-    return page
+    return mix_home_feed(limit=limit, offset=offset, user_id=user_id, user_tags=user_tags)
 
 
 def recommend_news(inp: RecommendInput) -> list[dict[str, Any]]:

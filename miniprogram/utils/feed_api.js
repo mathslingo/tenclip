@@ -149,11 +149,14 @@ function fetchFeedPage(opts) {
         var list = body.items || [];
         if (!Array.isArray(list)) list = [];
         var mapped = list.map(mapApiItem);
-        mapped.sort(function (a, b) {
-          var tb = Date.parse(b.published_at || "") || 0;
-          var ta = Date.parse(a.published_at || "") || 0;
-          return tb - ta;
-        });
+        // 推荐信任服务端槽位。赛事/教学仍按时间排再过滤。
+        if (tab !== "推荐") {
+          mapped.sort(function (a, b) {
+            var tb = Date.parse(b.published_at || "") || 0;
+            var ta = Date.parse(a.published_at || "") || 0;
+            return tb - ta;
+          });
+        }
         var filtered = filterApiItemsByTab(mapped, tab);
         var pageItems =
           tab === "推荐" ? mapped.slice(0, limit) : filtered.slice(0, limit);
