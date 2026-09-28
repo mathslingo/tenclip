@@ -55,6 +55,7 @@ from services.news_feed import (
     init_news_db,
     list_ingest_runs,
     get_news_article_feed_item,
+    list_coach_feed_items,
     list_news_articles_admin,
     news_ingest_health,
 )
@@ -1246,6 +1247,13 @@ def create_app() -> FastAPI:
             user_id=user_id.strip() or None,
             user_tags=tag_list,
         )
+        # 「教学」顶栏一次拉较大一页再本地过滤。推荐页 limit 较小，不走这里。
+        if offset == 0 and limit >= 20:
+            seen = {str(it.get("id")) for it in items}
+            for extra in list_coach_feed_items(limit=12):
+                if str(extra.get("id")) not in seen:
+                    extra["lane"] = "coach"
+                    items.append(extra)
         return {"items": items, "next_offset": offset + len(items)}
 
     @api.get("/api/news/articles/{article_id}")
