@@ -1,0 +1,32 @@
+<scroll-view class="page" scroll-y>
+  <view class="card">
+    <text class="h1">UChance 用户服务协议</text>
+    <text class="meta">更新日期：2026-09-08</text>
+
+    <text class="p">本协议是你与 UChance 之间关于使用本小程序及相关服务的约定。注册、登录或使用即视为同意本协议。</text>
+
+    <text class="h2">一、服务内容</text>
+    <text class="p">提供网球相关内容浏览、笔记发布、社交互动、击球剪辑、姿态关键点预览、球场信息查询等。具体以实际提供为准。</text>
+
+    <text class="h2">二、账号规范</text>
+    <text class="li">· 妥善保管账号与密码</text>
+    <text class="li">· 不得冒用身份、批量注册或干扰服务</text>
+    <text class="li">· 游客账号与微信账号均受本协议约束</text>
+
+    <text class="h2">三、用户内容</text>
+    <text class="li">· 保证发布内容合法且不侵权</text>
+    <text class="li">· 禁止违法、色情、暴力、骚扰、欺诈等内容</text>
+    <text class="li">· 违规内容可被隐藏、删除或限制功能</text>
+
+    <text class="h2">四、AI / 算法说明</text>
+    <text class="p">击球剪辑与关键点等结果仅供训练参考，不构成专业教练或医疗建议。</text>
+
+    <text class="h2">五、免责声明</text>
+    <text class="p">因网络、第三方、不可抗力或自身操作导致的中断、丢失或间接损失，在法律允许范围内我们不承担责任。球场预订以实际场馆为准。</text>
+
+    <text class="h2">六、适用法律</text>
+    <text class="p">适用中华人民共和国法律。争议协商不成的，提交有管辖权的人民法院解决。</text>
+
+    <text class="link" bindtap="onOpenWeb">查看网页完整版</text>
+  </view>
+</scroll-view>

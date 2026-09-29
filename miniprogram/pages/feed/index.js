@@ -1,4 +1,4 @@
-const slamBehavior = require("../../behaviors/slam");
+const slamBehavior = require("../../utils/config").slamBehavior;
 const { fetchFeedPage } = require("../../utils/feed_api");
 const { fetchUnreadCount } = require("../../utils/social_api");
 const { LOCAL_DEV } = require("../../utils/config");
@@ -39,7 +39,9 @@ Page({
   refreshUnread() {
     fetchUnreadCount()
       .then((count) => this.setData({ unreadCount: count || 0 }))
-      .catch(() => {});
+      .catch(() => {
+        this.setData({ unreadCount: 0 });
+      });
   },
 
   onGoMessages() {

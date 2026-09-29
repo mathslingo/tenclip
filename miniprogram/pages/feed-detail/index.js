@@ -1,4 +1,4 @@
-const slamBehavior = require("../../behaviors/slam");
+const slamBehavior = require("../../utils/config").slamBehavior;
 const { getFeedItemById } = require("../../utils/feed_api");
 const { isLiked, isBookmarked, toggleLike, toggleBookmark } = require("../../utils/me_store");
 const { API_BASE_URL } = require("../../utils/config");

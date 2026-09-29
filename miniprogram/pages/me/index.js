@@ -1,4 +1,4 @@
-const slamBehavior = require("../../behaviors/slam");
+const slamBehavior = require("../../utils/config").slamBehavior;
 const { APP_BUILD_TAG, FEED_USE_MOCK, API_BASE_URL, LOCAL_DEV } = require("../../utils/config");
 const {
   getProfile,
@@ -333,11 +333,7 @@ Page({
   // },
 
   onGoPose() {
-    wx.navigateTo({ url: "/pages/pose-realtime/index" });
-  },
-
-  onGoFeed() {
-    wx.switchTab({ url: "/pages/feed/index" });
+    require("../../utils/config").openPoseTest();
   },
 
   onTapFollowing() {

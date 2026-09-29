@@ -1,8 +1,7 @@
-const slamBehavior = require("../../behaviors/slam");
-const { APP_BUILD_TAG, FEED_USE_MOCK, API_BASE_URL, LOCAL_DEV } = require("../../utils/config");
+const slamBehavior = require("../../utils/config").slamBehavior;
+const { APP_BUILD_TAG, FEED_USE_MOCK, API_BASE_URL, LOCAL_DEV, slamTheme: slam } = require("../../utils/config");
 const { getProfile } = require("../../utils/me_store");
 const { isLoggedIn, requireLogin, logout, enterGuest } = require("../../utils/auth_api");
-const slam = require("../../utils/slam_theme");
 
 const MOCK_KEY = "tenclip_feed_use_mock";
 

@@ -1,4 +1,4 @@
-const slamBehavior = require("../../behaviors/slam");
+const slamBehavior = require("../../utils/config").slamBehavior;
 const { searchFeed } = require("../../utils/social_api");
 const { mapApiItem } = require("../../utils/feed_api");
 

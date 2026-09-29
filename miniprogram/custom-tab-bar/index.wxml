@@ -7,11 +7,27 @@
       data-path="{{item.pagePath}}"
       data-index="{{index}}"
       data-type="{{item.type}}"
+      data-appid="{{item.appId}}"
       bindtap="onTap"
     >
+      <view
+        wx:if="{{item.type === 'action'}}"
+        class="action-ball"
+        style="{{actionStyle}}"
+      >
+        <view class="seam seam-left"></view>
+        <view class="seam seam-right"></view>
+      </view>
+      <image
+        wx:elif="{{item.image}}"
+        class="tab-image"
+        src="{{item.image}}"
+        mode="aspectFit"
+      />
       <text
-        class="tab-icon {{item.type === 'action' ? 'action-icon' : ''}}"
-        style="{{item.type === 'action' ? actionStyle : (item.active ? activeStyle : '')}}"
+        wx:else
+        class="tab-icon"
+        style="{{item.active ? activeStyle : ''}}"
       >{{item.icon}}</text>
       <text class="tab-text" wx:if="{{item.text}}">{{item.text}}</text>
     </view>

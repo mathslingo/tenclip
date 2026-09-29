@@ -1,14 +1,5 @@
 <page-meta page-style="{{pageStyle}}" background-text-style="light" />
 <view class="profile-page">
-  <!-- 顶部绿色背景 -->
-  <view class="profile-header">
-    <view class="header-actions">
-      <view class="header-btn" bindtap="onOpenSettings">设置</view>
-      <view class="header-btn primary" bindtap="onEditProfile">编辑资料</view>
-    </view>
-  </view>
-
-  <!-- 资料卡片 -->
   <view class="profile-card">
     <view class="profile-main">
       <view class="avatar" bindtap="onEditProfile">
@@ -21,6 +12,10 @@
           <text class="gender" wx:if="{{profile.gender}}">{{profile.gender}}</text>
         </view>
         <text class="meta">小程序号 {{profile.uid}}<block wx:if="{{profile.location}}"> · IP {{profile.location}}</block></text>
+        <view class="profile-actions">
+          <view class="action-btn primary" bindtap="onEditProfile">编辑资料</view>
+          <view class="action-btn" bindtap="onOpenSettings">设置</view>
+        </view>
       </view>
     </view>
 
@@ -50,7 +45,7 @@
   <view class="quick-grid">
     <view class="quick-item" bindtap="onGoStroke">
       <text class="quick-icon">✂</text>
-      <text class="quick-text">击球剪辑</text>
+      <text class="quick-text">剪辑视频</text>
     </view>
     <!-- 暂时下线：动作分析
     <view class="quick-item" bindtap="onGoAnalyze">
@@ -60,11 +55,7 @@
     -->
     <view class="quick-item" bindtap="onGoPose">
       <text class="quick-icon">◇</text>
-      <text class="quick-text">实时关键点</text>
-    </view>
-    <view class="quick-item" bindtap="onGoFeed">
-      <text class="quick-icon">▣</text>
-      <text class="quick-text">发现资讯</text>
+      <text class="quick-text">测测球速</text>
     </view>
   </view>
 

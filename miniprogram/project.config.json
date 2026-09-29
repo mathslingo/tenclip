@@ -26,6 +26,8 @@
     "condition": false,
     "swc": false,
     "disableSWC": true,
+    "ignoreDevUnusedFiles": false,
+    "ignoreUploadUnusedFiles": false,
     "babelSetting": {
       "ignore": [],
       "disablePlugins": [],

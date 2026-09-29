@@ -32,32 +32,57 @@
   color: #3dffb0;
 }
 
-/* Central action button styling */
-.tab-action {
-  position: relative;
-  margin-top: -20rpx;
-}
-
 .tab-icon {
   font-size: 40rpx;
   line-height: 1;
   margin-bottom: 6rpx;
 }
 
-/* Special styling for the + action button */
-.action-icon {
-  width: 100rpx;
-  height: 100rpx;
-  background: #3dffb0;
+.tab-image {
+  width: 48rpx;
+  height: 48rpx;
+  margin-bottom: 4rpx;
+}
+
+.tab-action {
+  position: relative;
+  margin-top: -28rpx;
+}
+
+.action-ball {
+  width: 104rpx;
+  height: 104rpx;
   border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 52rpx;
-  color: #042018;
-  font-weight: 300;
-  margin-bottom: 0;
-  box-shadow: 0 6rpx 20rpx rgba(19, 216, 168, 0.3);
+  position: relative;
+  overflow: hidden;
+  box-shadow:
+    inset -10rpx -12rpx 0 rgba(0, 0, 0, 0.08),
+    0 8rpx 22rpx rgba(0, 0, 0, 0.22);
+}
+
+.seam {
+  position: absolute;
+  width: 118%;
+  height: 118%;
+  border-radius: 50%;
+  border: 5rpx solid rgba(255, 255, 255, 0.92);
+  box-sizing: border-box;
+}
+
+.seam-left {
+  left: -58%;
+  top: -9%;
+  border-left-color: transparent;
+  border-bottom-color: transparent;
+  transform: rotate(28deg);
+}
+
+.seam-right {
+  right: -58%;
+  top: -9%;
+  border-right-color: transparent;
+  border-top-color: transparent;
+  transform: rotate(28deg);
 }
 
 .tab-text {

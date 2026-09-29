@@ -1,4 +1,4 @@
-const slamBehavior = require("../../behaviors/slam");
+const slamBehavior = require("../../utils/config").slamBehavior;
 /**
  * RTMpose 实时姿态检测（新版本）
  * 

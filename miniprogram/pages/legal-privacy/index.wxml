@@ -1,0 +1,33 @@
+<scroll-view class="page" scroll-y>
+  <view class="card">
+    <text class="h1">UChance 隐私政策</text>
+    <text class="meta">更新日期：2026-09-08</text>
+
+    <text class="p">欢迎使用 UChance。本政策说明我们如何收集、使用与保护你的个人信息。使用本小程序即表示你已阅读并同意本政策。</text>
+
+    <text class="h2">一、我们收集的信息</text>
+    <text class="li">· 账号信息：微信 openid / 会话；游客昵称与密码（哈希存储）</text>
+    <text class="li">· 资料信息：头像、昵称、简介、网球习惯等</text>
+    <text class="li">· 内容信息：笔记、图片、评论、点赞、关注</text>
+    <text class="li">· 媒体权限：经你授权访问相册/相机（剪辑、发笔记、关键点）</text>
+    <text class="li">· 位置信息：仅在你主动选地点或找球场时使用</text>
+    <text class="li">· 设备与日志：必要的请求与错误日志</text>
+
+    <text class="h2">二、使用目的</text>
+    <text class="p">提供登录、发笔记、社交、击球剪辑、关键点检测等功能；保障安全与排查故障；在法律法规或你同意的范围内使用。</text>
+
+    <text class="h2">三、存储与共享</text>
+    <text class="p">数据主要存储于中国境内服务器。我们不会出售个人信息；仅在法律要求、保护权益或经你同意时可能披露。</text>
+
+    <text class="h2">四、你的权利</text>
+    <text class="p">可在「我的」编辑资料、删除自己的笔记与评论。注销账号请通过设置反馈联系我们。</text>
+
+    <text class="h2">五、未成年人</text>
+    <text class="p">本产品主要面向成年人。未满 18 周岁请在监护人指导下使用。</text>
+
+    <text class="h2">六、联系我们</text>
+    <text class="p">隐私问题请通过「我的 → 设置」反馈，或按公众平台主体信息联系运营方。</text>
+
+    <text class="link" bindtap="onOpenWeb">查看网页完整版</text>
+  </view>
+</scroll-view>

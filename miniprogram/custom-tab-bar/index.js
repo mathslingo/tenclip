@@ -1,4 +1,4 @@
-var slam = require("../utils/slam_theme");
+var slam = require("../utils/config").slamTheme;
 
 function themeData(theme) {
   theme = theme || slam.current();
@@ -18,8 +18,15 @@ Component({
     list: [
       { pagePath: "/pages/courts/index", text: "找球场", icon: "📍", type: "normal" },
       { pagePath: "/pages/feed/index", text: "发现", icon: "▣", type: "normal" },
-      { pagePath: "", text: "", icon: "+", type: "action" },
-      { pagePath: "/pages/analyze/index", text: "分析", icon: "◎", type: "normal" },
+      { pagePath: "", text: "", icon: "", type: "action" },
+      {
+        pagePath: "",
+        text: "有场",
+        icon: "◎",
+        image: "/assets/tabbar/uchance-logo.png",
+        type: "mini",
+        appId: "wx915ecf6c01bea4ec",
+      },
       { pagePath: "/pages/profile/index", text: "我的", icon: "👤", type: "normal" },
     ],
     },
@@ -52,7 +59,7 @@ Component({
       var list = this.data.list;
       var selected = 1;
       list.forEach(function (item, index) {
-        if (item.type === "action") {
+        if (item.type === "action" || item.type === "mini") {
           item.active = false;
           return;
         }
@@ -73,6 +80,20 @@ Component({
         return;
       }
 
+      if (type === "mini") {
+        wx.navigateToMiniProgram({
+          appId: e.currentTarget.dataset.appid,
+          envVersion: "release",
+          fail: function (err) {
+            var msg = (err && err.errMsg) || "";
+            if (msg.indexOf("cancel") === -1) {
+              wx.showToast({ title: "无法打开有场", icon: "none" });
+            }
+          },
+        });
+        return;
+      }
+
       if (index === this.data.selected) return;
       wx.switchTab({ url: path });
     },
@@ -80,7 +101,7 @@ Component({
     handleAction() {
       var auth = require("../utils/auth_api");
       wx.showActionSheet({
-        itemList: ["发笔记", "击球剪辑", "实时关键点"],
+        itemList: ["发笔记", "剪辑视频", "测测球速"],
         success: function (res) {
           var tapIndex = res.tapIndex;
           if (tapIndex === 0) {
@@ -92,7 +113,7 @@ Component({
           } else if (tapIndex === 1) {
             wx.navigateTo({ url: "/pages/stroke-extract/index" });
           } else if (tapIndex === 2) {
-            wx.navigateTo({ url: "/pages/pose-realtime/index" });
+            require("../utils/config").openPoseTest();
           }
           // 暂时下线：动作分析 → /pages/action-analyze/index
         },

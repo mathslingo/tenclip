@@ -2,62 +2,31 @@
 
 .profile-page {
   min-height: 100vh;
-  padding-bottom: calc(220rpx + env(safe-area-inset-bottom));
+  padding: 24rpx 0 calc(220rpx + env(safe-area-inset-bottom));
   background: transparent;
   box-sizing: border-box;
 }
 
-/* —— 顶部背景 —— */
-.profile-header {
-  position: relative;
-  height: 140rpx;
-  background: transparent;
-}
-
-.header-actions {
-  position: absolute;
-  top: 24rpx;
-  right: 24rpx;
-  display: flex;
-  gap: 16rpx;
-}
-
-.header-btn {
-  padding: 12rpx 26rpx;
-  border-radius: 999rpx;
-  font-size: 24rpx;
-  color: #fff;
-  background: rgba(0, 0, 0, 0.28);
-  backdrop-filter: blur(8px);
-}
-
-.header-btn.primary {
-  background: rgba(255, 255, 255, 0.95);
-  color: #0d3d32;
-  font-weight: 600;
-}
-
-/* —— 资料卡片 —— */
 .profile-card {
-  margin: -56rpx 24rpx 0;
+  margin: 0 24rpx;
   position: relative;
   z-index: 2;
   background: #fff;
   border-radius: 24rpx;
-  padding: 20rpx 28rpx 24rpx;
+  padding: 28rpx 28rpx 24rpx;
   box-shadow: 0 8rpx 28rpx rgba(13, 61, 50, 0.08);
 }
 
 .profile-main {
   display: flex;
-  align-items: flex-end;
-  gap: 20rpx;
+  flex-direction: column;
+  align-items: center;
+  gap: 16rpx;
 }
 
 .avatar {
   width: 112rpx;
   height: 112rpx;
-  margin-top: -64rpx;
   border-radius: 50%;
   border: 6rpx solid #fff;
   overflow: hidden;
@@ -83,14 +52,15 @@
 }
 
 .profile-info {
-  flex: 1;
+  width: 100%;
   min-width: 0;
-  padding-bottom: 8rpx;
+  text-align: center;
 }
 
 .name-row {
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 12rpx;
 }
 
@@ -119,15 +89,41 @@
   color: #9aa3af;
 }
 
-.stats-row {
+.profile-actions {
   display: flex;
-  gap: 40rpx;
+  justify-content: center;
+  gap: 16rpx;
   margin-top: 20rpx;
 }
 
+.action-btn {
+  min-width: 200rpx;
+  text-align: center;
+  padding: 14rpx 28rpx;
+  border-radius: 999rpx;
+  font-size: 24rpx;
+  color: #415360;
+  background: #f2f4f6;
+}
+
+.action-btn.primary {
+  color: #042018;
+  background: #3dffb0;
+  font-weight: 600;
+}
+
+.stats-row {
+  display: flex;
+  margin-top: 24rpx;
+  padding-top: 20rpx;
+  border-top: 1rpx solid #eef1f4;
+}
+
 .stat {
+  flex: 1;
   display: flex;
   flex-direction: column;
+  align-items: center;
   gap: 6rpx;
 }
 
@@ -145,10 +141,11 @@
 
 .bio {
   display: block;
-  margin-top: 16rpx;
+  margin-top: 20rpx;
   font-size: 26rpx;
   line-height: 1.5;
   color: #415360;
+  text-align: center;
 }
 
 .tennis-line {
@@ -156,13 +153,15 @@
   margin-top: 10rpx;
   font-size: 24rpx;
   color: #0d6b52;
+  text-align: center;
 }
 
 .tag-list {
   display: flex;
   flex-wrap: wrap;
+  justify-content: center;
   gap: 12rpx;
-  margin-top: 12rpx;
+  margin-top: 14rpx;
 }
 
 .tag {
@@ -176,8 +175,8 @@
 /* —— 快捷入口 —— */
 .quick-grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 12rpx;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16rpx;
   margin: 16rpx 24rpx 0;
 }
 
@@ -185,20 +184,24 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 8rpx;
-  padding: 16rpx 0;
+  justify-content: center;
+  gap: 10rpx;
+  padding: 28rpx 0;
   background: #fff;
-  border-radius: 16rpx;
+  border-radius: 20rpx;
+  box-shadow: 0 2rpx 10rpx rgba(0, 0, 0, 0.04);
 }
 
 .quick-icon {
-  font-size: 40rpx;
+  font-size: 48rpx;
   line-height: 1;
+  color: #0d6b52;
 }
 
 .quick-text {
-  font-size: 22rpx;
+  font-size: 26rpx;
   color: #415360;
+  font-weight: 500;
 }
 
 /* —— 内容标签 —— */

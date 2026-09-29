@@ -1,6 +1,6 @@
 const { API_BASE_URL } = require("./config");
 const { getUserId, getLocalProfile, isLoggedIn } = require("./user_id");
-const { authHeaders, getToken } = require("./auth_api");
+const { authHeaders, getToken, isLoggedIn: hasAuthSession, clearSession } = require("./auth_api");
 
 function absUrl(path) {
   var p = String(path || "");
@@ -48,6 +48,7 @@ function request(opts) {
       timeout: opts.timeout || 20000,
       success: function (res) {
         if (res.statusCode === 401) {
+          clearSession();
           reject(new Error("请先登录"));
           return;
         }
@@ -275,6 +276,9 @@ function fetchMessages(limit, offset) {
 }
 
 function fetchUnreadCount() {
+  if (!hasAuthSession()) {
+    return Promise.resolve(0);
+  }
   return request({
     url: API_BASE_URL + "/api/social/notifications/unread-count",
     header: authHeaders(),

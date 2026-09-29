@@ -8,6 +8,8 @@
     "pages/settings/index",
     "pages/me/index",
     "pages/login/index",
+    "pages/legal-privacy/index",
+    "pages/legal-terms/index",
     "pages/court-detail/index",
     "pages/feed-detail/index",
     "pages/stroke-extract/index",
@@ -49,7 +51,7 @@
       },
       {
         "pagePath": "pages/analyze/index",
-        "text": "分析"
+        "text": "有场"
       },
       {
         "pagePath": "pages/profile/index",
@@ -71,6 +73,7 @@
   "navigateToMiniProgramAppIdList": [
     "wx734c1ad7b3562129",
     "wxa43e880705719304",
-    "wxd0286fb3b0e39384"
+    "wxd0286fb3b0e39384",
+    "wx915ecf6c01bea4ec"
   ]
 }

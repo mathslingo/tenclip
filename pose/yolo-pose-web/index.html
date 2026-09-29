@@ -7,7 +7,7 @@
   <title>YOLO Pose + Tennis · ONNX Runtime Web</title>
   <script>
     (function () {
-      var id = (new URLSearchParams(location.search).get("court") || "wimbledon").toLowerCase();
+      var id = ((function (q) { return q.get("court") || q.get("theme") || "wimbledon"; })(new URLSearchParams(location.search))).toLowerCase();
       if (id !== "roland" && id !== "australian" && id !== "usopen") id = "wimbledon";
       document.documentElement.setAttribute("data-court", id);
     })();

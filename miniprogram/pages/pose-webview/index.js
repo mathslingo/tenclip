@@ -1,7 +1,6 @@
-const slamBehavior = require("../../behaviors/slam");
-const { WEB_POSE_URL } = require("../../utils/config");
+const slamBehavior = require("../../utils/config").slamBehavior;
+const { WEB_POSE_URL, slamTheme: slam } = require("../../utils/config");
 const { copyPoseLink } = require("../../utils/web_link");
-const slam = require("../../utils/slam_theme");
 
 Page({
   behaviors: [slamBehavior],

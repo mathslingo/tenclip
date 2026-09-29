@@ -1,4 +1,4 @@
-const slamBehavior = require("../../behaviors/slam");
+const slamBehavior = require("../../utils/config").slamBehavior;
 const { getNote, deleteNote, follow, unfollow, fetchUser } = require("../../utils/social_api");
 const { getUserId } = require("../../utils/user_id");
 const { isLoggedIn, requireLogin } = require("../../utils/auth_api");

@@ -1,4 +1,4 @@
-const slamBehavior = require("../../behaviors/slam");
+const slamBehavior = require("../../utils/config").slamBehavior;
 /**
  * 小程序原生 YOLO Pose（实验）
  * camera + wx.createInferenceSession(ONNX) + 本地 letterbox/NMS

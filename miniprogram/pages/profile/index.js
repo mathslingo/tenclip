@@ -1,4 +1,4 @@
-const slamBehavior = require("../../behaviors/slam");
+const slamBehavior = require("../../utils/config").slamBehavior;
 const {
   getProfile,
   saveProfile,
@@ -285,11 +285,7 @@ Page({
   // },
 
   onGoPose() {
-    wx.navigateTo({ url: "/pages/pose-realtime/index" });
-  },
-
-  onGoFeed() {
-    wx.switchTab({ url: "/pages/feed/index" });
+    require("../../utils/config").openPoseTest();
   },
 
   onTapFollowing() {
