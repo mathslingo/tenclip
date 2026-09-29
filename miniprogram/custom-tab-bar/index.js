@@ -23,7 +23,7 @@ Component({
         pagePath: "",
         text: "有场",
         icon: "◎",
-        image: "/assets/tabbar/youchang.png",
+        image: "/assets/tabbar/uchance-logo.png",
         type: "mini",
         appId: "wx915ecf6c01bea4ec",
       },
