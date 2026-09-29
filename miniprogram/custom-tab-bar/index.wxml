@@ -23,6 +23,8 @@
         class="tab-image"
         src="{{item.image}}"
         mode="aspectFit"
+        data-index="{{index}}"
+        binderror="onImageError"
       />
       <text
         wx:else

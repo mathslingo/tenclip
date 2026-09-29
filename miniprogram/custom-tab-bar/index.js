@@ -73,6 +73,16 @@ Component({
       this.setData({ selected: selected, list: list });
     },
 
+    onImageError(e) {
+      var index = e.currentTarget.dataset.index;
+      var list = this.data.list;
+      console.warn("[tab-bar] 图标加载失败", index, e && e.detail && e.detail.errMsg);
+      if (list[index]) {
+        list[index].image = "";
+        this.setData({ list: list });
+      }
+    },
+
     onTap(e) {
       var index = e.currentTarget.dataset.index;
       var path = e.currentTarget.dataset.path;
