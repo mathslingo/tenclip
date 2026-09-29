@@ -38,6 +38,12 @@
   margin-bottom: 6rpx;
 }
 
+.tab-image {
+  width: 48rpx;
+  height: 48rpx;
+  margin-bottom: 4rpx;
+}
+
 .tab-action {
   position: relative;
   margin-top: -28rpx;

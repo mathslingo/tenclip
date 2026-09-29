@@ -18,6 +18,12 @@
         <view class="seam seam-left"></view>
         <view class="seam seam-right"></view>
       </view>
+      <image
+        wx:elif="{{item.image}}"
+        class="tab-image"
+        src="{{item.image}}"
+        mode="aspectFit"
+      />
       <text
         wx:else
         class="tab-icon"
