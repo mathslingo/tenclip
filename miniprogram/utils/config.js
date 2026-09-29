@@ -260,6 +260,19 @@ var slamTheme = {
   setTheme: slamSetTheme,
 };
 
+/** 测测球速：带上当前球场风格，打开内嵌检测页 */
+function openPoseTest() {
+  if (!WEB_POSE_URL) {
+    wx.showToast({ title: "未配置检测地址", icon: "none" });
+    return;
+  }
+  var join = WEB_POSE_URL.indexOf("?") >= 0 ? "&" : "?";
+  var url = WEB_POSE_URL + join + "mp=1&theme=" + encodeURIComponent(slamCurrent().id);
+  wx.navigateTo({
+    url: "/pages/pose-webview/index?url=" + encodeURIComponent(url),
+  });
+}
+
 var _slamBehavior = null;
 
 function getSlamBehavior() {
@@ -333,6 +346,7 @@ module.exports = {
   domainWhitelistHint,
   isDomainListError,
   slamTheme,
+  openPoseTest,
   get slamBehavior() {
     return getSlamBehavior();
   },

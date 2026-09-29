@@ -285,11 +285,7 @@ Page({
   // },
 
   onGoPose() {
-    wx.switchTab({ url: "/pages/analyze/index" });
-  },
-
-  onGoFeed() {
-    wx.switchTab({ url: "/pages/feed/index" });
+    require("../../utils/config").openPoseTest();
   },
 
   onTapFollowing() {

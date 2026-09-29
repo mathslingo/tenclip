@@ -7,6 +7,7 @@
       data-path="{{item.pagePath}}"
       data-index="{{index}}"
       data-type="{{item.type}}"
+      data-appid="{{item.appId}}"
       bindtap="onTap"
     >
       <view

@@ -49,7 +49,7 @@
   <view class="quick-row">
     <view class="quick-card" bindtap="onGoStroke">
       <text class="quick-icon">✂</text>
-      <text class="quick-label">击球剪辑</text>
+      <text class="quick-label">剪辑视频</text>
     </view>
     <!-- 暂时下线：动作分析
     <view class="quick-card" bindtap="onGoAnalyze">
@@ -59,11 +59,7 @@
     -->
     <view class="quick-card" bindtap="onGoPose">
       <text class="quick-icon">◇</text>
-      <text class="quick-label">实时关键点</text>
-    </view>
-    <view class="quick-card" bindtap="onGoFeed">
-      <text class="quick-icon">▣</text>
-      <text class="quick-label">发现资讯</text>
+      <text class="quick-label">测测球速</text>
     </view>
   </view>
 
