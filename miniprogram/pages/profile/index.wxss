@@ -19,8 +19,9 @@
 
 .profile-main {
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 20rpx;
+  gap: 16rpx;
 }
 
 .avatar {
@@ -51,14 +52,15 @@
 }
 
 .profile-info {
-  flex: 1;
+  width: 100%;
   min-width: 0;
-  padding-bottom: 8rpx;
+  text-align: center;
 }
 
 .name-row {
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 12rpx;
 }
 
@@ -89,12 +91,15 @@
 
 .profile-actions {
   display: flex;
-  gap: 12rpx;
-  margin-top: 16rpx;
+  justify-content: center;
+  gap: 16rpx;
+  margin-top: 20rpx;
 }
 
 .action-btn {
-  padding: 10rpx 22rpx;
+  min-width: 200rpx;
+  text-align: center;
+  padding: 14rpx 28rpx;
   border-radius: 999rpx;
   font-size: 24rpx;
   color: #415360;
@@ -109,13 +114,16 @@
 
 .stats-row {
   display: flex;
-  gap: 40rpx;
-  margin-top: 20rpx;
+  margin-top: 24rpx;
+  padding-top: 20rpx;
+  border-top: 1rpx solid #eef1f4;
 }
 
 .stat {
+  flex: 1;
   display: flex;
   flex-direction: column;
+  align-items: center;
   gap: 6rpx;
 }
 
@@ -133,10 +141,11 @@
 
 .bio {
   display: block;
-  margin-top: 16rpx;
+  margin-top: 20rpx;
   font-size: 26rpx;
   line-height: 1.5;
   color: #415360;
+  text-align: center;
 }
 
 .tennis-line {
@@ -144,13 +153,15 @@
   margin-top: 10rpx;
   font-size: 24rpx;
   color: #0d6b52;
+  text-align: center;
 }
 
 .tag-list {
   display: flex;
   flex-wrap: wrap;
+  justify-content: center;
   gap: 12rpx;
-  margin-top: 12rpx;
+  margin-top: 14rpx;
 }
 
 .tag {
