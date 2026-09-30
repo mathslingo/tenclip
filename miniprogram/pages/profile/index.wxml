@@ -1,4 +1,4 @@
-<page-meta page-style="{{pageStyle}}" background-text-style="light" />
+<page-meta page-style="{{pageStyle}}" background-color="{{slamBg}}" background-color-top="{{slamBg}}" background-color-bottom="{{slamBg}}" background-text-style="light" />
 <view class="profile-page">
   <view class="profile-card">
     <view class="profile-main">
