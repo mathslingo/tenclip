@@ -3,14 +3,14 @@
   <view class="card">
     <input
       class="title-input"
-      placeholder="标题（可选）"
+      placeholder="{{titlePlaceholder}}"
       maxlength="40"
       value="{{title}}"
       bindinput="onTitle"
     />
     <textarea
       class="body-input"
-      placeholder="分享你的网球日常、训练心得…"
+      placeholder="{{bodyPlaceholder}}"
       maxlength="1000"
       value="{{body}}"
       bindinput="onBody"
