@@ -143,7 +143,7 @@
   </view>
 
   <!-- 开发设置（默认收起） -->
-  <view class="settings-card" wx:if="{{showSettings}}">
+  <view class="settings-card" wx:if="{{showSettings && canDevMode}}">
     <text class="settings-title">开发者选项</text>
     
     <!-- 开发者模式开关 -->

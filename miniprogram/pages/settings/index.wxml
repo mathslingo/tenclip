@@ -35,7 +35,7 @@
     </view>
   </view>
 
-  <view class="settings-card">
+  <view class="settings-card" wx:if="{{canDevMode}}">
     <text class="settings-title">开发者选项</text>
     <view class="switch-row">
       <view class="switch-text">

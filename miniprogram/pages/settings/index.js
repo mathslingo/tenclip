@@ -1,5 +1,14 @@
 const slamBehavior = require("../../utils/config").slamBehavior;
-const { APP_BUILD_TAG, FEED_USE_MOCK, API_BASE_URL, LOCAL_DEV, slamTheme: slam } = require("../../utils/config");
+const {
+  APP_BUILD_TAG,
+  FEED_USE_MOCK,
+  API_BASE_URL,
+  LOCAL_DEV,
+  slamTheme: slam,
+  isDevModeAllowed,
+  readDevMode,
+  writeDevMode,
+} = require("../../utils/config");
 const { getProfile } = require("../../utils/me_store");
 const { isLoggedIn, requireLogin, logout, enterGuest } = require("../../utils/auth_api");
 
@@ -11,6 +20,7 @@ Page({
     loggedIn: false,
     uid: "",
     nickname: "",
+    canDevMode: false,
     devMode: false,
     feedUseMock: !!FEED_USE_MOCK,
     buildTag: APP_BUILD_TAG,
@@ -25,16 +35,19 @@ Page({
 
   refresh() {
     var profile = getProfile();
+    var uid = profile.uid || "";
     var stored = wx.getStorageSync(MOCK_KEY);
     var useMock =
       stored === "" || stored === undefined || stored === null
         ? !!FEED_USE_MOCK
         : stored === true || stored === "1";
+    var canDev = isDevModeAllowed(uid);
     this.setData({
       loggedIn: isLoggedIn(),
-      uid: profile.uid || "",
+      uid: uid,
       nickname: profile.nickname || "",
-      devMode: !!(wx.getStorageSync("dev_mode") || false),
+      canDevMode: canDev,
+      devMode: readDevMode(uid),
       feedUseMock: !!useMock,
     });
   },
@@ -74,10 +87,16 @@ Page({
 
   onDevModeChange(e) {
     var on = !!(e.detail && e.detail.value);
-    wx.setStorageSync("dev_mode", on);
-    this.setData({ devMode: on });
+    var uid = this.data.uid;
+    if (on && !isDevModeAllowed(uid)) {
+      this.setData({ devMode: false });
+      wx.showToast({ title: "当前账号无开发者权限", icon: "none" });
+      return;
+    }
+    var ok = writeDevMode(uid, on);
+    this.setData({ devMode: ok });
     wx.showToast({
-      title: on ? "已开启开发者模式" : "已关闭开发者模式",
+      title: ok ? "已开启开发者模式" : "已关闭开发者模式",
       icon: "success",
       duration: 1500,
     });
