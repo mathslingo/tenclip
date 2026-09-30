@@ -74,9 +74,13 @@ Page({
     dtRange: [[], [], [], []],
     dtValue: [1, 0, 0, 0],
     eventTimeText: "",
+    kind: "note",
+    required: false,
+    kindLabel: "",
+    timeTouched: false,
   },
 
-  onLoad() {
+  onLoad(options) {
     var that = this;
     var value = defaultPickerValue();
     var now = new Date();
@@ -87,6 +91,19 @@ Page({
       dtValue: value,
       eventTimeText: formatFromPicker(range, value),
     });
+    var kind = (options && options.kind) || "note";
+    if (kind === "offer" || kind === "seek") {
+      var label = kind === "offer" ? "发场地" : "收场地";
+      this.setData({
+        kind: kind,
+        required: true,
+        kindLabel: label,
+        locationEnabled: true,
+        timeEnabled: true,
+        timeTouched: false,
+      });
+      wx.setNavigationBarTitle({ title: label });
+    }
     fetchPublishLimits().then(function (cfg) {
       that.setData({
         maxImages: cfg.maxImages,
@@ -214,6 +231,7 @@ Page({
     this.setData({
       dtRange: range,
       dtValue: value,
+      timeTouched: true,
       eventTimeText: formatFromPicker(range, value),
     });
   },
@@ -228,6 +246,7 @@ Page({
     this.setData({
       dtRange: range,
       dtValue: value,
+      timeTouched: true,
       eventTimeText: formatFromPicker(range, value),
     });
   },
@@ -293,6 +312,20 @@ Page({
       wx.showToast({ title: "请填写正文或添加图片", icon: "none" });
       return;
     }
+    if (this.data.required) {
+      if (
+        !(this.data.locationName || this.data.locationAddress) ||
+        typeof this.data.latitude !== "number" ||
+        typeof this.data.longitude !== "number"
+      ) {
+        wx.showToast({ title: "请先选择地点", icon: "none" });
+        return;
+      }
+      if (!this.data.timeTouched) {
+        wx.showToast({ title: "请先选择时间", icon: "none" });
+        return;
+      }
+    }
     if (this.data.locationEnabled && !this.data.locationName && !this.data.locationAddress) {
       wx.showToast({ title: "请选择地图位置，或关闭地点", icon: "none" });
       return;
@@ -309,8 +342,14 @@ Page({
       return;
     }
 
+    var title = that.data.title;
+    if (this.data.required) {
+      var tag = "【" + this.data.kindLabel + "】";
+      var base = String(title || "").trim() || this.data.locationName || "";
+      title = (tag + base).slice(0, 40);
+    }
     var payload = {
-      title: that.data.title,
+      title: title,
       body: body,
       imagePaths: images,
     };

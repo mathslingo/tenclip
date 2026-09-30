@@ -100,21 +100,18 @@ Component({
     handleAction() {
       var auth = require("../utils/auth_api");
       wx.showActionSheet({
-        itemList: ["发笔记", "剪辑视频", "测测球速"],
+        itemList: ["发笔记", "发场地", "收场地"],
         success: function (res) {
-          var tapIndex = res.tapIndex;
-          if (tapIndex === 0) {
-            if (!auth.isLoggedIn()) {
-              wx.navigateTo({ url: "/pages/login/index" });
-              return;
-            }
-            wx.navigateTo({ url: "/pages/note-compose/index" });
-          } else if (tapIndex === 1) {
-            wx.navigateTo({ url: "/pages/stroke-extract/index" });
-          } else if (tapIndex === 2) {
-            require("../utils/config").openPoseTest();
+          var kinds = ["note", "offer", "seek"];
+          var kind = kinds[res.tapIndex];
+          if (!kind) return;
+          if (!auth.isLoggedIn()) {
+            wx.navigateTo({ url: "/pages/login/index" });
+            return;
           }
-          // 暂时下线：动作分析 → /pages/action-analyze/index
+          wx.navigateTo({
+            url: "/pages/note-compose/index" + (kind === "note" ? "" : "?kind=" + kind),
+          });
         },
       });
     },
