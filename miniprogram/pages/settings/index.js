@@ -58,6 +58,7 @@ Page({
     this.setData({
       slamId: theme.id,
       pageStyle: slam.pageStyle(theme),
+      slamBg: slam.bgColor(theme),
     });
   },
 

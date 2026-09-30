@@ -232,14 +232,31 @@ function slamPageStyle(theme) {
   return (theme || slamCurrent()).vars;
 }
 
+/** 下拉刷新 / 窗口底色用的纯色（与球场主色一致） */
+function slamBgColor(theme) {
+  theme = theme || slamCurrent();
+  var m = String(theme.vars || "").match(/--court-a:\s*(#[0-9a-fA-F]{3,8})/);
+  return (m && m[1]) || theme.nav || "#0c3b2e";
+}
+
 function slamApplyNav(theme) {
   theme = theme || slamCurrent();
-  if (typeof wx.setNavigationBarColor !== "function") return;
-  wx.setNavigationBarColor({
-    backgroundColor: theme.nav,
-    frontColor: theme.front || "#ffffff",
-    animation: { duration: 0, timingFunc: "linear" },
-  });
+  if (typeof wx.setNavigationBarColor === "function") {
+    wx.setNavigationBarColor({
+      backgroundColor: theme.nav,
+      frontColor: theme.front || "#ffffff",
+      animation: { duration: 0, timingFunc: "linear" },
+    });
+  }
+  // 下拉刷新露出来的窗口背景，需与球场风格同步（否则会残留默认绿）
+  if (typeof wx.setBackgroundColor === "function") {
+    var bg = slamBgColor(theme);
+    wx.setBackgroundColor({
+      backgroundColor: bg,
+      backgroundColorTop: bg,
+      backgroundColorBottom: bg,
+    });
+  }
 }
 
 function slamRefreshTabBar(theme) {
@@ -279,6 +296,7 @@ var slamTheme = {
   THEMES: SLAM_THEMES,
   current: slamCurrent,
   pageStyle: slamPageStyle,
+  bgColor: slamBgColor,
   applyNav: slamApplyNav,
   setTheme: slamSetTheme,
   refreshTabBar: slamRefreshTabBar,
@@ -351,6 +369,7 @@ function getSlamBehavior() {
     data: {
       pageStyle: slamTheme.pageStyle(),
       slamId: slamTheme.current().id,
+      slamBg: slamTheme.bgColor(),
     },
 
     lifetimes: {
@@ -371,8 +390,13 @@ function getSlamBehavior() {
         slamTheme.applyNav(theme);
         slamTheme.refreshTabBar(theme);
         var style = slamTheme.pageStyle(theme);
-        if (this.data.pageStyle !== style || this.data.slamId !== theme.id) {
-          this.setData({ pageStyle: style, slamId: theme.id });
+        var bg = slamTheme.bgColor(theme);
+        if (
+          this.data.pageStyle !== style ||
+          this.data.slamId !== theme.id ||
+          this.data.slamBg !== bg
+        ) {
+          this.setData({ pageStyle: style, slamId: theme.id, slamBg: bg });
         }
       },
     },
