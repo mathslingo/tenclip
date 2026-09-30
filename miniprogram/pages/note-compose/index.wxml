@@ -41,9 +41,9 @@
     <view class="opt-row">
       <view class="opt-left">
         <text class="section-title">地图选点</text>
-        <text class="section-hint">分享打球地点（可选）</text>
+        <text class="section-hint">{{required ? "必填 · 场地所在位置" : "分享打球地点（可选）"}}</text>
       </view>
-      <switch checked="{{locationEnabled}}" color="#13d8a8" bindchange="onToggleLocation" />
+      <switch wx:if="{{!required}}" checked="{{locationEnabled}}" color="#13d8a8" bindchange="onToggleLocation" />
     </view>
     <block wx:if="{{locationEnabled}}">
       <view class="loc-box" bindtap="onPickLocation">
@@ -68,10 +68,10 @@
   <view class="card">
     <view class="opt-row">
       <view class="opt-left">
-        <text class="section-title">附带时间</text>
-        <text class="section-hint">活动 / 约球时间（可选）</text>
+        <text class="section-title">{{required ? "时间段" : "附带时间"}}</text>
+        <text class="section-hint">{{required ? "必填 · 场地可用的起止时间" : "活动 / 约球时间（可选）"}}</text>
       </view>
-      <switch checked="{{timeEnabled}}" color="#13d8a8" bindchange="onToggleTime" />
+      <switch wx:if="{{!required}}" checked="{{timeEnabled}}" color="#13d8a8" bindchange="onToggleTime" />
     </view>
     <picker
       wx:if="{{timeEnabled}}"
@@ -82,13 +82,27 @@
       bindcolumnchange="onDtColumnChange"
     >
       <view class="time-box">
-        <text class="time-label">选择时间</text>
-        <text class="time-value">{{eventTimeText}}</text>
+        <text class="time-label">{{required ? "开始时间" : "选择时间"}}</text>
+        <text class="time-value">{{required && !timeTouched ? "请选择开始时间" : eventTimeText}}</text>
+        <text class="loc-arrow">›</text>
+      </view>
+    </picker>
+    <picker
+      wx:if="{{required}}"
+      mode="multiSelector"
+      range="{{endRange}}"
+      value="{{endValue}}"
+      bindchange="onEndChange"
+      bindcolumnchange="onEndColumnChange"
+    >
+      <view class="time-box">
+        <text class="time-label">结束时间</text>
+        <text class="time-value">{{endTouched ? endTimeText : "请选择结束时间"}}</text>
         <text class="loc-arrow">›</text>
       </view>
     </picker>
   </view>
 
-  <button class="publish-btn" loading="{{busy}}" disabled="{{busy}}" bindtap="onPublish">发布</button>
+  <button class="publish-btn" loading="{{busy}}" disabled="{{busy}}" bindtap="onPublish">{{required ? "发布" + kindLabel : "发布"}}</button>
   <text class="tip">{{dayHint}} · 笔记会出现在「发现」和「我的 · 作品」。</text>
 </view>
