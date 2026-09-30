@@ -47,8 +47,8 @@ Component({
   },
 
   methods: {
-    applyTheme() {
-      this.setData(themeData());
+    applyTheme(theme) {
+      this.setData(themeData(theme));
     },
 
     updateSelected() {
@@ -66,7 +66,7 @@ Component({
         item.active = route === itemPath;
         if (item.active) selected = index;
       });
-      this.setData({ selected: selected, list: list });
+      this.setData(Object.assign(themeData(), { selected: selected, list: list }));
     },
 
     onTap(e) {

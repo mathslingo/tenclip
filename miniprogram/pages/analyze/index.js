@@ -13,7 +13,10 @@ function embedUrl() {
 Page({
   onShow() {
     var tabBar = this.getTabBar && this.getTabBar();
-    if (tabBar && tabBar.updateSelected) tabBar.updateSelected();
+    if (tabBar) {
+      if (tabBar.applyTheme) tabBar.applyTheme();
+      if (tabBar.updateSelected) tabBar.updateSelected();
+    }
     if (this._skipOpen) {
       this._skipOpen = false;
       return;

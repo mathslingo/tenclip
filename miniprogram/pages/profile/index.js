@@ -117,8 +117,9 @@ Page({
     this.loadTabContent(this.data.activeTab);
 
     const tabBar = this.getTabBar && this.getTabBar();
-    if (tabBar && tabBar.updateSelected) {
-      tabBar.updateSelected();
+    if (tabBar) {
+      if (tabBar.applyTheme) tabBar.applyTheme();
+      if (tabBar.updateSelected) tabBar.updateSelected();
     }
   },
 
