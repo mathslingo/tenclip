@@ -119,8 +119,128 @@ function filterApiItemsByTab(items, tab) {
   });
 }
 
+var _nearbyCache = null;
+
+function getDeviceLocation() {
+  return new Promise(function (resolve, reject) {
+    wx.getLocation({
+      type: "gcj02",
+      success: resolve,
+      fail: function (err) {
+        var e = new Error((err && err.errMsg) || "定位失败");
+        e.denied = true;
+        reject(e);
+      },
+    });
+  });
+}
+
+function distanceMeters(lat1, lng1, lat2, lng2) {
+  var R = 6371000;
+  var dLat = ((lat2 - lat1) * Math.PI) / 180;
+  var dLng = ((lng2 - lng1) * Math.PI) / 180;
+  var a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos((lat1 * Math.PI) / 180) *
+      Math.cos((lat2 * Math.PI) / 180) *
+      Math.sin(dLng / 2) *
+      Math.sin(dLng / 2);
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+function formatDistance(m) {
+  if (m < 1000) return Math.max(1, Math.round(m)) + "m";
+  return (m / 1000).toFixed(m < 10000 ? 1 : 0) + "km";
+}
+
+function requestRecentNotes() {
+  return new Promise(function (resolve, reject) {
+    wx.request({
+      url: API_BASE_URL + "/api/social/notes?limit=80&offset=0",
+      method: "GET",
+      success: function (res) {
+        if (res.statusCode < 200 || res.statusCode >= 300) {
+          reject(new Error("请求失败 " + res.statusCode));
+          return;
+        }
+        var items = (res.data && res.data.items) || [];
+        resolve(Array.isArray(items) ? items : []);
+      },
+      fail: function (err) {
+        reject(new Error((err && err.errMsg) || "网络错误"));
+      },
+    });
+  });
+}
+
+/** 附近：按当前定位，对带坐标的笔记由近到远排序（近的在前） */
+function fetchNearbyPage(opts) {
+  var offset = opts.offset || 0;
+  var limit = opts.limit || 10;
+  var load;
+  if (offset > 0 && _nearbyCache) {
+    load = Promise.resolve(_nearbyCache);
+  } else {
+    load = getDeviceLocation().then(function (loc) {
+      return requestRecentNotes().then(function (rows) {
+        var list = [];
+        rows.forEach(function (row) {
+          var note = normalizeNote(row);
+          var lat = Number(note.latitude);
+          var lng = Number(note.longitude);
+          if (
+            note.latitude == null ||
+            note.longitude == null ||
+            isNaN(lat) ||
+            isNaN(lng)
+          ) {
+            return;
+          }
+          var d = distanceMeters(loc.latitude, loc.longitude, lat, lng);
+          note.channel = "附近";
+          note.distance_m = d;
+          note.tour_badge = formatDistance(d);
+          list.push(note);
+        });
+        list.sort(function (a, b) {
+          return a.distance_m - b.distance_m;
+        });
+        _nearbyCache = list;
+        return list;
+      });
+    });
+  }
+  return load.then(
+    function (list) {
+      var pageItems = list.slice(offset, offset + limit);
+      var next = offset + pageItems.length;
+      return {
+        items: pageItems,
+        offset: offset,
+        nextOffset: next,
+        reachedEnd: next >= list.length,
+        total: list.length,
+        source: list.length ? "nearby" : "nearby-empty",
+      };
+    },
+    function (err) {
+      return {
+        items: [],
+        offset: 0,
+        nextOffset: 0,
+        reachedEnd: true,
+        total: 0,
+        source: err && err.denied ? "nearby-denied" : "nearby-error",
+      };
+    }
+  );
+}
+
 function fetchFeedPage(opts) {
   opts = opts || {};
+  if (opts.tab === "附近") {
+    return fetchNearbyPage(opts);
+  }
   if (isFeedMockEnabled()) {
     return Promise.resolve(
       Object.assign({ source: "mock" }, fetchMockPage(opts))

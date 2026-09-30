@@ -9,7 +9,7 @@ const PAGE_SIZE = 6;
 Page({
   behaviors: [slamBehavior],
   data: {
-    topTabs: ["推荐", "赛事", "教学"],
+    topTabs: ["推荐", "赛事", "附近"],
     activeTab: "推荐",
     leftList: [],
     rightList: [],
@@ -127,6 +127,21 @@ Page({
           emptyHint = LOCAL_DEV
             ? "新闻库暂无内容。请启动后端并执行新闻抓取。"
             : "暂时没有新内容，稍后再来看看。";
+        }
+        if (page.source === "nearby-denied" && !left.length && !right.length) {
+          emptyHint = "需要允许定位，才能按距离查看附近的内容。开启后下拉刷新。";
+          wx.showModal({
+            title: "需要定位权限",
+            content: "开启定位后，才能由近到远查看附近的内容。",
+            confirmText: "去设置",
+            success: function (res) {
+              if (res.confirm) wx.openSetting({});
+            },
+          });
+        } else if (page.source === "nearby-empty" && !left.length && !right.length) {
+          emptyHint = "附近暂时没有带地点的内容。";
+        } else if (page.source === "nearby-error" && !left.length && !right.length) {
+          emptyHint = "网络繁忙，请稍后下拉刷新重试。";
         }
         if (page.source === "mock-fallback" && !left.length && !right.length) {
           emptyHint = LOCAL_DEV
