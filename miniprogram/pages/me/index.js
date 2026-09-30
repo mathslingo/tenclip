@@ -1,5 +1,13 @@
 const slamBehavior = require("../../utils/config").slamBehavior;
-const { APP_BUILD_TAG, FEED_USE_MOCK, API_BASE_URL, LOCAL_DEV } = require("../../utils/config");
+const {
+  APP_BUILD_TAG,
+  FEED_USE_MOCK,
+  API_BASE_URL,
+  LOCAL_DEV,
+  isDevModeAllowed,
+  readDevMode,
+  writeDevMode,
+} = require("../../utils/config");
 const {
   getProfile,
   saveProfile,
@@ -91,6 +99,7 @@ Page({
     emptySub: "",
     emptyCta: "",
     showSettings: false,
+    canDevMode: false,
     devMode: false,
     feedUseMock: !!FEED_USE_MOCK,
     buildTag: APP_BUILD_TAG,
@@ -180,8 +189,12 @@ Page({
   },
 
   refreshDevMode() {
-    var devMode = wx.getStorageSync("dev_mode") || false;
-    this.setData({ devMode: !!devMode });
+    var uid = (this.data.profile && this.data.profile.uid) || getUserId() || "";
+    var canDev = isDevModeAllowed(uid);
+    this.setData({
+      canDevMode: canDev,
+      devMode: readDevMode(uid),
+    });
   },
 
   loadTabContent(tab) {
@@ -314,10 +327,16 @@ Page({
 
   onDevModeChange(e) {
     var on = !!(e.detail && e.detail.value);
-    wx.setStorageSync("dev_mode", on);
-    this.setData({ devMode: on });
+    var uid = (this.data.profile && this.data.profile.uid) || getUserId() || "";
+    if (on && !isDevModeAllowed(uid)) {
+      this.setData({ devMode: false });
+      wx.showToast({ title: "当前账号无开发者权限", icon: "none" });
+      return;
+    }
+    var ok = writeDevMode(uid, on);
+    this.setData({ devMode: ok });
     wx.showToast({
-      title: on ? "已开启开发者模式" : "已关闭开发者模式",
+      title: ok ? "已开启开发者模式" : "已关闭开发者模式",
       icon: "success",
       duration: 1500,
     });

@@ -242,12 +242,35 @@ function slamApplyNav(theme) {
   });
 }
 
+function slamRefreshTabBar(theme) {
+  theme = theme || slamCurrent();
+  var ok = false;
+  try {
+    var pages = getCurrentPages();
+    for (var i = pages.length - 1; i >= 0; i--) {
+      var page = pages[i];
+      if (!page || typeof page.getTabBar !== "function") continue;
+      var bar = page.getTabBar();
+      if (!bar) continue;
+      if (typeof bar.applyTheme === "function") {
+        bar.applyTheme(theme);
+        ok = true;
+      } else if (typeof bar.updateSelected === "function") {
+        bar.updateSelected();
+        ok = true;
+      }
+    }
+  } catch (e) {}
+  return ok;
+}
+
 function slamSetTheme(id) {
   try {
     wx.setStorageSync(SLAM_STORAGE_KEY, id);
   } catch (e) {}
   var theme = slamCurrent();
   slamApplyNav(theme);
+  slamRefreshTabBar(theme);
   return theme;
 }
 
@@ -258,7 +281,54 @@ var slamTheme = {
   pageStyle: slamPageStyle,
   applyNav: slamApplyNav,
   setTheme: slamSetTheme,
+  refreshTabBar: slamRefreshTabBar,
 };
+
+/** 小程序前端全局配置（打包进客户端） */
+var APP_CONFIG = {};
+try {
+  APP_CONFIG = require("../config/app_config.json") || {};
+} catch (e) {
+  APP_CONFIG = {};
+}
+
+function isDevModeAllowed(uid) {
+  var list = (APP_CONFIG && APP_CONFIG.devModeWhitelist) || [];
+  if (!Array.isArray(list) || !list.length) return false;
+  var id = String(uid || "").trim();
+  if (!id) return false;
+  for (var i = 0; i < list.length; i++) {
+    if (String(list[i]).trim() === id) return true;
+  }
+  return false;
+}
+
+function readDevMode(uid) {
+  if (!isDevModeAllowed(uid)) {
+    try {
+      wx.setStorageSync("dev_mode", false);
+    } catch (e) {}
+    return false;
+  }
+  try {
+    return !!(wx.getStorageSync("dev_mode") || false);
+  } catch (e) {
+    return false;
+  }
+}
+
+function writeDevMode(uid, on) {
+  if (on && !isDevModeAllowed(uid)) {
+    try {
+      wx.setStorageSync("dev_mode", false);
+    } catch (e) {}
+    return false;
+  }
+  try {
+    wx.setStorageSync("dev_mode", !!on);
+  } catch (e) {}
+  return !!on;
+}
 
 /** 测测球速：带上当前球场风格，打开内嵌检测页 */
 function openPoseTest() {
@@ -299,6 +369,7 @@ function getSlamBehavior() {
       applySlamTheme: function () {
         var theme = slamTheme.current();
         slamTheme.applyNav(theme);
+        slamTheme.refreshTabBar(theme);
         var style = slamTheme.pageStyle(theme);
         if (this.data.pageStyle !== style || this.data.slamId !== theme.id) {
           this.setData({ pageStyle: style, slamId: theme.id });
@@ -347,6 +418,10 @@ module.exports = {
   isDomainListError,
   slamTheme,
   openPoseTest,
+  APP_CONFIG,
+  isDevModeAllowed,
+  readDevMode,
+  writeDevMode,
   get slamBehavior() {
     return getSlamBehavior();
   },
