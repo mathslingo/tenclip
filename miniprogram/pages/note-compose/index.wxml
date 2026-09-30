@@ -68,8 +68,8 @@
   <view class="card">
     <view class="opt-row">
       <view class="opt-left">
-        <text class="section-title">{{required ? "时间" : "附带时间"}}</text>
-        <text class="section-hint">{{required ? "必填 · 可用的场地时间" : "活动 / 约球时间（可选）"}}</text>
+        <text class="section-title">{{required ? "时间段" : "附带时间"}}</text>
+        <text class="section-hint">{{required ? "必填 · 场地可用的起止时间" : "活动 / 约球时间（可选）"}}</text>
       </view>
       <switch wx:if="{{!required}}" checked="{{timeEnabled}}" color="#13d8a8" bindchange="onToggleTime" />
     </view>
@@ -82,8 +82,22 @@
       bindcolumnchange="onDtColumnChange"
     >
       <view class="time-box">
-        <text class="time-label">选择时间</text>
-        <text class="time-value">{{required && !timeTouched ? "请选择时间" : eventTimeText}}</text>
+        <text class="time-label">{{required ? "开始时间" : "选择时间"}}</text>
+        <text class="time-value">{{required && !timeTouched ? "请选择开始时间" : eventTimeText}}</text>
+        <text class="loc-arrow">›</text>
+      </view>
+    </picker>
+    <picker
+      wx:if="{{required}}"
+      mode="multiSelector"
+      range="{{endRange}}"
+      value="{{endValue}}"
+      bindchange="onEndChange"
+      bindcolumnchange="onEndColumnChange"
+    >
+      <view class="time-box">
+        <text class="time-label">结束时间</text>
+        <text class="time-value">{{endTouched ? endTimeText : "请选择结束时间"}}</text>
         <text class="loc-arrow">›</text>
       </view>
     </picker>

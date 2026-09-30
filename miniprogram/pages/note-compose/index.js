@@ -78,6 +78,10 @@ Page({
     required: false,
     kindLabel: "",
     timeTouched: false,
+    endRange: [[], [], [], []],
+    endValue: [1, 0, 0, 0],
+    endTimeText: "",
+    endTouched: false,
   },
 
   onLoad(options) {
@@ -86,10 +90,15 @@ Page({
     var now = new Date();
     var range = buildPickerRange(now.getFullYear(), now.getMonth() + 1);
     if (value[2] >= range[2].length) value[2] = range[2].length - 1;
+    var endValue = value.slice();
+    endValue[3] = Math.min(23, endValue[3] + 1);
     this.setData({
       dtRange: range,
       dtValue: value,
       eventTimeText: formatFromPicker(range, value),
+      endRange: range,
+      endValue: endValue,
+      endTimeText: formatFromPicker(range, endValue),
     });
     var kind = (options && options.kind) || "note";
     if (kind === "offer" || kind === "seek") {
@@ -251,6 +260,41 @@ Page({
     });
   },
 
+  onEndColumnChange(e) {
+    var col = e.detail.column;
+    var idx = e.detail.value;
+    var value = (this.data.endValue || []).slice();
+    value[col] = idx;
+    var range = this.data.endRange;
+    var y = Number(range[0][value[0]]);
+    var m = Number(range[1][value[1]]);
+    if (col === 0 || col === 1) {
+      range = buildPickerRange(y, m);
+      if (value[2] >= range[2].length) value[2] = range[2].length - 1;
+    }
+    this.setData({
+      endRange: range,
+      endValue: value,
+      endTouched: true,
+      endTimeText: formatFromPicker(range, value),
+    });
+  },
+
+  onEndChange(e) {
+    var value = e.detail.value;
+    var range = this.data.endRange;
+    var y = Number(range[0][value[0]]);
+    var m = Number(range[1][value[1]]);
+    range = buildPickerRange(y, m);
+    if (value[2] >= range[2].length) value[2] = range[2].length - 1;
+    this.setData({
+      endRange: range,
+      endValue: value,
+      endTouched: true,
+      endTimeText: formatFromPicker(range, value),
+    });
+  },
+
   onAddImages() {
     var that = this;
     var maxImages = this.data.maxImages || 10;
@@ -322,7 +366,18 @@ Page({
         return;
       }
       if (!this.data.timeTouched) {
-        wx.showToast({ title: "请先选择时间", icon: "none" });
+        wx.showToast({ title: "请先选择开始时间", icon: "none" });
+        return;
+      }
+      if (!this.data.endTouched) {
+        wx.showToast({ title: "请先选择结束时间", icon: "none" });
+        return;
+      }
+      if (
+        eventAtFromPicker(this.data.endRange, this.data.endValue) <=
+        eventAtFromPicker(this.data.dtRange, this.data.dtValue)
+      ) {
+        wx.showToast({ title: "结束时间需晚于开始时间", icon: "none" });
         return;
       }
     }
@@ -348,9 +403,16 @@ Page({
       var base = String(title || "").trim() || this.data.locationName || "";
       title = (tag + base).slice(0, 40);
     }
+    var sendBody = body;
+    if (this.data.required) {
+      var s = this.data.eventTimeText;
+      var e = this.data.endTimeText;
+      var endShort = s.slice(0, 10) === e.slice(0, 10) ? e.slice(11) : e;
+      sendBody = "时间：" + s + " ~ " + endShort + (body ? "\n" + body : "");
+    }
     var payload = {
       title: title,
-      body: body,
+      body: sendBody,
       imagePaths: images,
     };
     if (this.data.locationEnabled && (this.data.locationName || this.data.locationAddress)) {
