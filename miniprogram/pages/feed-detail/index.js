@@ -8,8 +8,8 @@ const {
   isNoteKind,
   sendNewsFeedback,
   toggleNoteLikeRemote,
+  nestComments,
 } = require("../../utils/social_api");
-const { nestComments } = require("../../utils/comment_util");
 
 function normalizeNoteId(id) {
   var nid = (id || "").trim();

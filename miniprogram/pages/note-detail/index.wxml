@@ -103,7 +103,7 @@
             <view class="comment-delete" bindtap="onDeleteComment" data-id="{{item.id}}" wx:if="{{item.can_delete}}">×</view>
           </view>
 
-          <view class="comment-replies" wx:if="{{item.replies.length}}">
+          <view class="comment-replies" wx:if="{{item.replies && item.replies.length}}">
             <view class="comment-item comment-item--reply" wx:for="{{item.replies}}" wx:for-item="reply" wx:key="id">
               <view class="comment-avatar">
                 <image

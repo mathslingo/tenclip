@@ -31,7 +31,7 @@ const LOCAL_API_HOST = "http://127.0.0.1:7861";
 const PROD_API_BASE_URL = "https://api.uchance.tech";
 
 /** 每次上传体验版前改一下，用于确认手机跑的是新包 */
-const APP_BUILD_TAG = "2026-09-30-mix-badge";
+const APP_BUILD_TAG = "2026-10-02-note-detail";
 
 /** 发现页：true=本地 Mock；false=请求 /api/news/feed（失败回退 Mock；空库显示空态） */
 const FEED_USE_MOCK = false;

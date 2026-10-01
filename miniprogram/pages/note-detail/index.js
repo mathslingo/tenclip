@@ -1,10 +1,16 @@
 const slamBehavior = require("../../utils/config").slamBehavior;
-const { getNote, deleteNote, follow, unfollow, fetchUser } = require("../../utils/social_api");
+const {
+  getNote,
+  deleteNote,
+  follow,
+  unfollow,
+  fetchUser,
+  nestComments,
+} = require("../../utils/social_api");
 const { getUserId } = require("../../utils/user_id");
 const { isLoggedIn, requireLogin } = require("../../utils/auth_api");
 const { API_BASE_URL } = require("../../utils/config");
 const { authHeaders, getToken } = require("../../utils/auth_api");
-const { nestComments } = require("../../utils/comment_util");
 
 function normalizeNoteId(id) {
   var nid = (id || "").trim();

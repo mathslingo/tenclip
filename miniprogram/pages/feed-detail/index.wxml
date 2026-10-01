@@ -29,7 +29,7 @@
 
       <text class="detail-summary">{{item.summary}}</text>
 
-      <view class="tag-row" wx:if="{{item.tags.length}}">
+      <view class="tag-row" wx:if="{{item.tags && item.tags.length}}">
         <text class="tag" wx:for="{{item.tags}}" wx:key="*this">#{{item}}</text>
       </view>
 
@@ -79,7 +79,7 @@
             </view>
           </view>
 
-          <view class="comment-replies" wx:if="{{item.replies.length}}">
+          <view class="comment-replies" wx:if="{{item.replies && item.replies.length}}">
             <view class="comment-item comment-item--reply" wx:for="{{item.replies}}" wx:for-item="reply" wx:key="id">
               <view class="comment-avatar">
                 <image
