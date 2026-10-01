@@ -1,8 +1,14 @@
 .page {
   min-height: 100vh;
-  padding-bottom: calc(48rpx + env(safe-area-inset-bottom));
+  padding-bottom: 0;
   background: transparent;
   box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+}
+
+.page-main {
+  flex-shrink: 0;
 }
 
 .swiper {
@@ -205,15 +211,6 @@
   flex-shrink: 0;
 }
 
-.danger-btn {
-  margin: 8rpx 24rpx 0;
-  background: #fff;
-  color: #b42318;
-  border-radius: 999rpx;
-  border: 2rpx solid rgba(180, 35, 24, 0.25);
-  font-size: 28rpx;
-}
-
 .action-bar {
   display: flex;
   gap: 12rpx;
@@ -222,13 +219,18 @@
 
 .action-chip {
   flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   text-align: center;
   padding: 14rpx 0;
   border-radius: 16rpx;
   font-size: 24rpx;
+  line-height: 1.2;
   color: #415360;
   background: #f5f7f9;
   font-weight: 500;
+  box-sizing: border-box;
 }
 
 .action-chip.on {
@@ -239,11 +241,36 @@
 
 .action-chip.share-chip {
   margin: 0;
-  line-height: inherit;
-  border: none;
   padding: 14rpx 0;
+  line-height: 1.2;
+  border: none;
+  height: auto;
+  min-height: 0;
 }
 .action-chip.share-chip::after {
+  border: none;
+}
+.action-chip text {
+  line-height: 1.2;
+}
+
+.danger-btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+  padding: 14rpx 0;
+  line-height: 1.2;
+  background: #fff;
+  color: #b42318;
+  border-radius: 16rpx;
+  border: 2rpx solid rgba(180, 35, 24, 0.25);
+  font-size: 24rpx;
+  height: auto;
+  min-height: 0;
+}
+.danger-btn::after {
   border: none;
 }
 
@@ -254,11 +281,21 @@
   font-size: 28rpx;
 }
 
-.comment-section {
-  margin-top: 32rpx;
+.comment-dock {
+  margin-top: auto;
   background: #fff;
   border-radius: 24rpx 24rpx 0 0;
+  display: flex;
+  flex-direction: column;
+  min-height: 320rpx;
+}
+
+.comment-section {
+  margin-top: 0;
+  background: transparent;
+  border-radius: 0;
   padding: 0;
+  flex: 1;
 }
 
 .comment-header {
