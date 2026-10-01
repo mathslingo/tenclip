@@ -92,7 +92,6 @@ Page({
         }
       })
       .then(function () {
-        if (that.data.isMine) return null;
         return that.loadComments();
       })
       .catch(function () {

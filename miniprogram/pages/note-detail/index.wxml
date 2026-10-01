@@ -70,7 +70,7 @@
     </view>
   </view>
 
-  <view class="comment-dock" wx:if="{{!isMine}}">
+  <view class="comment-dock">
     <view class="comment-section">
       <view class="comment-header">
         <text class="comment-count">评论 {{comments.length}}</text>
