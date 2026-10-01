@@ -48,7 +48,7 @@
 
   <view class="form-card section">
     <text class="section-title">网球水平</text>
-    <text class="section-sub">按 NTRP 自评，并补充发正反手能力</text>
+    <text class="section-sub">按 NTRP / Tennis123 自评，并补充发正反手能力</text>
 
     <view class="form-item">
       <text class="form-label">NTRP 分级</text>
