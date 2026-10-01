@@ -47,7 +47,12 @@ def _news_row_item(r: sqlite3.Row) -> dict[str, Any]:
     except (TypeError, ValueError):
         pop = 0.0
     item["popularity"] = pop
-    item["like_count"] = max(0, int(round(pop)))
+    from rec.feedback import count_article_likes
+
+    try:
+        item["like_count"] = count_article_likes(int(item.get("id")))
+    except (TypeError, ValueError):
+        item["like_count"] = 0
     from services.poster import attach_poster
 
     return attach_poster(
@@ -117,6 +122,10 @@ def recommend_news(inp: RecommendInput) -> list[dict[str, Any]]:
 
     now = utc_now()
     scored: list[tuple[int, float, dict[str, Any]]] = []
+    from rec.feedback import count_article_likes_batch
+    from services.poster import attach_poster
+
+    like_map = count_article_likes_batch([int(r["id"]) for r in rows])
     for r in rows:
         art_tags = split_tags_csv(r["tags_csv"])
         tag_overlap = len(set(tags) & set(art_tags))
@@ -140,8 +149,7 @@ def recommend_news(inp: RecommendInput) -> list[dict[str, Any]]:
         )
         item = dict(r)
         item["tags"] = art_tags
-        from services.poster import attach_poster
-
+        item["like_count"] = like_map.get(int(r["id"]), 0)
         attach_poster(
             item,
             kind="news",

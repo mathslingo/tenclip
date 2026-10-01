@@ -1235,8 +1235,8 @@ def create_app() -> FastAPI:
             aid = int(str(article_id).strip())
         except (TypeError, ValueError):
             raise HTTPException(status_code=400, detail="article_id 无效")
-        record_feedback(user_id=user_id, article_id=aid, action=action)
-        return {"ok": True}
+        result = record_feedback(user_id=user_id, article_id=aid, action=action)
+        return result
 
     @api.get("/api/news/feed")
     def news_feed(

@@ -167,9 +167,24 @@ Page({
       return;
     }
 
-    sendNewsFeedback(item.id, nextLiked ? "like" : "dislike").catch(function () {
-      // 反馈失败不回滚展示，本地状态已更新；列表刷新后会与服务端对齐
-    });
+    sendNewsFeedback(item.id, nextLiked ? "like" : "dislike")
+      .then(function (body) {
+        var patch = {};
+        if (body && body.like_count != null) {
+          patch["item.like_count"] = Math.max(0, Number(body.like_count) || 0);
+        }
+        if (body && body.liked != null) {
+          patch.liked = !!body.liked;
+        }
+        if (Object.keys(patch).length) that.setData(patch);
+      })
+      .catch(function () {
+        that.setData({
+          liked: wasLiked,
+          "item.like_count": base,
+        });
+        wx.showToast({ title: "点赞失败", icon: "none" });
+      });
   },
 
   onShareAppMessage() {

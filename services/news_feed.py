@@ -1512,8 +1512,10 @@ def get_news_article_feed_item(article_id: int) -> dict[str, Any] | None:
         "published_at": row["published_at"] or "",
         "popularity": row["popularity"] or 0,
     }
+    from rec.feedback import count_article_likes
     from services.poster import attach_poster
 
+    item["like_count"] = count_article_likes(int(row["id"]))
     return attach_poster(item, kind="news", item_id=str(row["id"]), title=item["title"])
 
 
@@ -1534,6 +1536,11 @@ def list_coach_feed_items(limit: int = 12) -> list[dict[str, Any]]:
             """,
             (limit,),
         ).fetchall()
+    from rec.feedback import count_article_likes_batch
+    from services.poster import attach_poster
+
+    ids = [int(r["id"]) for r in rows]
+    likes_map = count_article_likes_batch(ids)
     items: list[dict[str, Any]] = []
     for row in rows:
         tags = split_tags_csv(row["tags_csv"])
@@ -1551,9 +1558,8 @@ def list_coach_feed_items(limit: int = 12) -> list[dict[str, Any]]:
             "tags": tags,
             "published_at": row["published_at"] or "",
             "popularity": row["popularity"] or 0,
+            "like_count": likes_map.get(int(row["id"]), 0),
         }
-        from services.poster import attach_poster
-
         items.append(
             attach_poster(item, kind="news", item_id=str(row["id"]), title=item["title"])
         )

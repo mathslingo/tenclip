@@ -230,6 +230,7 @@ def _attach_like_counts(lanes: dict[str, list[dict[str, Any]]]) -> None:
             if sid:
                 note_ids.append(str(sid))
     news_pop: dict[int, float] = {}
+    news_likes: dict[int, int] = {}
     if news_ids and news_db.is_file():
         try:
             with sqlite3.connect(str(news_db)) as conn:
@@ -242,8 +243,19 @@ def _attach_like_counts(lanes: dict[str, list[dict[str, Any]]]) -> None:
                         news_pop[int(r[0])] = float(r[1] or 0)
                     except (TypeError, ValueError):
                         news_pop[int(r[0])] = 0.0
+                for r in conn.execute(
+                    f"""
+                    SELECT article_id, COUNT(DISTINCT user_id) AS c
+                    FROM news_feedback
+                    WHERE action='like' AND article_id IN ({q})
+                    GROUP BY article_id
+                    """,
+                    news_ids,
+                ):
+                    news_likes[int(r[0])] = int(r[1] or 0)
         except Exception:
             news_pop = {}
+            news_likes = {}
     note_likes: dict[str, int] = {}
     if note_ids and social_db.is_file():
         try:
@@ -260,10 +272,10 @@ def _attach_like_counts(lanes: dict[str, list[dict[str, Any]]]) -> None:
         for it in items:
             nid = it.pop("_news_id", None)
             sid = it.pop("_social_note_id", None)
-            if isinstance(nid, int) and nid in news_pop:
-                pop = news_pop[nid]
-                it["popularity"] = pop
-                it["like_count"] = max(0, int(round(pop)))
+            if isinstance(nid, int):
+                if nid in news_pop:
+                    it["popularity"] = news_pop[nid]
+                it["like_count"] = news_likes.get(nid, 0)
             elif sid:
                 n = note_likes.get(str(sid), 0)
                 it["popularity"] = float(n)
