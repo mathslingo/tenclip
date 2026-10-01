@@ -1,14 +1,12 @@
 .page {
   min-height: 100vh;
-  padding-bottom: 0;
+  padding-bottom: calc(24rpx + env(safe-area-inset-bottom));
   background: transparent;
   box-sizing: border-box;
-  display: flex;
-  flex-direction: column;
 }
 
 .page-main {
-  flex-shrink: 0;
+  /* keep for structure */
 }
 
 .swiper {
@@ -282,12 +280,11 @@
 }
 
 .comment-dock {
-  margin-top: auto;
+  margin-top: 24rpx;
   background: #fff;
   border-radius: 24rpx 24rpx 0 0;
   display: flex;
   flex-direction: column;
-  min-height: 320rpx;
 }
 
 .comment-section {
@@ -295,7 +292,6 @@
   background: transparent;
   border-radius: 0;
   padding: 0;
-  flex: 1;
 }
 
 .comment-header {
