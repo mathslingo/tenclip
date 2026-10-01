@@ -35,10 +35,11 @@ function buildTags(u) {
       if (s) tags.push(s);
     });
   }
-  ["tennis_hand", "tennis_level", "tennis_style", "preferred_surface"].forEach(function (k) {
+  ["tennis_hand", "tennis_level", "tennis_123_level", "tennis_style", "preferred_surface"].forEach(function (k) {
     var v = String(u[k] || "").trim();
     if (!v) return;
     if (k === "tennis_level") v = "NTRP " + v;
+    if (k === "tennis_123_level") v = "Tennis123 " + v;
     if (tags.indexOf(v) < 0) tags.push(v);
   });
   [

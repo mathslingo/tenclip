@@ -285,6 +285,7 @@ def init_social_db() -> None:
         _ensure_column(conn, "users", "tennis_serve_level", "tennis_serve_level TEXT NOT NULL DEFAULT ''")
         _ensure_column(conn, "users", "tennis_forehand_level", "tennis_forehand_level TEXT NOT NULL DEFAULT ''")
         _ensure_column(conn, "users", "tennis_backhand_level", "tennis_backhand_level TEXT NOT NULL DEFAULT ''")
+        _ensure_column(conn, "users", "tennis_123_level", "tennis_123_level TEXT NOT NULL DEFAULT ''")
         conn.execute(
             "CREATE UNIQUE INDEX IF NOT EXISTS idx_users_openid ON users(openid) "
             "WHERE openid IS NOT NULL AND openid <> ''"
@@ -521,6 +522,7 @@ def get_user(user_id: str) -> dict[str, Any] | None:
             "tennis_serve_level": g("tennis_serve_level", "") or "",
             "tennis_forehand_level": g("tennis_forehand_level", "") or "",
             "tennis_backhand_level": g("tennis_backhand_level", "") or "",
+            "tennis_123_level": g("tennis_123_level", "") or "",
         }
 
 

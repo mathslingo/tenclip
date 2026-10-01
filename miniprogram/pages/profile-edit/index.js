@@ -73,6 +73,7 @@ Page({
       avatarUrl: "",
       tennisHand: "",
       tennisLevel: "",
+      tennis123Level: "",
       tennisStyle: "",
       preferredSurface: "",
       tennisServeLevel: "",
@@ -80,6 +81,7 @@ Page({
       tennisBackhandLevel: "",
       handIndex: 0,
       ntrpIndex: 2,
+      tennis123Index: 2,
       styleIndex: 0,
       surfaceIndex: 0,
       serveIndex: 0,
@@ -121,6 +123,9 @@ Page({
     var level = normalizeNtrp(
       (serverUser && serverUser.tennis_level) || p.tennisLevel || ""
     );
+    var tennis123 = normalizeNtrp(
+      (serverUser && serverUser.tennis_123_level) || p.tennis123Level || ""
+    );
     var style = (serverUser && serverUser.tennis_style) || p.tennisStyle || "";
     var surface =
       (serverUser && serverUser.preferred_surface) || p.preferredSurface || "";
@@ -146,6 +151,7 @@ Page({
         avatarUrl: avatar,
         tennisHand: hand || HAND_OPTS[0],
         tennisLevel: level,
+        tennis123Level: tennis123,
         tennisStyle: style || STYLE_OPTS[0],
         preferredSurface: surface || SURFACE_OPTS[0],
         tennisServeLevel: serve,
@@ -153,6 +159,7 @@ Page({
         tennisBackhandLevel: backhand,
         handIndex: indexOfOr(HAND_OPTS, hand || HAND_OPTS[0], 0),
         ntrpIndex: indexOfOr(NTRP_OPTS, level, 2),
+        tennis123Index: indexOfOr(NTRP_OPTS, tennis123, 2),
         styleIndex: indexOfOr(STYLE_OPTS, style || STYLE_OPTS[0], 0),
         surfaceIndex: indexOfOr(SURFACE_OPTS, surface || SURFACE_OPTS[0], 0),
         serveIndex: indexOfOr(SKILL_OPTS, serve, 0),
@@ -216,6 +223,14 @@ Page({
     });
   },
 
+  onPickTennis123(e) {
+    var i = Number(e.detail.value) || 0;
+    this.setData({
+      "form.tennis123Index": i,
+      "form.tennis123Level": NTRP_OPTS[i],
+    });
+  },
+
   onPickServe(e) {
     var i = Number(e.detail.value) || 0;
     this.setData({
@@ -276,6 +291,7 @@ Page({
 
     var hand = form.tennisHand || HAND_OPTS[0];
     var level = normalizeNtrp(form.tennisLevel);
+    var tennis123 = normalizeNtrp(form.tennis123Level);
     var style = form.tennisStyle || STYLE_OPTS[0];
     var surface = form.preferredSurface || SURFACE_OPTS[0];
     var serve = normalizeSkill(form.tennisServeLevel);
@@ -315,6 +331,7 @@ Page({
           avatarUrl: avatar,
           tennisHand: hand,
           tennisLevel: level,
+          tennis123Level: tennis123,
           tennisStyle: style,
           preferredSurface: surface,
           tennisServeLevel: serve,
@@ -329,6 +346,7 @@ Page({
           tags: tags,
           tennis_hand: hand,
           tennis_level: level,
+          tennis_123_level: tennis123,
           tennis_style: style,
           preferred_surface: surface,
           tennis_serve_level: serve,

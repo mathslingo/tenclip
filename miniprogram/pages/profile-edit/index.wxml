@@ -58,6 +58,13 @@
     </view>
 
     <view class="form-item">
+      <text class="form-label">Tennis123 分级</text>
+      <picker mode="selector" range="{{ntrpOpts}}" value="{{form.tennis123Index}}" bindchange="onPickTennis123">
+        <view class="picker-value">{{form.tennis123Level ? ('Tennis123 ' + form.tennis123Level) : '请选择'}}</view>
+      </picker>
+    </view>
+
+    <view class="form-item">
       <text class="form-label">发球水平</text>
       <picker mode="selector" range="{{skillOpts}}" value="{{form.serveIndex}}" bindchange="onPickServe">
         <view class="picker-value">{{form.tennisServeLevel || '请选择'}}</view>

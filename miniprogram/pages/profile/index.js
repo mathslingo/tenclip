@@ -94,6 +94,7 @@ Page({
             tags: Array.isArray(u.tags) ? u.tags : [],
             tennisHand: u.tennis_hand || "",
             tennisLevel: u.tennis_level || "",
+            tennis123Level: u.tennis_123_level || "",
             tennisStyle: u.tennis_style || "",
             preferredSurface: u.preferred_surface || "",
             tennisServeLevel: u.tennis_serve_level || "",
@@ -140,6 +141,7 @@ Page({
     var tennisBits = [];
     if (profile.tennisHand) tennisBits.push(profile.tennisHand);
     if (profile.tennisLevel) tennisBits.push("NTRP " + profile.tennisLevel);
+    if (profile.tennis123Level) tennisBits.push("Tennis123 " + profile.tennis123Level);
     if (profile.tennisServeLevel) tennisBits.push("发" + profile.tennisServeLevel);
     if (profile.tennisForehandLevel) tennisBits.push("正" + profile.tennisForehandLevel);
     if (profile.tennisBackhandLevel) tennisBits.push("反" + profile.tennisBackhandLevel);

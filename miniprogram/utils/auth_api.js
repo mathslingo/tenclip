@@ -93,6 +93,8 @@ function applyUserToLocal(user) {
         tags: Array.isArray(user.tags) ? user.tags : me.tags,
         tennisHand: user.tennis_hand != null ? user.tennis_hand : me.tennisHand || "",
         tennisLevel: user.tennis_level != null ? user.tennis_level : me.tennisLevel || "",
+        tennis123Level:
+          user.tennis_123_level != null ? user.tennis_123_level : me.tennis123Level || "",
         tennisStyle: user.tennis_style != null ? user.tennis_style : me.tennisStyle || "",
         preferredSurface:
           user.preferred_surface != null ? user.preferred_surface : me.preferredSurface || "",
@@ -275,6 +277,7 @@ function updateAuthProfile(payload) {
       location: (payload && payload.location) || "",
       tennis_hand: (payload && payload.tennis_hand) || "",
       tennis_level: (payload && payload.tennis_level) || "",
+      tennis_123_level: (payload && payload.tennis_123_level) || "",
       tennis_style: (payload && payload.tennis_style) || "",
       preferred_surface: (payload && payload.preferred_surface) || "",
       tennis_serve_level: (payload && payload.tennis_serve_level) || "",
