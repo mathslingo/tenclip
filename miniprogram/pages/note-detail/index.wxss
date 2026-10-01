@@ -357,9 +357,54 @@
 }
 
 .comment-time {
-  display: block;
-  margin-top: 6rpx;
+  display: inline;
+  margin-top: 0;
   font-size: 20rpx;
+  color: #9aa3ad;
+}
+
+.comment-meta {
+  display: flex;
+  align-items: center;
+  gap: 20rpx;
+  margin-top: 8rpx;
+}
+
+.comment-reply-btn {
+  font-size: 20rpx;
+  color: #5b6b7a;
+  font-weight: 500;
+}
+
+.comment-replies {
+  padding-left: 40rpx;
+  background: #fafbfc;
+}
+
+.comment-item--reply {
+  padding-left: 28rpx;
+}
+
+.reply-to {
+  color: #5b6b7a;
+  font-weight: 500;
+}
+
+.reply-hint {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12rpx 24rpx 0;
+  background: #fff;
+}
+
+.reply-hint-text {
+  font-size: 22rpx;
+  color: #13d8a8;
+}
+
+.reply-hint-cancel {
+  font-size: 22rpx;
   color: #9aa3ad;
 }
 

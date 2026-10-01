@@ -9,6 +9,7 @@ const {
   sendNewsFeedback,
   toggleNoteLikeRemote,
 } = require("../../utils/social_api");
+const { nestComments } = require("../../utils/comment_util");
 
 function normalizeNoteId(id) {
   var nid = (id || "").trim();
@@ -44,7 +45,10 @@ Page({
     liked: false,
     bookmarked: false,
     comments: [],
+    commentTotal: 0,
     commentText: "",
+    replyTo: null,
+    commentPlaceholder: "说说你的想法... (最多140字)",
     submitting: false,
     loggedIn: false,
   },
@@ -102,13 +106,11 @@ Page({
         success: function (res) {
           if (res.statusCode >= 200 && res.statusCode < 300) {
             var items = (res.data && res.data.items) || [];
-            var comments = items.map(function (c) {
-              return Object.assign({}, c, {
-                author_initial: String(c.author_name || "球").charAt(0),
-                time_text: formatCommentTime(c.created_at),
-              });
+            var nested = nestComments(items, formatCommentTime);
+            that.setData({
+              comments: nested.comments,
+              commentTotal: nested.commentTotal,
             });
-            that.setData({ comments: comments });
             resolve();
             return;
           }
@@ -220,6 +222,27 @@ Page({
     this.setData({ commentText: text });
   },
 
+  onReplyComment(e) {
+    if (!isLoggedIn()) {
+      requireLogin("comment");
+      return;
+    }
+    var id = e.currentTarget.dataset.id || "";
+    var name = e.currentTarget.dataset.name || "球友";
+    if (!id) return;
+    this.setData({
+      replyTo: { id: id, name: name },
+      commentPlaceholder: "回复 @" + name + "... (最多140字)",
+    });
+  },
+
+  onCancelReply() {
+    this.setData({
+      replyTo: null,
+      commentPlaceholder: "说说你的想法... (最多140字)",
+    });
+  },
+
   onSubmitComment() {
     var that = this;
     var text = this.data.commentText;
@@ -235,19 +258,27 @@ Page({
     var itemId = normalizeNoteId(this._itemId);
     if (!itemId) return;
 
+    var replyTo = this.data.replyTo;
+    var payload = { body: text };
+    if (replyTo && replyTo.id) {
+      payload.parent_id = replyTo.id;
+    }
+
     this.setData({ submitting: true });
     wx.request({
       url: API_BASE_URL + "/api/social/notes/" + encodeURIComponent(itemId) + "/comments",
       method: "POST",
       header: authHeaders(),
-      data: {
-        body: text,
-      },
+      data: payload,
       timeout: 30000,
       success: function (res) {
         that.setData({ submitting: false });
         if (res.statusCode >= 200 && res.statusCode < 300) {
-          that.setData({ commentText: "" });
+          that.setData({
+            commentText: "",
+            replyTo: null,
+            commentPlaceholder: "说说你的想法... (最多140字)",
+          });
           wx.showToast({ title: "已发送", icon: "success" });
           that.loadComments();
           return;

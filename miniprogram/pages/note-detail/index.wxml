@@ -73,25 +73,64 @@
   <view class="comment-dock">
     <view class="comment-section">
       <view class="comment-header">
-        <text class="comment-count">评论 {{comments.length}}</text>
+        <text class="comment-count">评论 {{commentTotal}}</text>
       </view>
 
       <view class="comment-list" wx:if="{{comments.length}}">
-        <view class="comment-item" wx:for="{{comments}}" wx:key="id" data-id="{{item.id}}" data-uid="{{item.user_id}}" catchtap="onCommentLongPress">
-          <view class="comment-avatar">
-            <image
-              wx:if="{{item.author_avatar}}"
-              src="{{item.author_avatar}}"
-              mode="aspectFill"
-            />
-            <text wx:else class="avatar-letter">{{item.author_initial}}</text>
+        <view class="comment-thread" wx:for="{{comments}}" wx:key="id">
+          <view class="comment-item">
+            <view class="comment-avatar">
+              <image
+                wx:if="{{item.author_avatar}}"
+                src="{{item.author_avatar}}"
+                mode="aspectFill"
+              />
+              <text wx:else class="avatar-letter">{{item.author_initial}}</text>
+            </view>
+            <view class="comment-body">
+              <text class="comment-author">{{item.author_name}}</text>
+              <text class="comment-text">{{item.body}}</text>
+              <view class="comment-meta">
+                <text class="comment-time">{{item.time_text}}</text>
+                <text
+                  class="comment-reply-btn"
+                  catchtap="onReplyComment"
+                  data-id="{{item.id}}"
+                  data-name="{{item.author_name}}"
+                >回复</text>
+              </view>
+            </view>
+            <view class="comment-delete" bindtap="onDeleteComment" data-id="{{item.id}}" wx:if="{{item.can_delete}}" catchtap="">×</view>
           </view>
-          <view class="comment-body">
-            <text class="comment-author">{{item.author_name}}</text>
-            <text class="comment-text">{{item.body}}</text>
-            <text class="comment-time">{{item.time_text}}</text>
+
+          <view class="comment-replies" wx:if="{{item.replies.length}}">
+            <view class="comment-item comment-item--reply" wx:for="{{item.replies}}" wx:for-item="reply" wx:key="id">
+              <view class="comment-avatar">
+                <image
+                  wx:if="{{reply.author_avatar}}"
+                  src="{{reply.author_avatar}}"
+                  mode="aspectFill"
+                />
+                <text wx:else class="avatar-letter">{{reply.author_initial}}</text>
+              </view>
+              <view class="comment-body">
+                <text class="comment-author">{{reply.author_name}}</text>
+                <text class="comment-text">
+                  <text wx:if="{{reply.reply_to_name}}" class="reply-to">回复 {{reply.reply_to_name}}：</text>{{reply.body}}
+                </text>
+                <view class="comment-meta">
+                  <text class="comment-time">{{reply.time_text}}</text>
+                  <text
+                    class="comment-reply-btn"
+                    catchtap="onReplyComment"
+                    data-id="{{reply.id}}"
+                    data-name="{{reply.author_name}}"
+                  >回复</text>
+                </view>
+              </view>
+              <view class="comment-delete" bindtap="onDeleteComment" data-id="{{reply.id}}" wx:if="{{reply.can_delete}}" catchtap="">×</view>
+            </view>
           </view>
-          <view class="comment-delete" bindtap="onDeleteComment" data-id="{{item.id}}" wx:if="{{item.can_delete}}" catchtap="">×</view>
         </view>
       </view>
 
@@ -100,11 +139,16 @@
       </view>
     </view>
 
+    <view class="reply-hint" wx:if="{{replyTo}}" catchtap="onCancelReply">
+      <text class="reply-hint-text">回复 @{{replyTo.name}}</text>
+      <text class="reply-hint-cancel">取消</text>
+    </view>
+
     <view class="comment-input-wrapper">
       <input
         class="comment-input"
         type="text"
-        placeholder="说说你的想法... (最多140字)"
+        placeholder="{{commentPlaceholder}}"
         value="{{commentText}}"
         bindinput="onCommentInput"
         placeholder-style="color:#c0c5ce"
