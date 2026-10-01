@@ -122,11 +122,23 @@ function filterApiItemsByTab(items, tab) {
 var _nearbyCache = null;
 
 function getDeviceLocation() {
-  // 公众平台未开通「模糊地理位置」前不调用定位 API（否则上传 -80424）。
-  // 开通后在此恢复定位调用。
-  return Promise.reject(
-    Object.assign(new Error("定位未开通"), { unavailable: true })
-  );
+  return new Promise(function (resolve, reject) {
+    if (typeof wx.getFuzzyLocation !== "function") {
+      reject(Object.assign(new Error("当前基础库不支持模糊定位"), { unavailable: true }));
+      return;
+    }
+    wx.getFuzzyLocation({
+      type: "gcj02",
+      success: resolve,
+      fail: function (err) {
+        var msg = String((err && err.errMsg) || "");
+        var e = new Error(msg || "定位失败");
+        e.denied = /auth deny|authorize|privacy|permission|deny|拒绝/i.test(msg);
+        e.unavailable = !e.denied;
+        reject(e);
+      },
+    });
+  });
 }
 
 function buildNearbyList(rows, loc) {

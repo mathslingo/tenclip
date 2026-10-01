@@ -62,6 +62,9 @@
   "style": "v2",
   "sitemapLocation": "sitemap.json",
   "permission": {
+    "scope.userFuzzyLocation": {
+      "desc": "用于找球场、附近内容按距离排序"
+    },
     "scope.userLocation": {
       "desc": "用于发布笔记时在地图上选点分享地点"
     },
@@ -69,7 +72,7 @@
       "desc": "用于录制网球动作短视频，生成骨架回放"
     }
   },
-  "requiredPrivateInfos": ["chooseLocation"],
+  "requiredPrivateInfos": ["getFuzzyLocation", "chooseLocation"],
   "navigateToMiniProgramAppIdList": [
     "wx734c1ad7b3562129",
     "wxa43e880705719304",
