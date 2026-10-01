@@ -130,19 +130,13 @@ Page({
             : "暂时没有新内容，稍后再来看看。";
         }
         if (page.source === "nearby-denied" && !left.length && !right.length) {
-          emptyHint = "需要允许定位，才能按距离查看附近的内容。开启后下拉刷新。";
-          wx.showModal({
-            title: "需要定位权限",
-            content: "开启定位后，才能由近到远查看附近的内容。",
-            confirmText: "去设置",
-            success: function (res) {
-              if (res.confirm) wx.openSetting({});
-            },
-          });
+          emptyHint = "当前无法按距离排序。可先看「推荐」，或稍后再试。";
         } else if (page.source === "nearby-empty" && !left.length && !right.length) {
           emptyHint = "附近暂时没有带地点的内容。";
         } else if (page.source === "nearby-error" && !left.length && !right.length) {
           emptyHint = "网络繁忙，请稍后下拉刷新重试。";
+        } else if (page.source === "nearby-noloc" && !left.length && !right.length) {
+          emptyHint = "暂时无法按距离排序，附近还没有带地点的内容。";
         }
         if (page.source === "mock-fallback" && !left.length && !right.length) {
           emptyHint = LOCAL_DEV
