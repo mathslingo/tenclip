@@ -1,94 +1,101 @@
 <page-meta page-style="{{pageStyle}}" background-color="{{slamBg}}" background-color-top="{{slamBg}}" background-color-bottom="{{slamBg}}" background-text-style="light" />
 <view class="detail-page" wx:if="{{item}}">
-  <view class="hero-cover">
-    <image
-      wx:if="{{!coverFailed}}"
-      class="hero-img"
-      src="{{item.cover}}"
-      mode="widthFix"
-      binderror="onCoverError"
-    />
-    <view wx:else class="hero-fallback">
-      <text>{{item.author_initial}}</text>
-    </view>
-  </view>
-
-  <view class="detail-card">
-    <text class="detail-title">{{item.title}}</text>
-    <view class="detail-author-row">
-      <view class="avatar">{{item.author_initial}}</view>
-      <view class="author-block">
-        <text class="author-name">{{item.author_name}}</text>
-        <text class="pub" wx:if="{{publishedText}}">{{publishedText}}</text>
-      </view>
-      <view class="likes">
-        <text>♡ {{item.like_count}}</text>
+  <view class="detail-main">
+    <view class="hero-cover">
+      <image
+        wx:if="{{!coverFailed}}"
+        class="hero-img"
+        src="{{item.cover}}"
+        mode="widthFix"
+        binderror="onCoverError"
+      />
+      <view wx:else class="hero-fallback">
+        <text>{{item.author_initial}}</text>
       </view>
     </view>
 
-    <text class="detail-summary">{{item.summary}}</text>
-
-    <view class="tag-row" wx:if="{{item.tags.length}}">
-      <text class="tag" wx:for="{{item.tags}}" wx:key="*this">#{{item}}</text>
-    </view>
-
-    <view class="action-row">
-      <view class="action-chip {{liked ? 'on' : ''}}" bindtap="onToggleLike">
-        <text>{{liked ? '♥' : '♡'}} {{liked ? '已赞' : '赞'}}</text>
-      </view>
-      <view class="action-chip {{bookmarked ? 'on' : ''}}" bindtap="onToggleBookmark">
-        <text>{{bookmarked ? '★' : '☆'}} {{bookmarked ? '已收藏' : '收藏'}}</text>
-      </view>
-    </view>
-  </view>
-
-  <view class="comment-section">
-    <view class="comment-header">
-      <text class="comment-count">评论 {{comments.length}}</text>
-    </view>
-
-    <view class="comment-list" wx:if="{{comments.length}}">
-      <view class="comment-item" wx:for="{{comments}}" wx:key="id" data-id="{{item.id}}" data-uid="{{item.user_id}}" catchtap="onCommentLongPress">
-        <view class="comment-avatar">
-          <image
-            wx:if="{{item.author_avatar}}"
-            src="{{item.author_avatar}}"
-            mode="aspectFill"
-          />
-          <text wx:else class="avatar-letter">{{item.author_initial}}</text>
+    <view class="detail-card">
+      <text class="detail-title">{{item.title}}</text>
+      <view class="detail-author-row">
+        <view class="avatar">{{item.author_initial}}</view>
+        <view class="author-block">
+          <text class="author-name">{{item.author_name}}</text>
+          <text class="pub" wx:if="{{publishedText}}">{{publishedText}}</text>
         </view>
-        <view class="comment-body">
-          <text class="comment-author">{{item.author_name}}</text>
-          <text class="comment-text">{{item.body}}</text>
-          <text class="comment-time">{{item.time_text}}</text>
+        <view class="likes">
+          <text>♡ {{item.like_count}}</text>
         </view>
       </view>
-    </view>
 
-    <view class="comment-empty" wx:if="{{!comments.length && !loading}}">
-      <text>还没有评论</text>
+      <text class="detail-summary">{{item.summary}}</text>
+
+      <view class="tag-row" wx:if="{{item.tags.length}}">
+        <text class="tag" wx:for="{{item.tags}}" wx:key="*this">#{{item}}</text>
+      </view>
+
+      <view class="action-row">
+        <view class="action-chip {{liked ? 'on' : ''}}" bindtap="onToggleLike">
+          <text>{{liked ? '♥' : '♡'}} {{liked ? '已赞' : '赞'}}{{item.like_count ? ' ' + item.like_count : ''}}</text>
+        </view>
+        <view class="action-chip {{bookmarked ? 'on' : ''}}" bindtap="onToggleBookmark">
+          <text>{{bookmarked ? '★' : '☆'}} {{bookmarked ? '已收藏' : '收藏'}}</text>
+        </view>
+        <button class="action-chip share-chip" open-type="share" hover-class="none">
+          <text>↗ 分享</text>
+        </button>
+      </view>
     </view>
   </view>
 
-  <view class="comment-input-wrapper">
-    <input
-      class="comment-input"
-      type="text"
-      placeholder="说说你的想法... (最多140字)"
-      value="{{commentText}}"
-      bindinput="onCommentInput"
-      placeholder-style="color:#c0c5ce"
-      wx:if="{{loggedIn}}"
-    />
-    <button
-      class="comment-submit"
-      bindtap="onSubmitComment"
-      wx:if="{{loggedIn && commentText}}"
-      loading="{{submitting}}"
-      disabled="{{submitting || !commentText}}"
-    >发</button>
-    <view class="comment-login-hint" wx:if="{{!loggedIn}}" bindtap="onRequireLogin">
-      登录后评论
+  <view class="comment-dock">
+    <view class="comment-section">
+      <view class="comment-header">
+        <text class="comment-count">评论 {{comments.length}}</text>
+      </view>
+
+      <view class="comment-list" wx:if="{{comments.length}}">
+        <view class="comment-item" wx:for="{{comments}}" wx:key="id" data-id="{{item.id}}" data-uid="{{item.user_id}}" catchtap="onCommentLongPress">
+          <view class="comment-avatar">
+            <image
+              wx:if="{{item.author_avatar}}"
+              src="{{item.author_avatar}}"
+              mode="aspectFill"
+            />
+            <text wx:else class="avatar-letter">{{item.author_initial}}</text>
+          </view>
+          <view class="comment-body">
+            <text class="comment-author">{{item.author_name}}</text>
+            <text class="comment-text">{{item.body}}</text>
+            <text class="comment-time">{{item.time_text}}</text>
+          </view>
+        </view>
+      </view>
+
+      <view class="comment-empty" wx:if="{{!comments.length && !loading}}">
+        <text>还没有评论</text>
+      </view>
+    </view>
+
+    <view class="comment-input-wrapper">
+      <input
+        class="comment-input"
+        type="text"
+        placeholder="说说你的想法... (最多140字)"
+        value="{{commentText}}"
+        bindinput="onCommentInput"
+        placeholder-style="color:#c0c5ce"
+        wx:if="{{loggedIn}}"
+      />
+      <button
+        class="comment-submit"
+        bindtap="onSubmitComment"
+        wx:if="{{loggedIn && commentText}}"
+        loading="{{submitting}}"
+        disabled="{{submitting || !commentText}}"
+      >发</button>
+      <view class="comment-login-hint" wx:if="{{!loggedIn}}" bindtap="onRequireLogin">
+        登录后评论
+      </view>
     </view>
   </view>
 </view>

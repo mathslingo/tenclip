@@ -100,6 +100,9 @@
         </view>
         <view class="note-body">
           <text class="note-title">{{item.title}}</text>
+          <view class="note-meta">
+            <text class="like-count">♡ {{item.like_count || 0}}</text>
+          </view>
         </view>
       </view>
     </view>
@@ -128,6 +131,9 @@
         </view>
         <view class="note-body">
           <text class="note-title">{{item.title}}</text>
+          <view class="note-meta">
+            <text class="like-count">♡ {{item.like_count || 0}}</text>
+          </view>
         </view>
       </view>
     </view>

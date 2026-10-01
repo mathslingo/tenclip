@@ -67,7 +67,7 @@
             </view>
             <view class="likes">
               <text class="heart">♡</text>
-              <text>{{item.like_count}}</text>
+              <text>{{item.like_count || 0}}</text>
             </view>
           </view>
         </view>
@@ -117,7 +117,7 @@
             </view>
             <view class="likes">
               <text class="heart">♡</text>
-              <text>{{item.like_count}}</text>
+              <text>{{item.like_count || 0}}</text>
             </view>
           </view>
         </view>

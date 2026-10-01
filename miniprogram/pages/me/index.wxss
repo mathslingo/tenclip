@@ -327,6 +327,19 @@
   font-weight: 600;
 }
 
+.note-meta {
+  margin-top: 10rpx;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+.like-count {
+  font-size: 22rpx;
+  color: #e5515f;
+  font-weight: 600;
+}
+
 /* —— 空态 —— */
 .empty-block {
   margin: 48rpx 40rpx 24rpx;

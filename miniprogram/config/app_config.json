@@ -1,5 +1,6 @@
 {
   "devModeWhitelist": [
     "35937926"
-  ]
+  ],
+  "enableFuzzyLocation": true
 }

@@ -311,6 +311,19 @@
   overflow: hidden;
 }
 
+.note-meta {
+  margin-top: 12rpx;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+.like-count {
+  font-size: 22rpx;
+  color: #e5515f;
+  font-weight: 600;
+}
+
 /* —— 空状态 —— */
 .empty-block {
   display: flex;

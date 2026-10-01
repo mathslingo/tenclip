@@ -12,6 +12,61 @@ function absUrl(path) {
   return base + p;
 }
 
+function isNoteKind(item) {
+  if (!item) return false;
+  if (item.kind === "note") return true;
+  var id = String(item.id || item.note_id || "");
+  return id.indexOf("note-") === 0;
+}
+
+function sendNewsFeedback(articleId, action) {
+  var uid = "";
+  try {
+    uid = require("./user_id").getUserId() || "guest";
+  } catch (e) {
+    uid = "guest";
+  }
+  return new Promise(function (resolve, reject) {
+    wx.request({
+      url: API_BASE_URL + "/api/news/feedback",
+      method: "POST",
+      header: { "content-type": "application/x-www-form-urlencoded" },
+      data: {
+        user_id: uid,
+        article_id: articleId,
+        action: action,
+      },
+      success: function (res) {
+        if (res.statusCode >= 200 && res.statusCode < 300) {
+          resolve(res.data || { ok: true });
+          return;
+        }
+        reject(new Error("feedback failed"));
+      },
+      fail: reject,
+    });
+  });
+}
+
+function toggleNoteLikeRemote(noteId) {
+  var nid = String(noteId || "").replace(/^note-/, "");
+  return new Promise(function (resolve, reject) {
+    wx.request({
+      url: API_BASE_URL + "/api/social/notes/" + encodeURIComponent(nid) + "/like",
+      method: "POST",
+      header: authHeaders(),
+      success: function (res) {
+        if (res.statusCode >= 200 && res.statusCode < 300) {
+          resolve(res.data || {});
+          return;
+        }
+        reject(new Error("like failed"));
+      },
+      fail: reject,
+    });
+  });
+}
+
 /** 可跨端展示的头像；本地临时路径返回空，需先上传 */
 function usableAvatarUrl(path) {
   var p = String(path || "").trim();
@@ -347,6 +402,18 @@ function normalizeNote(n) {
     author_initial: String(n.author_name || n.source || "球").charAt(0),
     author_avatar: avatar,
     summary: n.body || n.summary || "",
+    like_count: Math.max(
+      0,
+      Math.round(
+        Number(
+          n.like_count != null
+            ? n.like_count
+            : n.popularity != null
+              ? n.popularity
+              : 0
+        ) || 0
+      )
+    ),
     isLocalNote: false,
   });
 }
@@ -372,4 +439,7 @@ module.exports = {
   fetchMessages: fetchMessages,
   fetchUnreadCount: fetchUnreadCount,
   markAllMessagesRead: markAllMessagesRead,
+  isNoteKind: isNoteKind,
+  sendNewsFeedback: sendNewsFeedback,
+  toggleNoteLikeRemote: toggleNoteLikeRemote,
 };

@@ -307,7 +307,15 @@ Page({
     }
     var note = this.data.note;
     if (!note) return;
-    
+    var wasLiked = !!this.data.liked;
+    var base = Math.max(0, Number(note.like_count) || 0);
+    var nextLiked = !wasLiked;
+    var nextCount = nextLiked ? base + 1 : Math.max(0, base - 1);
+    this.setData({
+      liked: nextLiked,
+      "note.like_count": nextCount,
+    });
+
     var noteId = normalizeNoteId(note.id || note.note_id);
     wx.request({
       url: API_BASE_URL + "/api/social/notes/" + encodeURIComponent(noteId) + "/like",
@@ -316,14 +324,42 @@ Page({
       success: function (res) {
         if (res.statusCode >= 200 && res.statusCode < 300) {
           var liked = res.data && res.data.liked;
-          that.setData({ liked: liked });
+          var patch = { liked: !!liked };
+          if (res.data && res.data.like_count != null) {
+            patch["note.like_count"] = Math.max(0, Number(res.data.like_count) || 0);
+          }
+          that.setData(patch);
           wx.showToast({ title: liked ? "已赞" : "已取消赞", icon: "none" });
+          return;
         }
+        that.setData({ liked: wasLiked, "note.like_count": base });
+        wx.showToast({ title: "操作失败", icon: "none" });
       },
       fail: function () {
+        that.setData({ liked: wasLiked, "note.like_count": base });
         wx.showToast({ title: "操作失败", icon: "none" });
       },
     });
+  },
+
+  onShareAppMessage() {
+    var note = this.data.note || {};
+    var id = note.id || note.note_id || "";
+    return {
+      title: note.title || "UChance 网球笔记",
+      path: "/pages/note-detail/index?id=" + encodeURIComponent(id),
+      imageUrl: (note.images && note.images[0]) || note.cover || "",
+    };
+  },
+
+  onShareTimeline() {
+    var note = this.data.note || {};
+    var id = note.id || note.note_id || "";
+    return {
+      title: note.title || "UChance 网球笔记",
+      query: "id=" + encodeURIComponent(id),
+      imageUrl: (note.images && note.images[0]) || note.cover || "",
+    };
   },
 
   onToggleBookmark() {

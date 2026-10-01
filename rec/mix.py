@@ -113,6 +113,7 @@ def _load_candidates(user_tags: list[str]) -> dict[str, list[dict[str, Any]]]:
         score = _score(lane, fresh, richness, tennis, tier, overlap, pop)
         item = _to_feed_item(row, extra, tags, lane, score, tennis)
         lanes[lane].append(item)
+    _attach_like_counts(lanes)
     lanes["news"].sort(key=lambda it: (it["_tennis"], it["score"]), reverse=True)
     lanes["user_note"].sort(key=lambda it: it["score"], reverse=True)
     # 教学槽先用 tenclip.coach 的图文。标题里带「训练」被打上教学标签的体育稿排在它们后面。
@@ -167,8 +168,10 @@ def _to_feed_item(
             "tags": tags or ["笔记"],
             "published_at": row["published_at"] or "",
             "popularity": 0,
+            "like_count": 0,
             "score": round(score, 3),
             "_tennis": tennis,
+            "_social_note_id": sid,
         }
     else:
         ref = str(row["source_ref"] or "")
@@ -198,13 +201,73 @@ def _to_feed_item(
             "tags_csv": row["tags_csv"] or "",
             "published_at": row["published_at"] or "",
             "popularity": 0,
+            "like_count": 0,
             "score": round(score, 3),
             "_tennis": tennis,
+            "_news_id": news_id if isinstance(news_id, int) else None,
         }
     from services.poster import attach_poster
 
     attach_poster(item, kind="news" if item["kind"] == "news" else "note", item_id=str(item["id"]), title=title)
     return item
+
+
+def _attach_like_counts(lanes: dict[str, list[dict[str, Any]]]) -> None:
+    """把资讯 popularity 和笔记真实点赞数写回候选，供发现页展示。"""
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parent.parent
+    news_db = root / "data" / "news_feed.db"
+    social_db = root / "data" / "social.db"
+    news_ids: list[int] = []
+    note_ids: list[str] = []
+    for items in lanes.values():
+        for it in items:
+            nid = it.get("_news_id")
+            if isinstance(nid, int):
+                news_ids.append(nid)
+            sid = it.get("_social_note_id")
+            if sid:
+                note_ids.append(str(sid))
+    news_pop: dict[int, float] = {}
+    if news_ids and news_db.is_file():
+        try:
+            with sqlite3.connect(str(news_db)) as conn:
+                q = ",".join("?" * len(news_ids))
+                for r in conn.execute(
+                    f"SELECT id, popularity FROM news_articles WHERE id IN ({q})",
+                    news_ids,
+                ):
+                    try:
+                        news_pop[int(r[0])] = float(r[1] or 0)
+                    except (TypeError, ValueError):
+                        news_pop[int(r[0])] = 0.0
+        except Exception:
+            news_pop = {}
+    note_likes: dict[str, int] = {}
+    if note_ids and social_db.is_file():
+        try:
+            with sqlite3.connect(str(social_db)) as conn:
+                q = ",".join("?" * len(note_ids))
+                for r in conn.execute(
+                    f"SELECT note_id, COUNT(*) FROM likes WHERE note_id IN ({q}) GROUP BY note_id",
+                    note_ids,
+                ):
+                    note_likes[str(r[0])] = int(r[1] or 0)
+        except Exception:
+            note_likes = {}
+    for items in lanes.values():
+        for it in items:
+            nid = it.pop("_news_id", None)
+            sid = it.pop("_social_note_id", None)
+            if isinstance(nid, int) and nid in news_pop:
+                pop = news_pop[nid]
+                it["popularity"] = pop
+                it["like_count"] = max(0, int(round(pop)))
+            elif sid:
+                n = note_likes.get(str(sid), 0)
+                it["popularity"] = float(n)
+                it["like_count"] = n
 
 
 def _news_blocked(out: list[dict[str, Any]], item: dict[str, Any]) -> bool:

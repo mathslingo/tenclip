@@ -77,6 +77,8 @@ Page({
     kind: "note",
     required: false,
     kindLabel: "",
+    titlePlaceholder: "标题（可选）",
+    bodyPlaceholder: "分享你的网球日常、训练心得…",
     timeTouched: false,
     endRange: [[], [], [], []],
     endValue: [1, 0, 0, 0],
@@ -103,10 +105,18 @@ Page({
     var kind = (options && options.kind) || "note";
     if (kind === "offer" || kind === "seek") {
       var label = kind === "offer" ? "发场地" : "收场地";
+      var titlePh =
+        kind === "offer" ? "场地名称 / 片区（可选）" : "想找的场地类型（可选）";
+      var bodyPh =
+        kind === "offer"
+          ? "说明空场信息：室内外、硬地/红土、几片、价格、是否可约灯、注意事项…"
+          : "说明需求：室内外、硬地/红土、几人、预算、水平、希望的时间地点…";
       this.setData({
         kind: kind,
         required: true,
         kindLabel: label,
+        titlePlaceholder: titlePh,
+        bodyPlaceholder: bodyPh,
         locationEnabled: true,
         timeEnabled: true,
         timeTouched: false,

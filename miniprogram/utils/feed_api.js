@@ -91,6 +91,12 @@ function mapApiItem(row) {
     coverRatio = mock.ratio;
     coverIsMock = true;
   }
+  var likeRaw =
+    row.like_count != null
+      ? row.like_count
+      : row.popularity != null
+        ? row.popularity
+        : 0;
   var item = normalizeItem({
     id: row.id,
     title: row.title,
@@ -98,7 +104,7 @@ function mapApiItem(row) {
     cover: imageUrl,
     image_url: imageUrl,
     author_name: row.source,
-    like_count: Math.max(0, Math.round(Number(row.popularity) || 0)),
+    like_count: Math.max(0, Math.round(Number(likeRaw) || 0)),
     popularity: row.popularity,
     tags: tags,
     channel: channel,
@@ -106,7 +112,8 @@ function mapApiItem(row) {
     published_at: row.published_at,
     cover_ratio: coverRatio,
   });
-  item.tour_badge = tourBadge;
+  item.kind = row.kind || (String(row.id || '').indexOf('note-') === 0 ? 'note' : 'news');
+  item.distance_badge = tourBadge;
   item.cover_is_mock = coverIsMock;
   item.score = row.score != null ? Number(row.score) : 0;
   return item;
@@ -123,16 +130,54 @@ var _nearbyCache = null;
 
 function getDeviceLocation() {
   return new Promise(function (resolve, reject) {
-    wx.getLocation({
+    if (typeof wx.getFuzzyLocation !== "function") {
+      reject(Object.assign(new Error("当前基础库不支持模糊定位"), { unavailable: true }));
+      return;
+    }
+    wx.getFuzzyLocation({
       type: "gcj02",
       success: resolve,
       fail: function (err) {
-        var e = new Error((err && err.errMsg) || "定位失败");
-        e.denied = true;
+        var msg = String((err && err.errMsg) || "");
+        var e = new Error(msg || "定位失败");
+        e.denied = /auth deny|authorize|privacy|permission|deny|拒绝/i.test(msg);
+        e.unavailable = !e.denied;
         reject(e);
       },
     });
   });
+}
+
+function buildNearbyList(rows, loc) {
+  var list = [];
+  rows.forEach(function (row) {
+    var note = normalizeNote(row);
+    var lat = Number(note.latitude);
+    var lng = Number(note.longitude);
+    if (
+      note.latitude == null ||
+      note.longitude == null ||
+      isNaN(lat) ||
+      isNaN(lng)
+    ) {
+      return;
+    }
+    note.channel = "附近";
+    if (loc && loc.latitude != null && loc.longitude != null) {
+      var d = distanceMeters(loc.latitude, loc.longitude, lat, lng);
+      note.distance_m = d;
+      note.distance_badge = formatDistance(d);
+    } else {
+      note.distance_m = Number.POSITIVE_INFINITY;
+      note.distance_badge = note.location_name || "有地点";
+    }
+    list.push(note);
+  });
+  list.sort(function (a, b) {
+    if (a.distance_m !== b.distance_m) return a.distance_m - b.distance_m;
+    return (b.created_at || 0) - (a.created_at || 0);
+  });
+  return list;
 }
 
 function distanceMeters(lat1, lng1, lat2, lng2) {
@@ -173,7 +218,7 @@ function requestRecentNotes() {
   });
 }
 
-/** 附近：按当前定位，对带坐标的笔记由近到远排序（近的在前） */
+/** 附近：有定位按距离；无定位仍展示带地点内容，避免反复弹授权 */
 function fetchNearbyPage(opts) {
   var offset = opts.offset || 0;
   var limit = opts.limit || 10;
@@ -181,46 +226,49 @@ function fetchNearbyPage(opts) {
   if (offset > 0 && _nearbyCache) {
     load = Promise.resolve(_nearbyCache);
   } else {
-    load = getDeviceLocation().then(function (loc) {
-      return requestRecentNotes().then(function (rows) {
-        var list = [];
-        rows.forEach(function (row) {
-          var note = normalizeNote(row);
-          var lat = Number(note.latitude);
-          var lng = Number(note.longitude);
-          if (
-            note.latitude == null ||
-            note.longitude == null ||
-            isNaN(lat) ||
-            isNaN(lng)
-          ) {
-            return;
+    load = getDeviceLocation()
+      .then(function (loc) {
+        return requestRecentNotes().then(function (rows) {
+          var list = buildNearbyList(rows, loc);
+          _nearbyCache = { list: list, mode: "located" };
+          return _nearbyCache;
+        });
+      })
+      .catch(function (err) {
+        return requestRecentNotes().then(
+          function (rows) {
+            var list = buildNearbyList(rows, null);
+            _nearbyCache = {
+              list: list,
+              mode: err && err.denied ? "denied" : "noloc",
+            };
+            return _nearbyCache;
+          },
+          function (netErr) {
+            return Promise.reject(err && err.denied ? err : netErr || err);
           }
-          var d = distanceMeters(loc.latitude, loc.longitude, lat, lng);
-          note.channel = "附近";
-          note.distance_m = d;
-          note.tour_badge = formatDistance(d);
-          list.push(note);
-        });
-        list.sort(function (a, b) {
-          return a.distance_m - b.distance_m;
-        });
-        _nearbyCache = list;
-        return list;
+        );
       });
-    });
   }
   return load.then(
-    function (list) {
+    function (pack) {
+      var list = (pack && pack.list) || [];
+      var mode = (pack && pack.mode) || "located";
       var pageItems = list.slice(offset, offset + limit);
       var next = offset + pageItems.length;
+      var source = "nearby";
+      if (!list.length) {
+        source = mode === "denied" ? "nearby-denied" : "nearby-empty";
+      } else if (mode === "noloc" || mode === "denied") {
+        source = "nearby-noloc";
+      }
       return {
         items: pageItems,
         offset: offset,
         nextOffset: next,
         reachedEnd: next >= list.length,
         total: list.length,
-        source: list.length ? "nearby" : "nearby-empty",
+        source: source,
       };
     },
     function (err) {
