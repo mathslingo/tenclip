@@ -122,19 +122,11 @@ function filterApiItemsByTab(items, tab) {
 var _nearbyCache = null;
 
 function getDeviceLocation() {
-  return new Promise(function (resolve, reject) {
-    // 附近排序用模糊定位即可；getLocation 对「附近推荐」场景几乎无法过审
-    var api = typeof wx.getFuzzyLocation === "function" ? wx.getFuzzyLocation : wx.getLocation;
-    api({
-      type: "gcj02",
-      success: resolve,
-      fail: function (err) {
-        var e = new Error((err && err.errMsg) || "定位失败");
-        e.denied = true;
-        reject(e);
-      },
-    });
-  });
+  // 公众平台未开通「模糊地理位置」前不要调用对应定位 API，否则上传会报 -80424。
+  // 开通后：app_config.enableFuzzyLocation=true，app.json requiredPrivateInfos 声明后恢复调用。
+  return Promise.reject(
+    Object.assign(new Error("定位未开通"), { denied: true })
+  );
 }
 
 function distanceMeters(lat1, lng1, lat2, lng2) {

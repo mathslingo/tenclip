@@ -116,48 +116,15 @@ Page({
   },
 
   _ensureLocationThenLoad: function (moveMap) {
-    var that = this;
     if (this.data.hasUserLocation && !moveMap) {
       this._loadCourts({ reset: true });
       return;
     }
-    if (this._locating) return;
-    this._locating = true;
-
-    // 设置超时定时器，8秒后如果还没有定位成功，则使用默认位置
-    var locationTimeoutId = setTimeout(function () {
-      if (that._locating) {
-        console.warn("定位超时，使用默认位置");
-        that._locating = false;
-        that.setData({ userLat: SH_LAT, userLng: SH_LNG, hasUserLocation: false });
-        that._loadCourts({ reset: true });
-      }
-    }, 8000);
-
-    wx.getFuzzyLocation({
-      type: "gcj02",
-      success: function (res) {
-        that._locating = false;
-        clearTimeout(locationTimeoutId);
-        var lat = Number(res.latitude) || SH_LAT;
-        var lng = Number(res.longitude) || SH_LNG;
-        var patch = { userLat: lat, userLng: lng, hasUserLocation: true };
-        if (moveMap) {
-          patch.mapLat = lat;
-          patch.mapLng = lng;
-        }
-        that.setData(patch);
-        that._loadCourts({ reset: true });
-      },
-      fail: function (err) {
-        that._locating = false;
-        clearTimeout(locationTimeoutId);
-        console.warn("定位失败:", err);
-        // 定位失败时使用默认位置
-        that.setData({ userLat: SH_LAT, userLng: SH_LNG, hasUserLocation: false });
-        that._loadCourts({ reset: true });
-      },
-    });
+    // 未开通模糊地理位置接口前不发起定位（否则代码包上传 -80424）
+    // 开通后在此恢复定位，成功后再 _loadCourts
+    this._locating = false;
+    this.setData({ userLat: SH_LAT, userLng: SH_LNG, hasUserLocation: false });
+    this._loadCourts({ reset: true });
   },
 
   onTabTap: function (e) {
