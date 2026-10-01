@@ -57,11 +57,14 @@
 
   <view class="action-bar">
     <view class="action-chip {{liked ? 'on' : ''}}" bindtap="onToggleLike" wx:if="{{!isMine}}">
-      <text>{{liked ? '♥' : '♡'}} {{liked ? '已赞' : '赞'}}</text>
+      <text>{{liked ? '♥' : '♡'}} {{liked ? '已赞' : '赞'}}{{note.like_count ? ' ' + note.like_count : ''}}</text>
     </view>
     <view class="action-chip {{bookmarked ? 'on' : ''}}" bindtap="onToggleBookmark" wx:if="{{!isMine}}">
       <text>{{bookmarked ? '★' : '☆'}} {{bookmarked ? '已收藏' : '收藏'}}</text>
     </view>
+    <button class="action-chip share-chip" open-type="share" hover-class="none">
+      <text>↗ 分享</text>
+    </button>
     <button class="danger-btn" bindtap="onDelete" wx:if="{{isMine}}">删除笔记</button>
   </view>
 

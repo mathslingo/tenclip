@@ -91,6 +91,12 @@ function mapApiItem(row) {
     coverRatio = mock.ratio;
     coverIsMock = true;
   }
+  var likeRaw =
+    row.like_count != null
+      ? row.like_count
+      : row.popularity != null
+        ? row.popularity
+        : 0;
   var item = normalizeItem({
     id: row.id,
     title: row.title,
@@ -98,7 +104,7 @@ function mapApiItem(row) {
     cover: imageUrl,
     image_url: imageUrl,
     author_name: row.source,
-    like_count: Math.max(0, Math.round(Number(row.popularity) || 0)),
+    like_count: Math.max(0, Math.round(Number(likeRaw) || 0)),
     popularity: row.popularity,
     tags: tags,
     channel: channel,
@@ -106,7 +112,8 @@ function mapApiItem(row) {
     published_at: row.published_at,
     cover_ratio: coverRatio,
   });
-  item.tour_badge = tourBadge;
+  item.kind = row.kind || (String(row.id || '').indexOf('note-') === 0 ? 'note' : 'news');
+  item.distance_badge = tourBadge;
   item.cover_is_mock = coverIsMock;
   item.score = row.score != null ? Number(row.score) : 0;
   return item;

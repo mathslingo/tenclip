@@ -42,6 +42,12 @@ def _news_row_item(r: sqlite3.Row) -> dict[str, Any]:
     item = dict(r)
     item["kind"] = "news"
     item["tags"] = art_tags
+    try:
+        pop = float(r["popularity"] or 0)
+    except (TypeError, ValueError):
+        pop = 0.0
+    item["popularity"] = pop
+    item["like_count"] = max(0, int(round(pop)))
     return item
 
 

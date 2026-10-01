@@ -34,11 +34,14 @@
 
     <view class="action-row">
       <view class="action-chip {{liked ? 'on' : ''}}" bindtap="onToggleLike">
-        <text>{{liked ? '♥' : '♡'}} {{liked ? '已赞' : '赞'}}</text>
+        <text>{{liked ? '♥' : '♡'}} {{liked ? '已赞' : '赞'}}{{item.like_count ? ' ' + item.like_count : ''}}</text>
       </view>
       <view class="action-chip {{bookmarked ? 'on' : ''}}" bindtap="onToggleBookmark">
         <text>{{bookmarked ? '★' : '☆'}} {{bookmarked ? '已收藏' : '收藏'}}</text>
       </view>
+      <button class="action-chip share-chip" open-type="share" hover-class="none">
+        <text>↗ 分享</text>
+      </button>
     </view>
   </view>
 

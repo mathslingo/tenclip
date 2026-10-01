@@ -135,6 +135,16 @@
   font-weight: 600;
 }
 
+.action-chip.share-chip {
+  margin: 0;
+  line-height: inherit;
+  border: none;
+  padding: 18rpx 0;
+}
+.action-chip.share-chip::after {
+  border: none;
+}
+
 .primary-btn {
   margin-top: 36rpx;
   background: linear-gradient(140deg, #3bf0bf, #13d8a8);

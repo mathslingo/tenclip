@@ -1225,10 +1225,15 @@ def create_app() -> FastAPI:
     @api.post("/api/news/feedback")
     def news_feedback(
         user_id: str = Form(...),
-        article_id: int = Form(...),
+        article_id: str = Form(...),
         action: str = Form(...),
     ):
-        record_feedback(user_id=user_id, article_id=article_id, action=action)
+        # 资讯 id 多为数字字符串；兼容旧客户端 int
+        try:
+            aid = int(str(article_id).strip())
+        except (TypeError, ValueError):
+            raise HTTPException(status_code=400, detail="article_id 无效")
+        record_feedback(user_id=user_id, article_id=aid, action=action)
         return {"ok": True}
 
     @api.get("/api/news/feed")

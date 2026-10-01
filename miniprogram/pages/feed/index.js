@@ -198,4 +198,25 @@ Page({
       url: "/pages/user/index?user_id=" + encodeURIComponent(uid),
     });
   },
+
+  onShareTap() {
+    // catchtap 阻止冒泡进详情；真实分享由 open-type=share 触发
+  },
+
+  onShareAppMessage(e) {
+    if (e && e.from === "button" && e.target && e.target.dataset) {
+      var id = e.target.dataset.id || "";
+      var title = e.target.dataset.title || "UChance 网球";
+      var cover = e.target.dataset.cover || "";
+      var path =
+        String(id).indexOf("note-") === 0
+          ? "/pages/note-detail/index?id=" + encodeURIComponent(id)
+          : "/pages/feed-detail/index?id=" + encodeURIComponent(id);
+      return { title: title, path: path, imageUrl: cover };
+    }
+    return {
+      title: "UChance 网球社区",
+      path: "/pages/feed/index",
+    };
+  },
 });

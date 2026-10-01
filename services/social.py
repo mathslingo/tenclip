@@ -773,6 +773,17 @@ def _note_public(row: sqlite3.Row, author: dict[str, Any] | None = None, viewer_
         event_f = float(event_at) if event_at is not None else None
     except (TypeError, ValueError):
         event_f = None
+    like_count = 0
+    try:
+        with _conn() as conn:
+            like_count = int(
+                conn.execute(
+                    "SELECT COUNT(*) AS c FROM likes WHERE note_id = ?",
+                    (row["id"],),
+                ).fetchone()["c"]
+            )
+    except Exception:
+        like_count = 0
     return {
         "id": "note-" + row["id"],
         "note_id": row["id"],
@@ -796,7 +807,8 @@ def _note_public(row: sqlite3.Row, author: dict[str, Any] | None = None, viewer_
         "longitude": lng_f,
         "event_at": event_f,
         "event_at_iso": _iso(event_f) if event_f else "",
-        "popularity": 0,
+        "popularity": float(like_count),
+        "like_count": like_count,
         "score": 160.0,
         "channel": "推荐",
         "liked": False,
@@ -1437,7 +1449,21 @@ def register_social_routes(api) -> None:
     ):
         me = _auth_user(authorization)
         res = toggle_like(note_id, me["user_id"])
-        return {"liked": res}
+        nid = (note_id or "").strip()
+        if nid.startswith("note-"):
+            nid = nid[5:]
+        like_count = 0
+        try:
+            with _conn() as conn:
+                like_count = int(
+                    conn.execute(
+                        "SELECT COUNT(*) AS c FROM likes WHERE note_id = ?",
+                        (nid,),
+                    ).fetchone()["c"]
+                )
+        except Exception:
+            like_count = 0
+        return {"liked": res, "like_count": like_count}
 
     @api.post("/api/social/notes/{note_id}/bookmark")
     def api_bookmark_note(

@@ -280,6 +280,21 @@
   border-radius: 12rpx;
 }
 
+.share-mini {
+  margin: 0 0 0 8rpx;
+  padding: 6rpx 14rpx;
+  font-size: 22rpx;
+  line-height: 1.2;
+  color: #415360;
+  background: #f0f3f6;
+  border-radius: 12rpx;
+  font-weight: 500;
+  flex-shrink: 0;
+}
+.share-mini::after {
+  border: none;
+}
+
 .heart {
   font-size: 26rpx;
   line-height: 1;

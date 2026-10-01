@@ -237,6 +237,16 @@
   font-weight: 600;
 }
 
+.action-chip.share-chip {
+  margin: 0;
+  line-height: inherit;
+  border: none;
+  padding: 14rpx 0;
+}
+.action-chip.share-chip::after {
+  border: none;
+}
+
 .empty {
   padding: 120rpx 40rpx;
   text-align: center;

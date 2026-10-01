@@ -4,6 +4,11 @@ const { isLiked, isBookmarked, toggleLike, toggleBookmark } = require("../../uti
 const { API_BASE_URL } = require("../../utils/config");
 const { authHeaders, isLoggedIn, requireLogin } = require("../../utils/auth_api");
 const { FALLBACK_COVER } = require("../../utils/feed_mock");
+const {
+  isNoteKind,
+  sendNewsFeedback,
+  toggleNoteLikeRemote,
+} = require("../../utils/social_api");
 
 function normalizeNoteId(id) {
   var nid = (id || "").trim();
@@ -127,9 +132,64 @@ Page({
   onToggleLike() {
     var item = this.data.item;
     if (!item) return;
-    var res = toggleLike(item.id);
-    this.setData({ liked: res.on });
-    wx.showToast({ title: res.on ? "已赞" : "已取消赞", icon: "none" });
+    if (!isLoggedIn()) {
+      requireLogin("like");
+      return;
+    }
+    var that = this;
+    var wasLiked = !!this.data.liked;
+    var base = Math.max(0, Number(item.like_count) || 0);
+    var nextLiked = !wasLiked;
+    var nextCount = nextLiked ? base + 1 : Math.max(0, base - 1);
+    // 乐观更新展示数
+    this.setData({
+      liked: nextLiked,
+      "item.like_count": nextCount,
+    });
+    toggleLike(item.id);
+
+    if (isNoteKind(item)) {
+      toggleNoteLikeRemote(item.id)
+        .then(function (body) {
+          var patch = { liked: !!(body && body.liked) };
+          if (body && body.like_count != null) {
+            patch["item.like_count"] = Math.max(0, Number(body.like_count) || 0);
+          }
+          that.setData(patch);
+        })
+        .catch(function () {
+          that.setData({
+            liked: wasLiked,
+            "item.like_count": base,
+          });
+          wx.showToast({ title: "点赞失败", icon: "none" });
+        });
+      return;
+    }
+
+    sendNewsFeedback(item.id, nextLiked ? "like" : "dislike").catch(function () {
+      // 反馈失败不回滚展示，本地状态已更新；列表刷新后会与服务端对齐
+    });
+  },
+
+  onShareAppMessage() {
+    var item = this.data.item || {};
+    var id = item.id || this._itemId || "";
+    var title = item.title || "UChance 网球笔记";
+    return {
+      title: title,
+      path: "/pages/feed-detail/index?id=" + encodeURIComponent(id),
+      imageUrl: item.cover || "",
+    };
+  },
+
+  onShareTimeline() {
+    var item = this.data.item || {};
+    return {
+      title: item.title || "UChance 网球笔记",
+      query: "id=" + encodeURIComponent(item.id || this._itemId || ""),
+      imageUrl: item.cover || "",
+    };
   },
 
   onToggleBookmark() {
