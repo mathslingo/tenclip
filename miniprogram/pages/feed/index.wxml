@@ -67,17 +67,8 @@
             </view>
             <view class="likes">
               <text class="heart">♡</text>
-              <text>{{item.like_count}}</text>
+              <text>{{item.like_count || 0}}</text>
             </view>
-            <button
-              class="share-mini"
-              open-type="share"
-              hover-class="none"
-              catchtap="onShareTap"
-              data-id="{{item.id}}"
-              data-title="{{item.title}}"
-              data-cover="{{item.cover}}"
-            >分享</button>
           </view>
         </view>
       </view>
@@ -126,17 +117,8 @@
             </view>
             <view class="likes">
               <text class="heart">♡</text>
-              <text>{{item.like_count}}</text>
+              <text>{{item.like_count || 0}}</text>
             </view>
-            <button
-              class="share-mini"
-              open-type="share"
-              hover-class="none"
-              catchtap="onShareTap"
-              data-id="{{item.id}}"
-              data-title="{{item.title}}"
-              data-cover="{{item.cover}}"
-            >分享</button>
           </view>
         </view>
       </view>
