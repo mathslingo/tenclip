@@ -296,8 +296,9 @@ function searchFeed(keyword) {
 }
 
 function getNote(noteId) {
+  var nid = String(noteId || "").replace(/^note-/, "");
   return request({
-    url: API_BASE_URL + "/api/social/notes/" + encodeURIComponent(noteId),
+    url: API_BASE_URL + "/api/social/notes/" + encodeURIComponent(nid),
     header: { "content-type": "application/json" },
   }).then(normalizeNote);
 }

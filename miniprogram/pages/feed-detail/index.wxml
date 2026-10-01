@@ -79,7 +79,7 @@
             </view>
           </view>
 
-          <view class="comment-replies" wx:if="{{item.replies.length}}">
+          <view class="comment-replies" wx:if="{{item.replies && item.replies.length}}">
             <view class="comment-item comment-item--reply" wx:for="{{item.replies}}" wx:for-item="reply" wx:key="id">
               <view class="comment-avatar">
                 <image
@@ -91,10 +91,10 @@
               </view>
               <view class="comment-body">
                 <text class="comment-author">{{reply.author_name}}</text>
-                <text class="comment-text">
+                <view class="comment-text">
                   <text wx:if="{{reply.reply_to_name}}" class="reply-to">回复 {{reply.reply_to_name}}：</text>
                   <text>{{reply.body}}</text>
-                </text>
+                </view>
                 <view class="comment-meta">
                   <text class="comment-time">{{reply.time_text}}</text>
                   <text
@@ -110,7 +110,7 @@
         </view>
       </view>
 
-      <view class="comment-empty" wx:if="{{!comments.length && !loading}}">
+      <view class="comment-empty" wx:if="{{!comments.length}}">
         <text>还没有评论</text>
       </view>
     </view>
@@ -144,6 +144,6 @@
   </view>
 </view>
 
-<view class="detail-loading" wx:else>
+<view class="detail-loading" wx:if="{{!item}}">
   <text>{{errorText || '加载中…'}}</text>
 </view>
