@@ -84,7 +84,7 @@ Page({
       wx.setNavigationBarTitle({
         title: item.title ? item.title.slice(0, 12) : "笔记详情",
       });
-      that.loadComments().catch(function () {});
+      return that.loadComments().catch(function () {});
     }).catch(function () {
       that.setData({ errorText: "加载失败" });
     });

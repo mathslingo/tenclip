@@ -92,7 +92,8 @@
               <view class="comment-body">
                 <text class="comment-author">{{reply.author_name}}</text>
                 <text class="comment-text">
-                  <text wx:if="{{reply.reply_to_name}}" class="reply-to">回复 {{reply.reply_to_name}}：</text>{{reply.body}}
+                  <text wx:if="{{reply.reply_to_name}}" class="reply-to">回复 {{reply.reply_to_name}}：</text>
+                  <text>{{reply.body}}</text>
                 </text>
                 <view class="comment-meta">
                   <text class="comment-time">{{reply.time_text}}</text>
