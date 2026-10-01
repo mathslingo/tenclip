@@ -123,7 +123,9 @@ var _nearbyCache = null;
 
 function getDeviceLocation() {
   return new Promise(function (resolve, reject) {
-    wx.getLocation({
+    // 附近排序用模糊定位即可；getLocation 对「附近推荐」场景几乎无法过审
+    var api = typeof wx.getFuzzyLocation === "function" ? wx.getFuzzyLocation : wx.getLocation;
+    api({
       type: "gcj02",
       success: resolve,
       fail: function (err) {

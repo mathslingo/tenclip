@@ -134,7 +134,7 @@ Page({
       }
     }, 8000);
 
-    wx.getLocation({
+    wx.getFuzzyLocation({
       type: "gcj02",
       success: function (res) {
         that._locating = false;
