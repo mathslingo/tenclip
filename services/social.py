@@ -55,6 +55,7 @@ class FollowBody(BaseModel):
 
 class CommentCreate(BaseModel):
     body: str = Field(..., min_length=1, max_length=140)
+    parent_id: str = ""
 
 
 def _conn() -> sqlite3.Connection:
@@ -158,12 +159,15 @@ def init_social_db() -> None:
                 note_id TEXT NOT NULL,
                 user_id TEXT NOT NULL,
                 body TEXT NOT NULL,
+                parent_id TEXT NOT NULL DEFAULT '',
+                reply_to_user_id TEXT NOT NULL DEFAULT '',
                 created_at REAL NOT NULL,
                 updated_at REAL NOT NULL,
                 FOREIGN KEY (user_id) REFERENCES users(user_id)
             );
             CREATE INDEX IF NOT EXISTS idx_comments_note ON comments(note_id, created_at DESC);
             CREATE INDEX IF NOT EXISTS idx_comments_user ON comments(user_id, created_at DESC);
+            CREATE INDEX IF NOT EXISTS idx_comments_parent ON comments(parent_id);
             CREATE TABLE IF NOT EXISTS likes (
                 user_id TEXT NOT NULL,
                 note_id TEXT NOT NULL,
@@ -192,12 +196,17 @@ def init_social_db() -> None:
                 note_id TEXT NOT NULL,
                 user_id TEXT NOT NULL,
                 body TEXT NOT NULL,
+                parent_id TEXT NOT NULL DEFAULT '',
+                reply_to_user_id TEXT NOT NULL DEFAULT '',
                 created_at REAL NOT NULL,
                 updated_at REAL NOT NULL,
                 FOREIGN KEY (user_id) REFERENCES users(user_id)
             )
             """,
         )
+        _ensure_column(conn, "comments", "parent_id", "parent_id TEXT NOT NULL DEFAULT ''")
+        _ensure_column(conn, "comments", "reply_to_user_id", "reply_to_user_id TEXT NOT NULL DEFAULT ''")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_comments_parent ON comments(parent_id)")
         _rebuild_table_without_note_fk(
             conn,
             "likes",
@@ -646,7 +655,7 @@ def create_notification(
     aid = (actor_id or "").strip()
     if not rid or not aid or rid == aid:
         return
-    if ntype not in ("like", "comment", "follow"):
+    if ntype not in ("like", "comment", "follow", "reply"):
         return
     nid = (note_id or "").strip()
     if nid.startswith("note-"):
@@ -1384,7 +1393,12 @@ def register_social_routes(api) -> None:
     ):
         me = _auth_user(authorization)
         try:
-            return create_comment(note_id, me["user_id"], payload.body)
+            return create_comment(
+                note_id,
+                me["user_id"],
+                payload.body,
+                parent_id=payload.parent_id or "",
+            )
         except ValueError as e:
             raise HTTPException(status_code=400, detail=str(e)) from e
         except sqlite3.Error as e:
@@ -1550,39 +1564,71 @@ def toggle_bookmark(note_id: str, user_id: str) -> bool:
             return True
 
 
-def create_comment(note_id: str, user_id: str, body: str) -> dict[str, Any]:
-    """创建评论。支持用户笔记和新闻文章。"""
+def create_comment(
+    note_id: str,
+    user_id: str,
+    body: str,
+    parent_id: str = "",
+) -> dict[str, Any]:
+    """创建评论或回复。parent_id 指向被回复的评论（可为空）。"""
     nid = (note_id or "").strip()
     if nid.startswith("note-"):
         nid = nid[5:]
     uid = (user_id or "").strip()
     text = (body or "").strip()
-    
+    target_id = (parent_id or "").strip()
+
     if not nid or not uid or not text:
         raise ValueError("note_id, user_id, body required")
     if len(text) > 140:
         raise ValueError("评论最多140字")
-    
+
     # 检查笔记或文章存在
     note_exists = False
     with _conn() as conn:
         note = conn.execute("SELECT id FROM notes WHERE id = ?", (nid,)).fetchone()
         if note:
             note_exists = True
-    
+
     if not note_exists:
-        # 尝试从新闻数据库查询
         news_conn = _news_conn()
         if not news_conn:
             raise ValueError("笔记不存在")
         try:
-            news_row = news_conn.execute("SELECT id FROM news_articles WHERE id = ?", (nid,)).fetchone()
+            news_row = news_conn.execute(
+                "SELECT id FROM news_articles WHERE id = ?", (nid,)
+            ).fetchone()
             if not news_row:
                 raise ValueError("笔记或文章不存在")
         finally:
             news_conn.close()
-    
-    # 创建评论
+
+    root_parent_id = ""
+    reply_to_uid = ""
+    notify_uid = ""
+
+    if target_id:
+        with _conn() as conn:
+            parent = conn.execute(
+                "SELECT id, note_id, user_id, parent_id FROM comments WHERE id = ?",
+                (target_id,),
+            ).fetchone()
+            if not parent:
+                raise ValueError("回复的评论不存在")
+            if str(parent["note_id"]) != nid:
+                raise ValueError("不能回复其他笔记的评论")
+            # 统一挂到根评论下，最多两层
+            try:
+                existing_parent = parent["parent_id"] or ""
+            except (KeyError, IndexError):
+                existing_parent = ""
+            if existing_parent:
+                root_parent_id = str(existing_parent)
+            else:
+                root_parent_id = str(parent["id"])
+            reply_to_uid = str(parent["user_id"] or "")
+            notify_uid = reply_to_uid
+
     cid = uuid.uuid4().hex[:16]
     now = time.time()
     try:
@@ -1590,18 +1636,59 @@ def create_comment(note_id: str, user_id: str, body: str) -> dict[str, Any]:
             upsert_user(uid)
             conn.execute(
                 """
-                INSERT INTO comments (id, note_id, user_id, body, created_at, updated_at)
-                VALUES (?, ?, ?, ?, ?, ?)
+                INSERT INTO comments
+                    (id, note_id, user_id, body, parent_id, reply_to_user_id, created_at, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                 """,
-                (cid, nid, uid, text, now, now),
+                (cid, nid, uid, text, root_parent_id, reply_to_uid, now, now),
             )
             conn.commit()
     except sqlite3.IntegrityError as e:
         raise ValueError("评论保存失败") from e
-    owner = _note_owner(nid)
-    if owner:
-        create_notification(owner, uid, "comment", note_id=nid, comment_id=cid, preview=text)
+
+    if notify_uid:
+        create_notification(
+            notify_uid, uid, "reply", note_id=nid, comment_id=cid, preview=text
+        )
+    else:
+        owner = _note_owner(nid)
+        if owner:
+            create_notification(
+                owner, uid, "comment", note_id=nid, comment_id=cid, preview=text
+            )
     return get_comment(cid, uid) or {}
+
+
+def _comment_dict(
+    row: Any,
+    viewer_id: str = "",
+    reply_to_name: str = "",
+) -> dict[str, Any]:
+    parent_id = ""
+    reply_to_user_id = ""
+    try:
+        parent_id = str(row["parent_id"] or "")
+    except (KeyError, IndexError):
+        parent_id = ""
+    try:
+        reply_to_user_id = str(row["reply_to_user_id"] or "")
+    except (KeyError, IndexError):
+        reply_to_user_id = ""
+    return {
+        "id": row["id"],
+        "note_id": row["note_id"],
+        "user_id": row["user_id"],
+        "body": row["body"],
+        "parent_id": parent_id,
+        "reply_to_user_id": reply_to_user_id,
+        "reply_to_name": reply_to_name or "",
+        "created_at": row["created_at"],
+        "updated_at": row["updated_at"] if "updated_at" in row.keys() else row["created_at"],
+        "author_name": (row["nickname"] if "nickname" in row.keys() else None)
+        or "球友",
+        "author_avatar": (row["avatar_url"] if "avatar_url" in row.keys() else None) or "",
+        "can_delete": bool(viewer_id and viewer_id == row["user_id"]),
+    }
 
 
 def get_comment(comment_id: str, viewer_id: str = "") -> dict[str, Any] | None:
@@ -1609,42 +1696,48 @@ def get_comment(comment_id: str, viewer_id: str = "") -> dict[str, Any] | None:
     cid = (comment_id or "").strip()
     if not cid:
         return None
-    
+
     with _conn() as conn:
-        row = conn.execute("SELECT * FROM comments WHERE id = ?", (cid,)).fetchone()
+        row = conn.execute(
+            """
+            SELECT c.*, u.nickname, u.avatar_url
+            FROM comments c
+            LEFT JOIN users u ON u.user_id = c.user_id
+            WHERE c.id = ?
+            """,
+            (cid,),
+        ).fetchone()
         if not row:
             return None
-        
-        author = conn.execute(
-            "SELECT nickname, avatar_url FROM users WHERE user_id = ?",
-            (row["user_id"],),
-        ).fetchone()
-        author_data = dict(author) if author else {}
-        
-        return {
-            "id": row["id"],
-            "note_id": row["note_id"],
-            "user_id": row["user_id"],
-            "body": row["body"],
-            "created_at": row["created_at"],
-            "updated_at": row["updated_at"],
-            "author_name": author_data.get("nickname", "球友"),
-            "author_avatar": author_data.get("avatar_url", ""),
-            "can_delete": viewer_id and (viewer_id == row["user_id"]),
-        }
+
+        reply_to_name = ""
+        try:
+            ruid = str(row["reply_to_user_id"] or "")
+        except (KeyError, IndexError):
+            ruid = ""
+        if ruid:
+            target = conn.execute(
+                "SELECT nickname FROM users WHERE user_id = ?", (ruid,)
+            ).fetchone()
+            if target:
+                reply_to_name = target["nickname"] or "球友"
+
+        return _comment_dict(row, viewer_id=viewer_id, reply_to_name=reply_to_name)
 
 
-def list_comments(note_id: str, viewer_id: str = "", limit: int = 50, offset: int = 0) -> list[dict[str, Any]]:
-    """获取笔记的评论列表。"""
+def list_comments(
+    note_id: str, viewer_id: str = "", limit: int = 50, offset: int = 0
+) -> list[dict[str, Any]]:
+    """获取笔记的评论列表（含回复，扁平返回，由前端组装）。"""
     nid = (note_id or "").strip()
     if nid.startswith("note-"):
         nid = nid[5:]
     if not nid:
         return []
-    
+
     limit = max(1, min(int(limit), 100))
     offset = max(0, int(offset))
-    
+
     with _conn() as conn:
         rows = conn.execute(
             """
@@ -1652,41 +1745,56 @@ def list_comments(note_id: str, viewer_id: str = "", limit: int = 50, offset: in
             FROM comments c
             LEFT JOIN users u ON u.user_id = c.user_id
             WHERE c.note_id = ?
-            ORDER BY c.created_at DESC
+            ORDER BY c.created_at ASC
             LIMIT ? OFFSET ?
             """,
             (nid, limit, offset),
         ).fetchall()
-    
+
+        name_cache: dict[str, str] = {}
+        for r in rows:
+            try:
+                ruid = str(r["reply_to_user_id"] or "")
+            except (KeyError, IndexError):
+                ruid = ""
+            if ruid and ruid not in name_cache:
+                target = conn.execute(
+                    "SELECT nickname FROM users WHERE user_id = ?", (ruid,)
+                ).fetchone()
+                name_cache[ruid] = (target["nickname"] if target else "") or "球友"
+
     return [
-        {
-            "id": r["id"],
-            "note_id": r["note_id"],
-            "user_id": r["user_id"],
-            "body": r["body"],
-            "created_at": r["created_at"],
-            "author_name": r["nickname"] or "球友",
-            "author_avatar": r["avatar_url"] or "",
-            "can_delete": viewer_id and (viewer_id == r["user_id"]),
-        }
+        _comment_dict(
+            r,
+            viewer_id=viewer_id,
+            reply_to_name=name_cache.get(
+                str(r["reply_to_user_id"] or "") if "reply_to_user_id" in r.keys() else "",
+                "",
+            ),
+        )
         for r in rows
     ]
 
 
 def delete_comment(comment_id: str, user_id: str) -> bool:
-    """删除评论（仅评论者）。"""
+    """删除评论（仅评论者）；删除根评论时一并删除其下回复。"""
     cid = (comment_id or "").strip()
     uid = (user_id or "").strip()
-    
+
     if not cid or not uid:
         return False
-    
+
     with _conn() as conn:
-        row = conn.execute("SELECT user_id FROM comments WHERE id = ?", (cid,)).fetchone()
+        row = conn.execute(
+            "SELECT user_id FROM comments WHERE id = ?", (cid,)
+        ).fetchone()
         if not row or row["user_id"] != uid:
             return False
-        
-        conn.execute("DELETE FROM comments WHERE id = ?", (cid,))
+
+        conn.execute(
+            "DELETE FROM comments WHERE id = ? OR parent_id = ?",
+            (cid, cid),
+        )
         conn.commit()
-    
+
     return True

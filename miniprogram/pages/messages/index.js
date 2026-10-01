@@ -44,6 +44,7 @@ Page({
   typeText(n) {
     if (n.type === "like") return "赞了你的笔记";
     if (n.type === "comment") return "评论了你";
+    if (n.type === "reply") return "回复了你";
     if (n.type === "follow") return "关注了你";
     return "发来一条消息";
   },
