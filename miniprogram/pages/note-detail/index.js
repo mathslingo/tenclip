@@ -88,18 +88,19 @@ Page({
           isMine: isMine,
           liked: note.liked || false,
           bookmarked: note.bookmarked || false,
+          errorText: "",
         });
         if (!isMine && note.user_id) {
           return fetchUser(note.user_id, me).then(function (u) {
             that.setData({ following: !!(u && u.is_following) });
-          });
+          }).catch(function () {});
         }
       })
       .then(function () {
-        return that.loadComments();
+        return that.loadComments().catch(function () {});
       })
       .catch(function () {
-        that.setData({ errorText: "笔记不存在或已删除" });
+        that.setData({ errorText: "笔记不存在或已删除", note: null });
       });
   },
 

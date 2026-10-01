@@ -2,7 +2,7 @@
 <view class="page" wx:if="{{note}}">
   <view class="page-main">
     <swiper
-      wx:if="{{note.images.length}}"
+      wx:if="{{note.images && note.images.length}}"
       class="swiper"
       indicator-dots
       indicator-active-color="#13d8a8"
@@ -100,7 +100,7 @@
                 >回复</text>
               </view>
             </view>
-            <view class="comment-delete" bindtap="onDeleteComment" data-id="{{item.id}}" wx:if="{{item.can_delete}}" catchtap="">×</view>
+            <view class="comment-delete" bindtap="onDeleteComment" data-id="{{item.id}}" wx:if="{{item.can_delete}}">×</view>
           </view>
 
           <view class="comment-replies" wx:if="{{item.replies.length}}">
@@ -116,7 +116,8 @@
               <view class="comment-body">
                 <text class="comment-author">{{reply.author_name}}</text>
                 <text class="comment-text">
-                  <text wx:if="{{reply.reply_to_name}}" class="reply-to">回复 {{reply.reply_to_name}}：</text>{{reply.body}}
+                  <text wx:if="{{reply.reply_to_name}}" class="reply-to">回复 {{reply.reply_to_name}}：</text>
+                  <text>{{reply.body}}</text>
                 </text>
                 <view class="comment-meta">
                   <text class="comment-time">{{reply.time_text}}</text>
@@ -128,7 +129,7 @@
                   >回复</text>
                 </view>
               </view>
-              <view class="comment-delete" bindtap="onDeleteComment" data-id="{{reply.id}}" wx:if="{{reply.can_delete}}" catchtap="">×</view>
+              <view class="comment-delete" bindtap="onDeleteComment" data-id="{{reply.id}}" wx:if="{{reply.can_delete}}">×</view>
             </view>
           </view>
         </view>
@@ -166,4 +167,8 @@
       </view>
     </view>
   </view>
+</view>
+
+<view class="empty" wx:else>
+  <text>{{errorText || '加载中…'}}</text>
 </view>

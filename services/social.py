@@ -167,7 +167,6 @@ def init_social_db() -> None:
             );
             CREATE INDEX IF NOT EXISTS idx_comments_note ON comments(note_id, created_at DESC);
             CREATE INDEX IF NOT EXISTS idx_comments_user ON comments(user_id, created_at DESC);
-            CREATE INDEX IF NOT EXISTS idx_comments_parent ON comments(parent_id);
             CREATE TABLE IF NOT EXISTS likes (
                 user_id TEXT NOT NULL,
                 note_id TEXT NOT NULL,
