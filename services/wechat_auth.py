@@ -70,6 +70,9 @@ class ProfileUpdateBody(BaseModel):
     tennis_level: str = ""
     tennis_style: str = ""
     preferred_surface: str = ""
+    tennis_serve_level: str = ""
+    tennis_forehand_level: str = ""
+    tennis_backhand_level: str = ""
 
 
 def _wechat_appid() -> str:
@@ -418,6 +421,9 @@ def update_profile(
     tennis_level: str = "",
     tennis_style: str = "",
     preferred_surface: str = "",
+    tennis_serve_level: str = "",
+    tennis_forehand_level: str = "",
+    tennis_backhand_level: str = "",
 ) -> dict[str, Any]:
     nick_in = normalize_nickname(nickname)
     if nick_in:
@@ -448,7 +454,10 @@ def update_profile(
                 tennis_hand=CASE WHEN ? <> '' THEN ? ELSE tennis_hand END,
                 tennis_level=CASE WHEN ? <> '' THEN ? ELSE tennis_level END,
                 tennis_style=CASE WHEN ? <> '' THEN ? ELSE tennis_style END,
-                preferred_surface=CASE WHEN ? <> '' THEN ? ELSE preferred_surface END
+                preferred_surface=CASE WHEN ? <> '' THEN ? ELSE preferred_surface END,
+                tennis_serve_level=CASE WHEN ? <> '' THEN ? ELSE tennis_serve_level END,
+                tennis_forehand_level=CASE WHEN ? <> '' THEN ? ELSE tennis_forehand_level END,
+                tennis_backhand_level=CASE WHEN ? <> '' THEN ? ELSE tennis_backhand_level END
             WHERE user_id=?
             """,
             (
@@ -471,6 +480,12 @@ def update_profile(
                 (tennis_style or "").strip(),
                 (preferred_surface or "").strip(),
                 (preferred_surface or "").strip(),
+                (tennis_serve_level or "").strip(),
+                (tennis_serve_level or "").strip(),
+                (tennis_forehand_level or "").strip(),
+                (tennis_forehand_level or "").strip(),
+                (tennis_backhand_level or "").strip(),
+                (tennis_backhand_level or "").strip(),
                 user_id,
             ),
         )
@@ -636,6 +651,9 @@ def register_auth_routes(api) -> None:
                 tennis_level=payload.tennis_level,
                 tennis_style=payload.tennis_style,
                 preferred_surface=payload.preferred_surface,
+                tennis_serve_level=payload.tennis_serve_level,
+                tennis_forehand_level=payload.tennis_forehand_level,
+                tennis_backhand_level=payload.tennis_backhand_level,
             )
         except ValueError as e:
             raise HTTPException(status_code=400, detail=str(e)) from e

@@ -96,6 +96,9 @@ Page({
             tennisLevel: u.tennis_level || "",
             tennisStyle: u.tennis_style || "",
             preferredSurface: u.preferred_surface || "",
+            tennisServeLevel: u.tennis_serve_level || "",
+            tennisForehandLevel: u.tennis_forehand_level || "",
+            tennisBackhandLevel: u.tennis_backhand_level || "",
             accountType: u.account_type || "",
           });
           that.refreshProfile();
@@ -134,12 +137,14 @@ Page({
     var likeN = getLikedIds().length;
     var bmN = getBookmarkedIds().length;
     var that = this;
-    var tennisBits = [
-      profile.tennisHand,
-      profile.tennisLevel,
-      profile.tennisStyle,
-      profile.preferredSurface,
-    ].filter(Boolean);
+    var tennisBits = [];
+    if (profile.tennisHand) tennisBits.push(profile.tennisHand);
+    if (profile.tennisLevel) tennisBits.push("NTRP " + profile.tennisLevel);
+    if (profile.tennisServeLevel) tennisBits.push("发" + profile.tennisServeLevel);
+    if (profile.tennisForehandLevel) tennisBits.push("正" + profile.tennisForehandLevel);
+    if (profile.tennisBackhandLevel) tennisBits.push("反" + profile.tennisBackhandLevel);
+    if (profile.tennisStyle) tennisBits.push(profile.tennisStyle);
+    if (profile.preferredSurface) tennisBits.push(profile.preferredSurface);
     var tennisLine = tennisBits.length ? tennisBits.join(" · ") : "";
 
     this.setData({

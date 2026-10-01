@@ -96,6 +96,16 @@ function applyUserToLocal(user) {
         tennisStyle: user.tennis_style != null ? user.tennis_style : me.tennisStyle || "",
         preferredSurface:
           user.preferred_surface != null ? user.preferred_surface : me.preferredSurface || "",
+        tennisServeLevel:
+          user.tennis_serve_level != null ? user.tennis_serve_level : me.tennisServeLevel || "",
+        tennisForehandLevel:
+          user.tennis_forehand_level != null
+            ? user.tennis_forehand_level
+            : me.tennisForehandLevel || "",
+        tennisBackhandLevel:
+          user.tennis_backhand_level != null
+            ? user.tennis_backhand_level
+            : me.tennisBackhandLevel || "",
         accountType: user.account_type || me.accountType || "",
       })
     );
@@ -267,6 +277,9 @@ function updateAuthProfile(payload) {
       tennis_level: (payload && payload.tennis_level) || "",
       tennis_style: (payload && payload.tennis_style) || "",
       preferred_surface: (payload && payload.preferred_surface) || "",
+      tennis_serve_level: (payload && payload.tennis_serve_level) || "",
+      tennis_forehand_level: (payload && payload.tennis_forehand_level) || "",
+      tennis_backhand_level: (payload && payload.tennis_backhand_level) || "",
     },
   }).then(function (user) {
     saveSession({

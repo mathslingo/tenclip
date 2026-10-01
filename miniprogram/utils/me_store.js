@@ -21,6 +21,9 @@ function defaultProfile() {
     tennisLevel: "",
     tennisStyle: "",
     preferredSurface: "",
+    tennisServeLevel: "",
+    tennisForehandLevel: "",
+    tennisBackhandLevel: "",
     accountType: "",
   };
 }
@@ -66,6 +69,9 @@ function getProfile() {
     tennisLevel: p.tennisLevel || "",
     tennisStyle: p.tennisStyle || "",
     preferredSurface: p.preferredSurface || "",
+    tennisServeLevel: p.tennisServeLevel || "",
+    tennisForehandLevel: p.tennisForehandLevel || "",
+    tennisBackhandLevel: p.tennisBackhandLevel || "",
     accountType: p.accountType || "",
   };
 }

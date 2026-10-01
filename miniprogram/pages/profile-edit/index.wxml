@@ -47,19 +47,45 @@
   </view>
 
   <view class="form-card section">
+    <text class="section-title">网球水平</text>
+    <text class="section-sub">按 NTRP 自评，并补充发正反手能力</text>
+
+    <view class="form-item">
+      <text class="form-label">NTRP 分级</text>
+      <picker mode="selector" range="{{ntrpOpts}}" value="{{form.ntrpIndex}}" bindchange="onPickNtrp">
+        <view class="picker-value">{{form.tennisLevel ? ('NTRP ' + form.tennisLevel) : '请选择'}}</view>
+      </picker>
+    </view>
+
+    <view class="form-item">
+      <text class="form-label">发球水平</text>
+      <picker mode="selector" range="{{skillOpts}}" value="{{form.serveIndex}}" bindchange="onPickServe">
+        <view class="picker-value">{{form.tennisServeLevel || '请选择'}}</view>
+      </picker>
+    </view>
+
+    <view class="form-item">
+      <text class="form-label">正手水平</text>
+      <picker mode="selector" range="{{skillOpts}}" value="{{form.forehandIndex}}" bindchange="onPickForehand">
+        <view class="picker-value">{{form.tennisForehandLevel || '请选择'}}</view>
+      </picker>
+    </view>
+
+    <view class="form-item">
+      <text class="form-label">反手水平</text>
+      <picker mode="selector" range="{{skillOpts}}" value="{{form.backhandIndex}}" bindchange="onPickBackhand">
+        <view class="picker-value">{{form.tennisBackhandLevel || '请选择'}}</view>
+      </picker>
+    </view>
+  </view>
+
+  <view class="form-card section">
     <text class="section-title">网球风格</text>
 
     <view class="form-item">
       <text class="form-label">持拍手</text>
       <picker mode="selector" range="{{handOpts}}" value="{{form.handIndex}}" bindchange="onPickHand">
         <view class="picker-value">{{form.tennisHand || '请选择'}}</view>
-      </picker>
-    </view>
-
-    <view class="form-item">
-      <text class="form-label">水平</text>
-      <picker mode="selector" range="{{levelOpts}}" value="{{form.levelIndex}}" bindchange="onPickLevel">
-        <view class="picker-value">{{form.tennisLevel || '请选择'}}</view>
       </picker>
     </view>
 

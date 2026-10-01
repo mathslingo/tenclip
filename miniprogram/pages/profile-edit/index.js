@@ -15,13 +15,45 @@ const {
 } = require("../../utils/auth_api");
 
 var HAND_OPTS = ["右手", "左手", "双手"];
-var LEVEL_OPTS = ["入门", "进阶", "中级", "高级", "竞赛"];
 var STYLE_OPTS = ["底线型", "发球上网", "全能型", "防守反击", "力量型"];
 var SURFACE_OPTS = ["硬地", "红土", "草地", "室内"];
+var NTRP_OPTS = ["1.0", "1.5", "2.0", "2.5", "3.0", "3.5", "4.0", "4.5", "5.0", "5.0+"];
+var SKILL_OPTS = ["入门", "初级", "中级", "进阶", "高级"];
+var OLD_LEVEL_TO_NTRP = {
+  入门: "1.5",
+  初级: "2.0",
+  进阶: "2.5",
+  中级: "3.0",
+  高级: "3.5",
+  竞赛: "4.0",
+};
 
-function indexOfOr(list, value) {
+function indexOfOr(list, value, fallback) {
   var i = list.indexOf(value);
-  return i >= 0 ? i : 0;
+  if (i >= 0) return i;
+  return typeof fallback === "number" ? fallback : 0;
+}
+
+function normalizeNtrp(raw) {
+  var v = String(raw || "").trim();
+  if (!v) return NTRP_OPTS[2]; // 默认 2.0
+  if (NTRP_OPTS.indexOf(v) >= 0) return v;
+  if (OLD_LEVEL_TO_NTRP[v]) return OLD_LEVEL_TO_NTRP[v];
+  var m = v.match(/(\d+(?:\.\d+)?)\+?/);
+  if (m) {
+    var n = parseFloat(m[1]);
+    if (n >= 5) return "5.0+";
+    var key = n.toFixed(1);
+    if (NTRP_OPTS.indexOf(key) >= 0) return key;
+  }
+  return NTRP_OPTS[2];
+}
+
+function normalizeSkill(raw) {
+  var v = String(raw || "").trim();
+  if (SKILL_OPTS.indexOf(v) >= 0) return v;
+  if (v === "竞赛") return "高级";
+  return SKILL_OPTS[0];
 }
 
 Page({
@@ -30,9 +62,10 @@ Page({
     fromRegister: false,
     nickHint: "",
     handOpts: HAND_OPTS,
-    levelOpts: LEVEL_OPTS,
     styleOpts: STYLE_OPTS,
     surfaceOpts: SURFACE_OPTS,
+    ntrpOpts: NTRP_OPTS,
+    skillOpts: SKILL_OPTS,
     form: {
       nickname: "",
       bio: "",
@@ -42,10 +75,16 @@ Page({
       tennisLevel: "",
       tennisStyle: "",
       preferredSurface: "",
+      tennisServeLevel: "",
+      tennisForehandLevel: "",
+      tennisBackhandLevel: "",
       handIndex: 0,
-      levelIndex: 0,
+      ntrpIndex: 2,
       styleIndex: 0,
       surfaceIndex: 0,
+      serveIndex: 0,
+      forehandIndex: 0,
+      backhandIndex: 0,
     },
   },
 
@@ -79,10 +118,25 @@ Page({
       (serverUser && serverUser.avatar_url) || p.avatarUrl || ""
     );
     var hand = (serverUser && serverUser.tennis_hand) || p.tennisHand || "";
-    var level = (serverUser && serverUser.tennis_level) || p.tennisLevel || "";
+    var level = normalizeNtrp(
+      (serverUser && serverUser.tennis_level) || p.tennisLevel || ""
+    );
     var style = (serverUser && serverUser.tennis_style) || p.tennisStyle || "";
     var surface =
       (serverUser && serverUser.preferred_surface) || p.preferredSurface || "";
+    var serve = normalizeSkill(
+      (serverUser && serverUser.tennis_serve_level) || p.tennisServeLevel || ""
+    );
+    var forehand = normalizeSkill(
+      (serverUser && serverUser.tennis_forehand_level) ||
+        p.tennisForehandLevel ||
+        ""
+    );
+    var backhand = normalizeSkill(
+      (serverUser && serverUser.tennis_backhand_level) ||
+        p.tennisBackhandLevel ||
+        ""
+    );
 
     this.setData({
       form: {
@@ -91,13 +145,19 @@ Page({
         tagsText: (tags || []).join(","),
         avatarUrl: avatar,
         tennisHand: hand || HAND_OPTS[0],
-        tennisLevel: level || LEVEL_OPTS[0],
+        tennisLevel: level,
         tennisStyle: style || STYLE_OPTS[0],
         preferredSurface: surface || SURFACE_OPTS[0],
-        handIndex: indexOfOr(HAND_OPTS, hand || HAND_OPTS[0]),
-        levelIndex: indexOfOr(LEVEL_OPTS, level || LEVEL_OPTS[0]),
-        styleIndex: indexOfOr(STYLE_OPTS, style || STYLE_OPTS[0]),
-        surfaceIndex: indexOfOr(SURFACE_OPTS, surface || SURFACE_OPTS[0]),
+        tennisServeLevel: serve,
+        tennisForehandLevel: forehand,
+        tennisBackhandLevel: backhand,
+        handIndex: indexOfOr(HAND_OPTS, hand || HAND_OPTS[0], 0),
+        ntrpIndex: indexOfOr(NTRP_OPTS, level, 2),
+        styleIndex: indexOfOr(STYLE_OPTS, style || STYLE_OPTS[0], 0),
+        surfaceIndex: indexOfOr(SURFACE_OPTS, surface || SURFACE_OPTS[0], 0),
+        serveIndex: indexOfOr(SKILL_OPTS, serve, 0),
+        forehandIndex: indexOfOr(SKILL_OPTS, forehand, 0),
+        backhandIndex: indexOfOr(SKILL_OPTS, backhand, 0),
       },
     });
   },
@@ -148,11 +208,35 @@ Page({
     });
   },
 
-  onPickLevel(e) {
+  onPickNtrp(e) {
     var i = Number(e.detail.value) || 0;
     this.setData({
-      "form.levelIndex": i,
-      "form.tennisLevel": LEVEL_OPTS[i],
+      "form.ntrpIndex": i,
+      "form.tennisLevel": NTRP_OPTS[i],
+    });
+  },
+
+  onPickServe(e) {
+    var i = Number(e.detail.value) || 0;
+    this.setData({
+      "form.serveIndex": i,
+      "form.tennisServeLevel": SKILL_OPTS[i],
+    });
+  },
+
+  onPickForehand(e) {
+    var i = Number(e.detail.value) || 0;
+    this.setData({
+      "form.forehandIndex": i,
+      "form.tennisForehandLevel": SKILL_OPTS[i],
+    });
+  },
+
+  onPickBackhand(e) {
+    var i = Number(e.detail.value) || 0;
+    this.setData({
+      "form.backhandIndex": i,
+      "form.tennisBackhandLevel": SKILL_OPTS[i],
     });
   },
 
@@ -191,9 +275,12 @@ Page({
       .slice(0, 6);
 
     var hand = form.tennisHand || HAND_OPTS[0];
-    var level = form.tennisLevel || LEVEL_OPTS[0];
+    var level = normalizeNtrp(form.tennisLevel);
     var style = form.tennisStyle || STYLE_OPTS[0];
     var surface = form.preferredSurface || SURFACE_OPTS[0];
+    var serve = normalizeSkill(form.tennisServeLevel);
+    var forehand = normalizeSkill(form.tennisForehandLevel);
+    var backhand = normalizeSkill(form.tennisBackhandLevel);
 
     wx.showLoading({ title: "保存中", mask: true });
 
@@ -230,6 +317,9 @@ Page({
           tennisLevel: level,
           tennisStyle: style,
           preferredSurface: surface,
+          tennisServeLevel: serve,
+          tennisForehandLevel: forehand,
+          tennisBackhandLevel: backhand,
         });
         that.setData({ "form.avatarUrl": avatar });
         return updateAuthProfile({
@@ -241,6 +331,9 @@ Page({
           tennis_level: level,
           tennis_style: style,
           preferred_surface: surface,
+          tennis_serve_level: serve,
+          tennis_forehand_level: forehand,
+          tennis_backhand_level: backhand,
         }).catch(function (err) {
           var msg = (err && err.message) || "";
           if (msg.indexOf("昵称") >= 0) {

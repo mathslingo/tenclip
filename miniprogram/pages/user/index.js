@@ -37,7 +37,19 @@ function buildTags(u) {
   }
   ["tennis_hand", "tennis_level", "tennis_style", "preferred_surface"].forEach(function (k) {
     var v = String(u[k] || "").trim();
-    if (v && tags.indexOf(v) < 0) tags.push(v);
+    if (!v) return;
+    if (k === "tennis_level") v = "NTRP " + v;
+    if (tags.indexOf(v) < 0) tags.push(v);
+  });
+  [
+    ["tennis_serve_level", "发"],
+    ["tennis_forehand_level", "正"],
+    ["tennis_backhand_level", "反"],
+  ].forEach(function (pair) {
+    var v = String(u[pair[0]] || "").trim();
+    if (!v) return;
+    var label = pair[1] + v;
+    if (tags.indexOf(label) < 0) tags.push(label);
   });
   return tags.slice(0, 8);
 }
