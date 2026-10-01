@@ -70,16 +70,25 @@ Page({
   },
 
   onLoad(options) {
-    var id = options && options.id ? decodeURIComponent(options.id) : "";
+    var id = "";
+    try {
+      id = options && options.id ? decodeURIComponent(String(options.id)) : "";
+    } catch (e) {
+      id = (options && options.id) || "";
+    }
+    id = String(id || "").trim();
     if (!id) {
-      this.setData({ errorText: "缺少笔记 id" });
+      this.setData({ errorText: "缺少笔记 id", note: null });
       return;
     }
-    this.setData({ loggedIn: isLoggedIn() });
+    this.setData({ loggedIn: isLoggedIn(), errorText: "" });
     var that = this;
     var me = getUserId();
     getNote(id)
       .then(function (note) {
+        if (!note || !note.id) {
+          throw new Error("笔记不存在或已删除");
+        }
         var isMine = String(note.user_id || "") === String(me);
         var canOpenMap =
           typeof note.latitude === "number" &&
@@ -92,21 +101,22 @@ Page({
           eventTimeText: formatTime(note.event_at || note.event_at_iso),
           canOpenMap: canOpenMap,
           isMine: isMine,
-          liked: note.liked || false,
-          bookmarked: note.bookmarked || false,
+          liked: !!note.liked,
+          bookmarked: !!note.bookmarked,
           errorText: "",
         });
         if (!isMine && note.user_id) {
-          return fetchUser(note.user_id, me).then(function (u) {
-            that.setData({ following: !!(u && u.is_following) });
-          }).catch(function () {});
+          fetchUser(note.user_id, me)
+            .then(function (u) {
+              that.setData({ following: !!(u && u.is_following) });
+            })
+            .catch(function () {});
         }
+        that.loadComments().catch(function () {});
       })
-      .then(function () {
-        return that.loadComments().catch(function () {});
-      })
-      .catch(function () {
-        that.setData({ errorText: "笔记不存在或已删除", note: null });
+      .catch(function (err) {
+        var msg = (err && err.message) || "笔记不存在或已删除";
+        that.setData({ errorText: msg, note: null });
       });
   },
 
