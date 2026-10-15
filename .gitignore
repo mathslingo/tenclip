@@ -58,3 +58,4 @@ tenclip_app/build/
 tenclip_app/.flutter-plugins
 tenclip_app/.flutter-plugins-dependencies
 tenclip_app/**/Pods/
+.flutter-sdk/
