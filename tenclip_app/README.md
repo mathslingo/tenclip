@@ -41,11 +41,17 @@ assets/pic0.png        # 兜底封面
 
 ## Mac 环境
 
+本仓库根目录 `.flutter-sdk/`（已 gitignore）内置 Flutter 3.47.7 stable（arm64），直接用它：
+
 ```bash
-# 1) 安装 Flutter：https://docs.flutter.dev/get-started/install/macos
-# 2) Xcode + CocoaPods
+export PATH="$(cd .. && pwd)/.flutter-sdk/bin:$PATH"
+# 国内网络建议加镜像
+export FLUTTER_STORAGE_BASE_URL=https://storage.flutter-io.cn
+export PUB_HOSTED_URL=https://pub.flutter-io.cn
 flutter doctor
 ```
+
+也可以自行安装 Flutter（https://docs.flutter.dev/get-started/install/macos）。iOS 构建还需 Xcode + CocoaPods（`gem install cocoapods`，国内可加 `--source https://gems.ruby-china.com`）。
 
 ## 首次生成平台工程（本仓库只提交了 lib/）
 
