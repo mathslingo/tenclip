@@ -21,7 +21,7 @@ class LegalPage extends StatelessWidget {
 
   /// (样式, 文本)；样式：h1 / meta / h2 / p / li
   List<(String, String)> get _blocks =>
-      _isPrivacy ? const _privacyBlocks : const _termsBlocks;
+      _isPrivacy ? _privacyBlocks : _termsBlocks;
 
   Future<void> _copyWebUrl(BuildContext context) async {
     await Clipboard.setData(ClipboardData(text: _webUrl));

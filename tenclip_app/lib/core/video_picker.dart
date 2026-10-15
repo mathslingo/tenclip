@@ -163,7 +163,7 @@ class VideoPicker {
         deleteOrigin: false,
         includeAudio: true,
       );
-      sub?.unsubscribe();
+      sub.unsubscribe();
       final outPath = info?.file?.path;
       if (info == null || outPath == null) {
         onCompressProgress?.call(20, '压缩跳过，将上传原视频…');

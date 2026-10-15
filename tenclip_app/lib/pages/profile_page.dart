@@ -119,14 +119,22 @@ class _ProfilePageState extends State<ProfilePage> {
           }
         });
       } catch (_) {
-        if (mounted) setState(() => {_left = [], _right = []});
+        if (mounted) {
+          setState(() {
+            _left = [];
+            _right = [];
+          });
+        }
       }
       return;
     }
     // bookmarks / likes 暂用本地 ID 列表（对齐小程序）
     final ids = tab == 'likes' ? _likedIds() : _bookmarkedIds();
     if (ids.isEmpty) {
-      setState(() => {_left = [], _right = []});
+      setState(() {
+        _left = [];
+        _right = [];
+      });
       return;
     }
     final mockItems = ids

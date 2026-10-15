@@ -308,6 +308,7 @@ class _ProfileEditPageState extends State<ProfileEditPage> {
       });
       setState(() => _avatarUrl = avatar);
 
+      final socialApi = context.read<SocialApi>();
       try {
         await context.read<AuthApi>().updateProfile(
               nickname: nick,
@@ -326,7 +327,7 @@ class _ProfileEditPageState extends State<ProfileEditPage> {
       } catch (e) {
         // 昵称冲突类错误直接抛；其余回退 upsertMe（对齐小程序）
         if (e.toString().contains('昵称')) rethrow;
-        await context.read<SocialApi>().upsertMe();
+        await socialApi.upsertMe();
       }
       if (!mounted) return;
       showToast(context, '已保存');

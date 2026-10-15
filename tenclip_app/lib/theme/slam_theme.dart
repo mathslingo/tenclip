@@ -163,6 +163,6 @@ class SlamController extends ChangeNotifier {
         (m) => '${m[1]}${_theme.id}',
       );
     }
-    return url + (url.contains('?') ? '&' : '?') + 'court=${_theme.id}';
+    return '$url${url.contains('?') ? '&' : '?'}court=${_theme.id}';
   }
 }

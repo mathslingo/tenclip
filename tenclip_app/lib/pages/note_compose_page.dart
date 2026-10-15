@@ -598,7 +598,7 @@ class _NoteComposePageState extends State<NoteComposePage> {
               if (!_required)
                 Switch(
                   value: _locationEnabled,
-                  activeColor: theme.accent,
+                  activeThumbColor: theme.accent,
                   onChanged: _onToggleLocation,
                 ),
             ],
@@ -731,7 +731,7 @@ class _NoteComposePageState extends State<NoteComposePage> {
               if (!_required)
                 Switch(
                   value: _timeEnabled,
-                  activeColor: slamOf(context).accent,
+                  activeThumbColor: slamOf(context).accent,
                   onChanged: _onToggleTime,
                 ),
             ],

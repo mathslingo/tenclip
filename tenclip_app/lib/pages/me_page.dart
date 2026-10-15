@@ -125,14 +125,22 @@ class _MePageState extends State<MePage> {
           }
         });
       } catch (_) {
-        if (mounted) setState(() => {_left = [], _right = []});
+        if (mounted) {
+          setState(() {
+            _left = [];
+            _right = [];
+          });
+        }
       }
       return;
     }
     // bookmarks / likes：按本地 ID 列表逐条取详情（对齐 getFeedItemById 逻辑）
     final ids = tab == 'likes' ? _app.likedIds : _app.bookmarkedIds;
     if (ids.isEmpty) {
-      setState(() => {_left = [], _right = []});
+      setState(() {
+        _left = [];
+        _right = [];
+      });
       return;
     }
     final items = <FeedItem>[];

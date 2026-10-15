@@ -44,7 +44,6 @@ class _ActionAnalyzePageState extends State<ActionAnalyzePage> with WidgetsBindi
   String _promptProfile = 'default';
 
   bool _busy = false;
-  String _taskId = '';
   String _status = '';
   int _queueSize = 0;
   int _progressPercent = 0;
@@ -269,7 +268,6 @@ class _ActionAnalyzePageState extends State<ActionAnalyzePage> with WidgetsBindi
       );
       if (!mounted) return;
       setState(() {
-        _taskId = submit.taskId;
         _queueSize = submit.queueSize;
         _progressText = '分析中…';
         _progressMessage = '上传完成，排队等待分析（可息屏）';
@@ -798,18 +796,17 @@ class _ActionAnalyzePageState extends State<ActionAnalyzePage> with WidgetsBindi
 
 /// 虚线圆角边框（对齐 .video-pick 的 dashed border；Flutter 无内置虚线）
 class _DashedBorderPainter extends CustomPainter {
-  _DashedBorderPainter({required this.color, this.radius = 10, this.strokeWidth = 1});
+  _DashedBorderPainter({required this.color, this.radius = 10});
 
   final Color color;
   final double radius;
-  final double strokeWidth;
 
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
       ..color = color
       ..style = PaintingStyle.stroke
-      ..strokeWidth = strokeWidth;
+      ..strokeWidth = 1;
     final path = Path()
       ..addRRect(RRect.fromRectAndRadius(Offset.zero & size, Radius.circular(radius)));
     const dash = 6.0;
@@ -826,7 +823,5 @@ class _DashedBorderPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_DashedBorderPainter oldDelegate) =>
-      oldDelegate.color != color ||
-      oldDelegate.radius != radius ||
-      oldDelegate.strokeWidth != strokeWidth;
+      oldDelegate.color != color || oldDelegate.radius != radius;
 }

@@ -908,18 +908,17 @@ class _StrokeExtractPageState extends State<StrokeExtractPage> with WidgetsBindi
 
 /// 虚线圆角边框（对齐 .video-pick 的 dashed border；Flutter 无内置虚线）
 class _DashedBorderPainter extends CustomPainter {
-  _DashedBorderPainter({required this.color, this.radius = 10, this.strokeWidth = 1});
+  _DashedBorderPainter({required this.color, this.radius = 10});
 
   final Color color;
   final double radius;
-  final double strokeWidth;
 
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
       ..color = color
       ..style = PaintingStyle.stroke
-      ..strokeWidth = strokeWidth;
+      ..strokeWidth = 1;
     final path = Path()
       ..addRRect(RRect.fromRectAndRadius(Offset.zero & size, Radius.circular(radius)));
     const dash = 6.0;
@@ -936,7 +935,5 @@ class _DashedBorderPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_DashedBorderPainter oldDelegate) =>
-      oldDelegate.color != color ||
-      oldDelegate.radius != radius ||
-      oldDelegate.strokeWidth != strokeWidth;
+      oldDelegate.color != color || oldDelegate.radius != radius;
 }

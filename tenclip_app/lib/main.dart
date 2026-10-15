@@ -33,7 +33,6 @@ import 'pages/user_page.dart';
 import 'state/app_state.dart';
 import 'theme/slam_theme.dart';
 import 'widgets/app_tab_bar.dart';
-import 'widgets/common.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
